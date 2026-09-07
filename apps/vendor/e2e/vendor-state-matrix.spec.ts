@@ -23,8 +23,14 @@ const STATE_LANDMARKS: Record<
   ReadonlyArray<{ href: string; text: string | RegExp }>
 > = {
   V1: [{ href: '/onboarding/welcome', text: /application|approval|welcome/i }],
-  V2: [{ href: '/onboarding', text: /stripe|connect.*account/i }],
-  V3: [{ href: '/onboarding', text: /stripe|payout|requirements/i }],
+  V2: [
+    { href: '/onboarding', text: 'Set up payouts (Stripe)' },
+    { href: '/onboarding', text: 'Connect with Stripe' },
+  ],
+  V3: [
+    { href: '/onboarding', text: 'Set up payouts (Stripe)' },
+    { href: '/onboarding', text: 'Connect with Stripe' },
+  ],
   V4: [
     { href: '/menu', text: 'No dishes yet' },
     { href: '/performance', text: 'No completed orders yet' },
@@ -35,14 +41,38 @@ const STATE_LANDMARKS: Record<
   ],
   V5: [
     { href: '/orders', text: /Completed\s*1/ },
-    { href: '/payouts', text: /payout/i },
+    { href: '/payouts', text: '£88.00' },
   ],
-  V6: [{ href: '/account-and-compliance', text: /expir(?:es|ing)/i }],
-  V7: [{ href: '/account-and-compliance', text: /expired|suspended/i }],
-  V8: [{ href: '/account-and-compliance', text: /FHRS hygiene rating below threshold/i }],
+  V6: [
+    { href: '/account-and-compliance', text: 'test-factory-V6-insurance.pdf' },
+    { href: '/account-and-compliance', text: /expir(?:es|ing)/i },
+  ],
+  V7: [
+    { href: '/account-status', text: 'Compliance document expired' },
+    {
+      href: '/account-status',
+      text: 'This automated test-factory suspension exists only to exercise the vendor compliance interface safely.',
+    },
+    { href: '/account-status', text: 'Appeal this decision' },
+  ],
+  V8: [
+    { href: '/account-status', text: 'FHRS hygiene rating below threshold' },
+    {
+      href: '/account-status',
+      text: 'This automated test-factory suspension exists only to exercise the vendor compliance interface safely.',
+    },
+    { href: '/account-status', text: 'Appeal this decision' },
+  ],
   V9: [{ href: '/', text: /accept.*terms|review and accept terms/i }],
-  V10: [{ href: '/account-and-compliance', text: /terms|notice|takes effect/i }],
-  V11: [{ href: '/orders?type=catering', text: /confirmed|catering/i }],
+  V10: [
+    { href: '/account-and-compliance', text: 'Upcoming update' },
+    { href: '/account-and-compliance', text: 'Future material test-only vendor terms version.' },
+    { href: '/account-and-compliance', text: 'Pending acknowledgement' },
+  ],
+  V11: [
+    { href: '/orders?type=catering', text: 'Confirmed' },
+    { href: '/orders?type=catering', text: 'Test Factory Customer' },
+  ],
 };
 
 /**
@@ -176,11 +206,25 @@ async function assertStateLandmarks(context: BrowserContext, state: VendorMatrix
 async function assertLiveEmptyVendorOrders(context: BrowserContext) {
   const page = await context.newPage();
   try {
-    await page.goto('/orders', { waitUntil: 'domcontentloaded', timeout: 60_000 });
-    await expect(page).toHaveURL(/\/orders(?:\?|$)/, { timeout: 10_000 });
-    await expect(page.getByRole('heading', { name: 'Orders' })).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByText('No catering bookings yet')).toBeVisible();
-    await expect(page.getByText('Nothing needs your attention right now')).toBeVisible();
+    // V4 is deliberately the zero-data live vendor.  Check every operational
+    // surface's own empty state, rather than allowing a populated fixture or a
+    // generic shell to hide a query/filter regression.
+    const emptyStates = [
+      { href: '/', text: 'No sales yet today' },
+      { href: '/menu', text: 'No dishes yet' },
+      { href: '/orders', text: 'Nothing needs your attention right now' },
+      { href: '/orders', text: 'No catering bookings yet' },
+      { href: '/payouts', text: 'No payouts yet. Your first will land next Monday.' },
+      { href: '/performance', text: 'No completed orders yet' },
+      { href: '/disputes', text: 'No disputes' },
+      { href: '/share', text: 'No orders yet. Marketplace orders come from Feastpot discovery' },
+      { href: '/tax-information', text: 'No reports yet.' },
+    ] as const;
+    for (const empty of emptyStates) {
+      await page.goto(empty.href, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+      await expect(page.getByText(empty.text)).toBeVisible({ timeout: 10_000 });
+      await assertNoErrorBoundary((await page.locator('body').textContent()) ?? '', empty.href);
+    }
   } finally {
     await page.close();
   }

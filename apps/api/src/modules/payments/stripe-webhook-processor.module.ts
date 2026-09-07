@@ -20,5 +20,6 @@ import { StripeWebhookProcessor } from './stripe-webhook.processor';
   // module back, and the processor stays registered exactly once here.
   imports: [PaymentsModule],
   providers: [StripeWebhookProcessor],
+  exports: [StripeWebhookProcessor],
 })
 export class StripeWebhookProcessorModule {}

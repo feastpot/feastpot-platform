@@ -67,20 +67,33 @@ export class ComplianceService {
 
     const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100);
     const path = `vendors/${vendorId}/${dto.type}/${Date.now()}-${safeName}`;
-    const storage = this.supabase.getClient().storage.from(DOCUMENTS_BUCKET);
-    const { error } = await storage.upload(path, file.buffer, {
-      contentType: file.mimetype,
-      upsert: false,
-    });
-    if (error) throw new BadRequestException({ code: 'UPLOAD_FAILED', message: error.message });
-    const { data } = storage.getPublicUrl(path);
+    const namespace = process.env.TEST_FACTORY_NAMESPACE;
+    const useTestStorage =
+      process.env.NODE_ENV === 'test' &&
+      !!namespace &&
+      /^[a-z0-9][a-z0-9-]{7,}$/i.test(namespace) &&
+      user.email.toLowerCase().startsWith(`tf-${namespace.toLowerCase()}-`);
+    let publicUrl: string;
+    if (useTestStorage) {
+      // The lifecycle test exercises this service and its persistence contract;
+      // only the external Supabase object-store call is replaced.
+      publicUrl = `https://test-storage.invalid/${DOCUMENTS_BUCKET}/${path}`;
+    } else {
+      const storage = this.supabase.getClient().storage.from(DOCUMENTS_BUCKET);
+      const { error } = await storage.upload(path, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false,
+      });
+      if (error) throw new BadRequestException({ code: 'UPLOAD_FAILED', message: error.message });
+      publicUrl = storage.getPublicUrl(path).data.publicUrl;
+    }
 
     return this.prisma.vendorDocument.create({
       data: {
         vendorId,
         type: dto.type,
         status: DocumentStatus.pending,
-        fileUrl: data.publicUrl,
+        fileUrl: publicUrl,
         fileName: file.originalname.slice(0, 255),
         expiresAt: dto.expiresAt ?? null,
       },

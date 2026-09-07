@@ -24,6 +24,8 @@ export const FACTORY_STATES = [
   'A1',
   'A2',
   'A3',
+  'A4',
+  'A5',
 ] as const;
 
 export type FactoryState = (typeof FACTORY_STATES)[number];
@@ -172,6 +174,8 @@ export const FACTORY_STATE_CONTRACTS: Record<FactoryState, readonly string[]> = 
   A1: ['active admin', 'AAL1 password identity'],
   A2: ['active admin', 'AAL2 TOTP identity'],
   A3: ['active restricted support role'],
+  A4: ['active restricted finance role'],
+  A5: ['active restricted compliance role'],
 };
 
 interface FactoryUser {
@@ -392,6 +396,31 @@ export class TestDataFactory {
       throw new Error(`TEST_FACTORY_AUTH_TOKEN_FAILED: ${error?.message ?? 'no session'}`);
     }
     return data.session.access_token;
+  }
+
+  /**
+   * Give a Supabase user created by the real application-approval flow the
+   * test factory password. This is deliberately unavailable without both the
+   * service-role client and an explicitly configured test password; production
+   * callers cannot turn an approval into a password login through this helper.
+   */
+  async setTestPassword(userId: string): Promise<string> {
+    if (!this.admin || !this.password) {
+      throw new Error(
+        'TEST_FACTORY_PASSWORD_REQUIRES_SUPABASE: configure service role and TEST_FACTORY_PASSWORD.',
+      );
+    }
+    const { error } = await this.admin.auth.admin.updateUserById(userId, {
+      password: this.password,
+      email_confirm: true,
+    });
+    if (error) throw new Error(`TEST_FACTORY_PASSWORD_UPDATE_FAILED: ${error.message}`);
+    return this.password;
+  }
+
+  /** @deprecated Use setTestPassword; kept for the vendor lifecycle callers. */
+  async setApprovedVendorTestPassword(userId: string): Promise<string> {
+    return this.setTestPassword(userId);
   }
 
   async create(state: FactoryState): Promise<TestIdentity> {
@@ -859,7 +888,14 @@ export class TestDataFactory {
   }
 
   private async createAdminState(state: AdminState): Promise<TestIdentity> {
-    const role: UserRole = state === 'A3' ? 'support' : 'admin';
+    const role: UserRole =
+      state === 'A3'
+        ? 'support'
+        : state === 'A4'
+          ? 'finance'
+          : state === 'A5'
+            ? 'compliance'
+            : 'admin';
     const user = await this.ensureUser(state, role);
     const identity = this.identity(state, user);
     if (state === 'A2') identity.accessToken = await this.enrolAal2(user);
@@ -887,7 +923,6 @@ export class TestDataFactory {
       }
       if (userId) {
         const { error } = await this.admin.auth.admin.updateUserById(userId, {
-          password: this.password,
           email_confirm: true,
           app_metadata: { role },
           user_metadata: { role, testFactory: true },
@@ -912,6 +947,9 @@ export class TestDataFactory {
         }
         userId = data.user.id;
       }
+      // Use the same guarded password path used by approved-vendor lifecycle
+      // tests, so every browser-sign-in fixture has identical safeguards.
+      await this.setTestPassword(userId);
     } else {
       userId ??= randomUUID();
     }

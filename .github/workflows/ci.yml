@@ -430,8 +430,8 @@ jobs:
       # Vendor dev server origin consumed by Playwright.
       PLAYWRIGHT_BASE_URL: http://localhost:3002
       # Auth credentials for the pre-seeded test vendor account.
-      # Empty on fork PRs (GitHub withholds secrets from fork workflows);
-      # the fork-guard step below emits a visible notice and skips the rest.
+      # Fork PRs do not receive secrets, so this required gate fails loudly
+      # rather than reporting a green skipped suite.
       TEST_VENDOR_EMAIL: ${{ secrets.TEST_VENDOR_EMAIL }}
       TEST_VENDOR_PASSWORD: ${{ secrets.TEST_VENDOR_PASSWORD }}
       # D3 integration credentials. D3 hits the real dev-environment NestJS
@@ -467,7 +467,6 @@ jobs:
         run: npm run test:e2e:discovery --workspace=@feastpot/vendor
 
       - name: Require vendor E2E credentials
-        id: fork-guard
         run: |
           required=(
             TEST_VENDOR_EMAIL TEST_VENDOR_PASSWORD TEST_API_URL NEXT_PUBLIC_API_URL TEST_VENDOR_ID
@@ -492,7 +491,6 @@ jobs:
       # The vendor app's shared packages may reference Prisma types at build
       # time. Generate the client with dummy URLs (no DB connection is made).
       - name: Generate Prisma client
-        if: steps.fork-guard.outputs.skip != 'true'
         run: npm run db:generate
         env:
           SUPABASE_DB_URL: postgresql://dummy:dummy@localhost:5432/dummy
@@ -506,22 +504,18 @@ jobs:
       # step may be a harmless no-op. continue-on-error prevents a hard stop
       # if `which chromium` cannot locate a system binary on this runner.
       - name: Run install-chromium.js (NixOS symlink helper, may be no-op)
-        if: steps.fork-guard.outputs.skip != 'true'
         run: node apps/vendor/e2e/install-chromium.js
         continue-on-error: true
 
       - name: Install Playwright browsers and OS dependencies
-        if: steps.fork-guard.outputs.skip != 'true'
         run: npx playwright install --with-deps chromium
         working-directory: apps/vendor
 
       # ---- Vendor dev server --------------------------------------------------
       - name: Start vendor dev server on port 3002 (background)
-        if: steps.fork-guard.outputs.skip != 'true'
         run: npm run dev --workspace=@feastpot/vendor &
 
       - name: Wait for vendor dev server (timeout 120 s)
-        if: steps.fork-guard.outputs.skip != 'true'
         run: |
           echo "Polling http://localhost:3002 ..."
           for i in $(seq 1 60); do
@@ -543,11 +537,24 @@ jobs:
       # pass because Playwright only retries a test that threw an unexpected
       # error, not one whose expect() call failed with a deliberate mismatch.
       # JSON output is written alongside the HTML report for the D3/AV2 guards.
+      - name: Clear stale vendor Playwright results
+        run: rm -f apps/vendor/e2e-results.json
+
       - name: Run Playwright e2e suite (all configured projects)
-        if: steps.fork-guard.outputs.skip != 'true'
         id: playwright-run
-        run: npx playwright test
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          npx playwright test
+          status=$?
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
         working-directory: apps/vendor
+
+      - name: Validate every vendor project executed
+        if: always()
+        run: node scripts/validate-playwright-results.mjs --results apps/vendor/e2e-results.json --expected-project-count 24
 
       # ---- AV2 skip guard -----------------------------------------------------
       # AV2 is the [CRITICAL] test inside availability-screen.spec.ts that
@@ -556,7 +563,7 @@ jobs:
       # TEST_API_URL or TEST_VENDOR_ID is absent. A skipped AV2 is a silent
       # regression hole: the cap can exist in the UI while not being enforced.
       - name: Assert AV2 executed and was not skipped
-        if: steps.fork-guard.outputs.skip != 'true' && always()
+        if: always()
         run: |
           node - <<'NODE_SCRIPT'
           const fs = require('fs');
@@ -609,7 +616,7 @@ jobs:
       - name: Assert D3 executed and was not skipped
         # Run even if the playwright step failed: we want the D3 skip error to
         # be visible alongside any other failures rather than being hidden by them.
-        if: steps.fork-guard.outputs.skip != 'true' && always()
+        if: always()
         run: |
           node - <<'NODE_SCRIPT'
           const fs = require('fs');
@@ -658,12 +665,18 @@ jobs:
       # Upload the HTML report (with traces and screenshots) only on failure so
       # developers can inspect exactly which assertion failed and replay the
       # browser trace without re-running locally.
-      - name: Upload Playwright HTML report
+      - name: Preserve vendor Playwright failure status
+        if: always() && steps.playwright-run.outputs.exit_code != '0'
+        run: exit "${{ steps.playwright-run.outputs.exit_code }}"
+
+      - name: Upload vendor Playwright results and HTML report
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report-${{ github.run_id }}
-          path: apps/vendor/e2e-report/
+          name: vendor-playwright-report-${{ github.run_id }}
+          path: |
+            apps/vendor/e2e-results.json
+            apps/vendor/e2e-report/
           retention-days: 14
 
   # --------------------------------------------------------------------------
@@ -707,6 +720,16 @@ jobs:
             echo "::error title=Admin E2E credentials missing::Required credentials are absent: ${missing[*]}. This check intentionally fails instead of skipping."
             exit 1
           fi
+          if [ "$NEXT_PUBLIC_API_URL" != "$TEST_API_URL" ]; then
+            echo "::error title=Admin E2E API mismatch::NEXT_PUBLIC_API_URL must match TEST_API_URL so browser checks use the verified API."
+            exit 1
+          fi
+      - name: Verify admin E2E API health
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 5 --retry-all-errors \
+            "${TEST_API_URL%/}/healthz" > /dev/null
       - name: Generate Prisma client
         run: npm run db:generate
         env:
@@ -725,15 +748,33 @@ jobs:
           done
           echo "::error title=Admin server timeout::The admin app did not open port 3003."
           exit 1
+      - name: Clear stale admin Playwright results
+        run: rm -f apps/admin/e2e-results.json
       - name: Run every admin Playwright project
-        run: npx playwright test
+        id: playwright-run
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          npx playwright test
+          status=$?
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
         working-directory: apps/admin
-      - name: Upload admin Playwright report
+      - name: Validate every admin project executed
+        if: always()
+        run: node scripts/validate-playwright-results.mjs --results apps/admin/e2e-results.json --expected-project-count 8
+      - name: Preserve admin Playwright failure status
+        if: always() && steps.playwright-run.outputs.exit_code != '0'
+        run: exit "${{ steps.playwright-run.outputs.exit_code }}"
+      - name: Upload admin Playwright results and HTML report
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: admin-playwright-report-${{ github.run_id }}
-          path: apps/admin/e2e-report/
+          path: |
+            apps/admin/e2e-results.json
+            apps/admin/e2e-report/
           retention-days: 14
 
   # --------------------------------------------------------------------------

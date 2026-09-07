@@ -46,6 +46,11 @@ describe('DlqMonitorService queue mutation audit', () => {
   it('persists retry intent before mutating Redis and marks completion', async () => {
     await service.retryDeadLetterJob('notifications', 'job-1', actorId);
 
+    // Bull's retry moves a failed job back to the waiting queue; do not
+    // substitute a second job creation here, which would lose its payload,
+    // attempts and idempotency key.
+    expect(job.getState).toHaveBeenCalledTimes(1);
+    expect(job.retry).toHaveBeenCalledTimes(1);
     expect(prisma.auditLog.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         actorId,
@@ -60,6 +65,29 @@ describe('DlqMonitorService queue mutation audit', () => {
       where: { id: 'audit-1' },
       data: {
         action: 'admin.queue_job_retried',
+        metadata: expect.objectContaining({ status: 'completed' }),
+      },
+    });
+  });
+
+  it('discards a failed job and records the acting admin in its durable audit row', async () => {
+    await service.discardDeadLetterJob('notifications', 'job-discarded', actorId);
+
+    expect(job.remove).toHaveBeenCalledTimes(1);
+    expect(prisma.auditLog.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        actorId,
+        action: 'admin.queue_job_discard_requested',
+        metadata: expect.objectContaining({
+          jobId: 'job-discarded',
+          status: 'requested',
+        }),
+      }),
+    });
+    expect(prisma.auditLog.update).toHaveBeenCalledWith({
+      where: { id: 'audit-1' },
+      data: {
+        action: 'admin.queue_job_discarded',
         metadata: expect.objectContaining({ status: 'completed' }),
       },
     });

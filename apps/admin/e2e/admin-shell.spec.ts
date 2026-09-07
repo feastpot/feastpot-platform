@@ -45,6 +45,9 @@ const SHELL_ROUTES = [
   '/notifications',
   '/orders',
   '/payouts',
+  '/push/compose',
+  '/queues',
+  '/reviews/queue',
   '/settings',
   '/settings/2fa',
   '/user-guide',
@@ -53,13 +56,8 @@ const SHELL_ROUTES = [
   '/vendor-recommendations',
   '/vendors',
   '/waitlist',
-];
-
-// Routes that render without StaffShell by design.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const SHELL_EXEMPT = [
-  '/sign-in', // unauthenticated landing -- no sidebar expected
-  '/unauthorized', // pre-auth error page -- no sidebar expected
+  // Sidebar destinations that replaced the older deep-link aliases above.
+  '/supply-pipeline',
 ];
 
 async function skipIfUnauthenticated(page: import('@playwright/test').Page, path: string) {

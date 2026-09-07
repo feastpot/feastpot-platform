@@ -1,55 +1,66 @@
 import { expect, test as setup } from '@playwright/test';
 import path from 'path';
+import { TestDataFactory, type TestIdentity } from '../../../scripts/test-factory';
 
-const AUTH_FILE = path.join(__dirname, '.auth/admin.json');
+const AUTH_DIRECTORY = path.join(__dirname, '.auth');
+const AUTH_FILES = {
+  admin: path.join(AUTH_DIRECTORY, 'admin.json'),
+  support: path.join(AUTH_DIRECTORY, 'support.json'),
+  finance: path.join(AUTH_DIRECTORY, 'finance.json'),
+  compliance: path.join(AUTH_DIRECTORY, 'compliance.json'),
+  customer: path.join(AUTH_DIRECTORY, 'customer.json'),
+  vendor: path.join(AUTH_DIRECTORY, 'vendor.json'),
+} as const;
 
 /**
- * Signs in with the pre-seeded test admin account and stores cookies so the
- * remaining test projects don't have to log in on every run.
- *
- * Requires:
- *   TEST_ADMIN_EMAIL     - Supabase email for a staff account (any role).
- *   TEST_ADMIN_PASSWORD  - Corresponding password.
- *
- * If either variable is absent the setup test is skipped and downstream tests
- * that depend on the storageState file will fail with a descriptive error.
+ * Provisions the namespace-guarded staff identities plus customer/vendor denial
+ * identities and signs each one in through the real form. Do not replace this with cookie injection:
+ * middleware and server gates must validate the same Supabase sessions a staff
+ * member receives in production.
  */
-setup('authenticate as admin', async ({ page }) => {
-  const email = process.env.TEST_ADMIN_EMAIL;
-  const password = process.env.TEST_ADMIN_PASSWORD;
-
-  if (!email || !password) {
-    console.warn(
-      '[auth.setup] TEST_ADMIN_EMAIL / TEST_ADMIN_PASSWORD not set - skipping auth setup.\n' +
-        'Set these env vars to run the admin e2e suite.',
-    );
-    // Write an empty state so the dependent projects receive a valid (but
-    // sessionless) file rather than crashing with a missing-file error.
-    await page.context().storageState({ path: AUTH_FILE });
-    return;
-  }
-
+setup('provision and authenticate every staff role', async ({ browser }) => {
   const base = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3003';
-  await page.goto(`${base}/sign-in`);
+  const factory = TestDataFactory.fromEnvironment();
+  const identities: Array<[keyof typeof AUTH_FILES, TestIdentity]> = [];
+  try {
+    identities.push(['admin', await factory.create('A1')]);
+    identities.push(['support', await factory.create('A3')]);
+    identities.push(['finance', await factory.create('A4')]);
+    identities.push(['compliance', await factory.create('A5')]);
+    // These are real non-staff sessions, not hand-written cookies. The matrix
+    // uses them to prove a customer or vendor cannot obtain an admin shell.
+    identities.push(['customer', await factory.create('C1')]);
+    identities.push(['vendor', await factory.create('V4')]);
 
-  // The production form starts both real fields as readonly to prevent
-  // browsers from silently autofilling credentials on shared workstations.
-  // Target the stable IDs and unlock them before Playwright fills them.
-  const emailInput = page.locator('#email');
-  const passwordInput = page.locator('#password');
+    for (const [role, identity] of identities) {
+      const context = await browser.newContext();
+      const page = await context.newPage();
+      await page.goto(`${base}/sign-in`);
 
-  await emailInput.waitFor({ state: 'visible' });
-  await emailInput.evaluate((element) => element.removeAttribute('readonly'));
-  await emailInput.fill(email);
+      // The production form starts both real fields as readonly to prevent
+      // browsers from silently autofilling credentials on shared workstations.
+      const emailInput = page.locator('#email');
+      const passwordInput = page.locator('#password');
+      await emailInput.waitFor({ state: 'visible' });
+      await emailInput.evaluate((element) => element.removeAttribute('readonly'));
+      await emailInput.fill(identity.credentials.email);
+      await passwordInput.waitFor({ state: 'visible' });
+      await passwordInput.evaluate((element) => element.removeAttribute('readonly'));
+      await passwordInput.fill(identity.credentials.password!);
+      await page.getByRole('button', { name: /sign in/i }).click();
 
-  await passwordInput.waitFor({ state: 'visible' });
-  await passwordInput.evaluate((element) => element.removeAttribute('readonly'));
-  await passwordInput.fill(password);
-  await page.getByRole('button', { name: /sign in/i }).click();
-
-  // Wait until we land on an authenticated page (not /sign-in).
-  await expect(page).not.toHaveURL(/sign-in/, { timeout: 15_000 });
-
-  await page.context().storageState({ path: AUTH_FILE });
-  console.log(`[auth.setup] Signed in as ${email}`);
+      if (role === 'customer' || role === 'vendor') {
+        // A successful real login is expected to be rejected by the staff
+        // server gate. Waiting for that denial ensures the saved storage state
+        // contains the issued customer/vendor Supabase session.
+        await expect(page).toHaveURL(/\/unauthorized(?:\?|$)/, { timeout: 15_000 });
+      } else {
+        await expect(page).not.toHaveURL(/sign-in|unauthorized/, { timeout: 15_000 });
+      }
+      await context.storageState({ path: AUTH_FILES[role] });
+      await context.close();
+    }
+  } finally {
+    await factory.dispose();
+  }
 });

@@ -180,6 +180,7 @@ test.describe.serial('factory-backed vendor order contracts', () => {
       .toBe('rejected');
 
     const delayed = await pendingOrder('DELAY');
+    expect(delayed.id).not.toBe(expired.id);
     expect((await updateOrder(page, delayed.id, { status: 'accepted' })).status).toBe(200);
     expect((await updateOrder(page, delayed.id, { status: 'preparing' })).status).toBe(200);
     expect(
@@ -192,7 +193,60 @@ test.describe.serial('factory-backed vendor order contracts', () => {
           select: { status: true, etaMinutes: true, etaAt: true },
         }),
       )
-      .toMatchObject({ status: 'dispatched', etaMinutes: 45 });
+      .toMatchObject({
+        status: 'dispatched',
+        etaMinutes: 45,
+        etaAt: expect.any(Date),
+      });
+  });
+
+  test('an accepted order cannot be reclassified as cannot-fulfil/rejected', async ({ page }) => {
+    const order = await pendingOrder('ACCEPTED-CANNOT-FULFIL');
+    await page.goto(`/orders/${order.id}`, { waitUntil: 'domcontentloaded' });
+    expect((await updateOrder(page, order.id, { status: 'accepted' })).status).toBe(200);
+
+    const reason = 'Kitchen equipment failed after the order was accepted.';
+    const response = await updateOrder(page, order.id, {
+      status: 'rejected',
+      rejectionReason: reason,
+    });
+    expect(response.status).toBe(400);
+    await expect
+      .poll(async () =>
+        factory.prisma.order.findUniqueOrThrow({
+          where: { id: order.id },
+          select: { status: true, cancellationReason: true, acceptedAt: true },
+        }),
+      )
+      .toMatchObject({
+        status: 'accepted',
+        cancellationReason: null,
+        acceptedAt: expect.any(Date),
+      });
+  });
+
+  test('a received order follows the authoritative accept-to-fulfil state machine', async ({
+    page,
+  }) => {
+    const order = await pendingOrder('FULFIL');
+    await page.goto(`/orders/${order.id}`, { waitUntil: 'domcontentloaded' });
+
+    for (const status of ['accepted', 'preparing', 'ready', 'delivered'] as const) {
+      const response = await updateOrder(page, order.id, { status });
+      expect(response.status, `${status} must be accepted from the preceding state`).toBe(200);
+      await expect
+        .poll(async () =>
+          factory.prisma.order.findUniqueOrThrow({
+            where: { id: order.id },
+            select: { status: true, acceptedAt: true, deliveredAt: true },
+          }),
+        )
+        .toMatchObject({
+          status,
+          ...(status === 'accepted' ? { acceptedAt: expect.any(Date) } : {}),
+          ...(status === 'delivered' ? { deliveredAt: expect.any(Date) } : {}),
+        });
+    }
   });
 
   test('a slot that becomes unavailable is persisted and the received order is rejected with that reason', async ({

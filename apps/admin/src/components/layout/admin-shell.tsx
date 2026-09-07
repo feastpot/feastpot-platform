@@ -44,8 +44,8 @@ import { createClient } from '@/lib/supabase/client';
 import { useApi } from '@/hooks/use-api';
 import { useAdminWorkQueue } from '@/hooks/use-admin-work-queue';
 import { useDownloadCsv } from '@/hooks/use-download-csv';
+import { ADMIN_DESTINATION_ROLES, type StaffRole } from '@/lib/admin-destinations';
 
-type StaffRole = 'admin' | 'support' | 'finance' | 'compliance';
 interface NavItem {
   href: string;
   label: string;
@@ -72,17 +72,19 @@ interface CommandAction {
   run: () => void;
 }
 const G = (label: string, items: ReadonlyArray<NavItem>) => ({ label, items });
-const NAV_GROUPS = [
+const R = <T extends keyof typeof ADMIN_DESTINATION_ROLES>(href: T) =>
+  ADMIN_DESTINATION_ROLES[href];
+export const NAV_GROUPS = [
   G('Today', [{ href: '/', label: 'Dashboard', icon: LayoutDashboard }]),
   G('Operations', [
-    { href: '/orders', label: 'Orders', icon: Receipt, roles: ['admin', 'support', 'finance'] },
-    { href: '/disputes', label: 'Disputes', icon: AlertTriangle, roles: ['admin', 'support'] },
-    { href: '/chargebacks', label: 'Chargebacks', icon: CreditCard, roles: ['admin', 'finance'] },
+    { href: '/orders', label: 'Orders', icon: Receipt, roles: R('/orders') },
+    { href: '/disputes', label: 'Disputes', icon: AlertTriangle, roles: R('/disputes') },
+    { href: '/chargebacks', label: 'Chargebacks', icon: CreditCard, roles: R('/chargebacks') },
     {
       href: '/catering',
       label: 'Catering',
       icon: CalendarHeart,
-      roles: ['admin', 'support', 'finance'],
+      roles: R('/catering'),
     },
   ]),
   G('Supply', [
@@ -90,26 +92,31 @@ const NAV_GROUPS = [
       href: '/supply-pipeline',
       label: 'Supply pipeline',
       icon: Store,
-      roles: ['admin', 'compliance', 'support'],
+      roles: R('/supply-pipeline'),
     },
-    { href: '/compliance', label: 'Compliance', icon: ShieldCheck, roles: ['admin', 'compliance'] },
-    { href: '/menus/queue', label: 'Menu moderation', icon: UtensilsCrossed, roles: ['admin'] },
-    { href: '/reviews/queue', label: 'Reviews', icon: MessageSquare, roles: ['admin'] },
+    { href: '/compliance', label: 'Compliance', icon: ShieldCheck, roles: R('/compliance') },
+    {
+      href: '/menus/queue',
+      label: 'Menu moderation',
+      icon: UtensilsCrossed,
+      roles: R('/menus/queue'),
+    },
+    { href: '/reviews/queue', label: 'Reviews', icon: MessageSquare, roles: R('/reviews/queue') },
   ]),
   G('Money', [
-    { href: '/payouts', label: 'Payouts', icon: Banknote, roles: ['admin', 'finance'] },
+    { href: '/payouts', label: 'Payouts', icon: Banknote, roles: R('/payouts') },
     {
       href: '/commission-rates',
       label: 'Commission rates',
       icon: BarChart3,
-      roles: ['admin', 'finance'],
+      roles: R('/commission-rates'),
     },
-    { href: '/discount-codes', label: 'Discount Codes', icon: Tag, roles: ['admin', 'finance'] },
+    { href: '/discount-codes', label: 'Discount Codes', icon: Tag, roles: R('/discount-codes') },
     {
       href: '/feastpass-health',
       label: 'FeastPass health',
       icon: BarChart3,
-      roles: ['admin', 'finance'],
+      roles: R('/feastpass-health'),
     },
   ]),
   G('Growth', [
@@ -117,36 +124,41 @@ const NAV_GROUPS = [
       href: '/analytics',
       label: 'Vendor acquisition',
       icon: BarChart3,
-      roles: ['admin', 'finance', 'support'],
+      roles: R('/analytics'),
     },
     {
       href: '/attribution',
       label: 'Attribution',
       icon: BarChart3,
-      roles: ['admin', 'finance', 'support'],
+      roles: R('/attribution'),
     },
-    { href: '/coverage', label: 'Coverage waitlist', icon: MapPin, roles: ['admin', 'support'] },
-    { href: '/push/compose', label: 'Push broadcast', icon: Bell, roles: ['admin'] },
+    { href: '/coverage', label: 'Coverage waitlist', icon: MapPin, roles: R('/coverage') },
+    { href: '/push/compose', label: 'Push broadcast', icon: Bell, roles: R('/push/compose') },
   ]),
   G('Governance', [
-    { href: '/legal', label: 'Legal ops', icon: Scale, roles: ['admin', 'compliance'] },
-    { href: '/audit-log', label: 'Audit log', icon: Activity, roles: ['admin', 'compliance'] },
+    { href: '/legal', label: 'Legal ops', icon: Scale, roles: R('/legal') },
+    { href: '/audit-log', label: 'Audit log', icon: Activity, roles: R('/audit-log') },
   ]),
   G('System', [
-    { href: '/dead-letters', label: 'Dead letters', icon: AlertTriangle, roles: ['admin'] },
-    { href: '/queues', label: 'Job queues', icon: Layers, roles: ['admin'] },
-    { href: '/settings', label: 'Settings', icon: Settings, roles: ['admin'] },
+    {
+      href: '/dead-letters',
+      label: 'Dead letters',
+      icon: AlertTriangle,
+      roles: R('/dead-letters'),
+    },
+    { href: '/queues', label: 'Job queues', icon: Layers, roles: R('/queues') },
+    { href: '/settings', label: 'Settings', icon: Settings, roles: R('/settings') },
     {
       href: '/users',
       label: 'Users',
       icon: Users,
-      roles: ['admin', 'support', 'finance', 'compliance'],
+      roles: R('/users'),
     },
     {
       href: '/user-guide',
       label: 'User guide',
       icon: BookOpen,
-      roles: ['admin', 'support', 'finance', 'compliance'],
+      roles: R('/user-guide'),
     },
   ]),
 ] as const;
@@ -164,7 +176,7 @@ export function AdminShell({
   const pathname = usePathname();
   const router = useRouter();
   const { request } = useApi();
-  const { data: queue } = useAdminWorkQueue();
+  const { data: queue, isError: isWorkQueueError, refetch: retryWorkQueue } = useAdminWorkQueue();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -378,6 +390,26 @@ export function AdminShell({
           </button>
         </div>
         <nav className="flex-1 overflow-y-auto px-3 pb-3">
+          {isWorkQueueError ? (
+            <div
+              role="alert"
+              className="mx-2 mt-3 rounded border border-destructive/30 p-2 text-xs"
+            >
+              <p>Operational queue could not be loaded.</p>
+              <button
+                type="button"
+                onClick={() => void retryWorkQueue()}
+                className="mt-1 underline"
+              >
+                Retry operational queue
+              </button>
+            </div>
+          ) : (
+            <p role="status" className="sr-only">
+              {queue?.items.length ?? 0} operational work items
+              {queue?.items.length ? `: ${queue.items.map((item) => item.title).join(', ')}` : ''}
+            </p>
+          )}
           {groups.map((group) => (
             <div key={group.label}>
               <button
