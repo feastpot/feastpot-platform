@@ -70,7 +70,7 @@ describe('AdminService work queue', () => {
     expect(result.items.map((item) => item.type)).toEqual(
       expect.arrayContaining([
         'chargeback_evidence_due',
-        'vendor_application_missing_fsa',
+        'vendor_application_past_sla',
         'overdue_catering_enquiry',
       ]),
     );

@@ -175,28 +175,11 @@ export function VendorApplicationDetailClient({
                   <StatusPill tone={STATUS_TONE[app.status]}>{STATUS_LABEL[app.status]}</StatusPill>
                 }
               />
-              <Field label="FSA registration" value={app.hasFsaRegistration ? 'Yes' : 'No'} />
-              <div className="sm:col-span-2 rounded-md border border-input bg-muted/40 px-3 py-2">
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Food hygiene registration number
-                </div>
-                <div className="mt-0.5 text-base font-semibold">
-                  {app.hygieneRegNumber ? app.hygieneRegNumber : '–'}
-                </div>
-              </div>
               <Field
-                label="Delivery radius"
+                label="Occasions"
                 value={
-                  app.deliveryRadiusMiles != null
-                    ? `${app.deliveryRadiusMiles} ${app.deliveryRadiusMiles === 1 ? 'mile' : 'miles'}`
-                    : '–'
-                }
-              />
-              <Field
-                label="Typical order types"
-                value={
-                  app.orderTypes && app.orderTypes.length > 0
-                    ? app.orderTypes.map((t) => ORDER_TYPE_LABEL[t] ?? t).join(', ')
+                  app.occasionSlugs.length > 0
+                    ? app.occasionSlugs.map((slug) => slug.replaceAll('-', ' ')).join(', ')
                     : '–'
                 }
               />
@@ -204,28 +187,27 @@ export function VendorApplicationDetailClient({
               <Field label="Email" value={app.email} />
               <Field label="Phone" value={app.phone} />
               <Field label="Postcode" value={app.postcode} />
-              <Field label="Cuisine type" value={app.cuisineType} />
-              <Field label="Kitchen type" value={app.kitchenType} />
-              <Field label="Instagram" value={app.instagram ? app.instagram : '-'} />
-              <Field label="Marketing consent" value={app.marketingConsent ? 'Yes' : 'No'} />
-              <div className="sm:col-span-2">
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Food story
+              <Field label="Cuisines" value={app.cuisineTypes.join(', ')} />
+              <Field
+                label="Menu support"
+                value={app.menuBuildFromPhoto ? 'Build menu from uploaded photo' : 'Formatted menu'}
+              />
+              {app.menuPhotoUrl && (
+                <div className="sm:col-span-2">
+                  <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
+                    Menu photo
+                  </div>
+                  <img
+                    src={app.menuPhotoUrl}
+                    alt={`Menu supplied by ${app.kitchenName}`}
+                    className="max-h-80 w-full rounded-lg border object-contain"
+                  />
                 </div>
-                <p className="mt-1 whitespace-pre-wrap text-sm">{app.foodStory}</p>
-              </div>
-              <div className="sm:col-span-2">
-                <div className="text-xs uppercase tracking-wide text-muted-foreground">
-                  Terms acceptance
-                </div>
-                <p className="mt-1 text-sm">
-                  {app.acceptedTermsAt
-                    ? `Accepted ${formatDateTime(app.acceptedTermsAt)}${
-                        app.acceptedTermsVersion ? ` · version ${app.acceptedTermsVersion}` : ''
-                      }`
-                    : 'Not recorded (pre-consent submission)'}
-                </p>
-              </div>
+              )}
+              <Field
+                label="Submitted"
+                value={app.submittedAt ? formatDateTime(app.submittedAt) : 'Draft'}
+              />
             </CardContent>
           </Card>
 

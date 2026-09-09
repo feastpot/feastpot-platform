@@ -634,55 +634,68 @@ model NotificationOutbox {
 /// don't have accounts yet. Admin review converts an approved application
 /// into a full Vendor + User pair.
 model VendorApplication {
-  id                   String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  fullName             String                  @map("full_name") @db.VarChar(255)
-  kitchenName          String                  @map("kitchen_name") @db.VarChar(255)
-  email                String                  @db.VarChar(255)
-  phone                String                  @db.VarChar(40)
-  postcode             String                  @db.VarChar(16)
-  cuisineType          String                  @map("cuisine_type") @db.VarChar(64)
-  kitchenType          String                  @map("kitchen_type") @db.VarChar(40)
-  hasFsaRegistration   Boolean                 @map("has_fsa_registration")
-  foodStory            String
-  instagram            String?                 @db.VarChar(255)
-  marketingConsent     Boolean                 @default(true) @map("marketing_consent")
-  status               VendorApplicationStatus @default(pending)
-  reviewedAt           DateTime?               @map("reviewed_at") @db.Timestamptz
-  reviewedById         String?                 @map("reviewed_by_id") @db.Uuid
+  id                       String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  fullName                 String                  @map("full_name") @db.VarChar(255)
+  kitchenName              String                  @map("kitchen_name") @db.VarChar(255)
+  email                    String                  @db.VarChar(255)
+  phone                    String                  @db.VarChar(40)
+  postcode                 String                  @db.VarChar(16)
+  cuisineType              String                  @map("cuisine_type") @db.VarChar(64)
+  kitchenType              String                  @map("kitchen_type") @db.VarChar(40)
+  hasFsaRegistration       Boolean                 @map("has_fsa_registration")
+  foodStory                String
+  instagram                String?                 @db.VarChar(255)
+  marketingConsent         Boolean                 @default(true) @map("marketing_consent")
+  status                   VendorApplicationStatus @default(pending)
+  reviewedAt               DateTime?               @map("reviewed_at") @db.Timestamptz
+  reviewedById             String?                 @map("reviewed_by_id") @db.Uuid
   // adminNotes: free-form internal notes (visible to admins, never to the
   // applicant). Also doubles as the body of an "information_requested"
   // message - the email template surfaces it to the applicant verbatim.
-  adminNotes           String?                 @map("admin_notes")
+  adminNotes               String?                 @map("admin_notes")
   // rejectionReason: surfaced to the applicant in the rejection email.
   // Separate from adminNotes so we never leak internal triage commentary.
-  rejectionReason      String?                 @map("rejection_reason")
+  rejectionReason          String?                 @map("rejection_reason")
   // Populated by the approval flow when we provision the real Vendor row.
   // ON DELETE SET NULL so removing a vendor (rare, GDPR) doesn't erase the
   // permanent application record.
-  vendorId             String?                 @unique @map("vendor_id") @db.Uuid
+  vendorId                 String?                 @unique @map("vendor_id") @db.Uuid
   // Vendor T&Cs acceptance audit. Nullable because pre-existing
   // applications were captured before the explicit-consent contract was
   // introduced; new submissions always populate both fields. Version is
   // a free-form tag (e.g. "2026-05") so legal can bump it without a
   // schema migration when terms change.
-  acceptedTermsAt      DateTime?               @map("accepted_terms_at") @db.Timestamptz
-  acceptedTermsVersion String?                 @map("accepted_terms_version") @db.VarChar(32)
+  acceptedTermsAt          DateTime?               @map("accepted_terms_at") @db.Timestamptz
+  acceptedTermsVersion     String?                 @map("accepted_terms_version") @db.VarChar(32)
   // T5 (Aug 2026) acquisition-form additions. Nullable because rows
   // predating the fields exist; new submissions are validated by the DTO
   // (hygiene registration required, radius/order types optional).
-  deliveryRadiusMiles  Int?                    @map("delivery_radius_miles")
-  hygieneRegNumber     String?                 @map("hygiene_reg_number") @db.VarChar(64)
-  orderTypes           String[]                @default([]) @map("order_types")
+  deliveryRadiusMiles      Int?                    @map("delivery_radius_miles")
+  hygieneRegNumber         String?                 @map("hygiene_reg_number") @db.VarChar(64)
+  orderTypes               String[]                @default([]) @map("order_types")
+  /// Anonymous two-phase application state. Drafts are hidden from the admin
+  /// queue until submittedAt is set. Only a SHA-256 resume-token hash is stored.
+  resumeTokenHash          String?                 @unique @map("resume_token_hash") @db.VarChar(64)
+  resumeExpiresAt          DateTime?               @map("resume_expires_at") @db.Timestamptz
+  submissionClaimToken     String?                 @map("submission_claim_token") @db.VarChar(64)
+  submissionClaimExpiresAt DateTime?               @map("submission_claim_expires_at") @db.Timestamptz
+  currentStep              String                  @default("phase_1") @map("current_step") @db.VarChar(64)
+  submittedAt              DateTime?               @map("submitted_at") @db.Timestamptz
+  cuisineTypes             String[]                @default([]) @map("cuisine_types")
+  occasionSlugs            String[]                @default([]) @map("occasion_slugs")
+  menuPhotoUrl             String?                 @map("menu_photo_url")
+  menuPhotoPath            String?                 @map("menu_photo_path")
+  menuBuildFromPhoto       Boolean                 @default(false) @map("menu_build_from_photo")
   // Referring vendor captured at application time from the fp_ref referral
   // cookie. Null when no referral link was used. Written once on submission
   // and never overwritten; approval reads it to set referred_by_vendor_id on
   // the created Vendor row.
-  referrerVendorId     String?                 @map("referrer_vendor_id") @db.Uuid
+  referrerVendorId         String?                 @map("referrer_vendor_id") @db.Uuid
   /// Explicit fixture provenance. Operations lists exclude these rows unless an
   /// administrator deliberately asks to include them.
-  isTestData           Boolean                 @default(false) @map("is_test_data")
-  createdAt            DateTime                @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt            DateTime                @updatedAt @map("updated_at") @db.Timestamptz
+  isTestData               Boolean                 @default(false) @map("is_test_data")
+  createdAt                DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                DateTime                @updatedAt @map("updated_at") @db.Timestamptz
 
   reviewedBy          User?                          @relation("VendorApplicationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
   vendor              Vendor?                        @relation("VendorApplicationVendor", fields: [vendorId], references: [id], onDelete: SetNull)
@@ -691,6 +704,7 @@ model VendorApplication {
   @@index([status, createdAt])
   @@index([isTestData, status, createdAt])
   @@index([email])
+  @@index([submittedAt, status, createdAt])
   @@map("vendor_applications")
 }
 

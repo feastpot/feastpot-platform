@@ -116,6 +116,83 @@ export class SupabaseStorageService implements OnModuleInit {
     return this.uploadAt(`vendors/${vendorId}/identity/${kind}`, file);
   }
 
+  async uploadVendorApplicationMenuImage(params: {
+    applicationId: string;
+    file: { originalname: string; mimetype: string; size: number; buffer: Buffer };
+  }): Promise<UploadedImage> {
+    const file = params.file;
+    if (!ALLOWED_MIME.has(file.mimetype) || !looksLikeImage(file.buffer)) {
+      throw new BadRequestException({
+        code: 'INVALID_IMAGE_CONTENT',
+        message: 'File must be a valid JPEG, PNG, or WebP image',
+      });
+    }
+    if (file.size > MAX_BYTES) {
+      throw new BadRequestException({
+        code: 'IMAGE_TOO_LARGE',
+        message: `Image exceeds ${MAX_BYTES} bytes`,
+      });
+    }
+    const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
+    const path = `vendor-applications/${params.applicationId}/menu/${Date.now()}-${safeName}`;
+    const storage = this.supabase.getClient().storage.from(DOCUMENTS_BUCKET);
+    const { error } = await storage.upload(path, file.buffer, {
+      contentType: file.mimetype,
+      upsert: false,
+    });
+    if (error) {
+      throw new InternalServerErrorException({
+        code: 'IMAGE_UPLOAD_FAILED',
+        message: 'Could not upload image',
+      });
+    }
+    const { data, error: signedError } = await storage.createSignedUrl(path, 30 * 24 * 60 * 60);
+    if (signedError) {
+      throw new InternalServerErrorException({
+        code: 'IMAGE_PREVIEW_FAILED',
+        message: 'Could not create image preview',
+      });
+    }
+    return { path, publicUrl: data.signedUrl };
+  }
+
+  async promoteVendorApplicationMenuImage(params: {
+    applicationId: string;
+    path: string;
+  }): Promise<UploadedImage> {
+    const privateStorage = this.supabase.getClient().storage.from(DOCUMENTS_BUCKET);
+    const { data, error } = await privateStorage.download(params.path);
+    if (error || !data) {
+      throw new InternalServerErrorException({
+        code: 'IMAGE_PROMOTION_FAILED',
+        message: 'Could not prepare the menu image for review',
+      });
+    }
+    const originalname = params.path.split('/').pop() || 'menu-image.jpg';
+    const buffer = Buffer.from(await data.arrayBuffer());
+    const extension = originalname.split('.').pop()?.toLowerCase();
+    const mimetype =
+      data.type ||
+      (extension === 'png' ? 'image/png' : extension === 'webp' ? 'image/webp' : 'image/jpeg');
+    const uploaded = await this.uploadAt(`vendor-applications/${params.applicationId}/menu`, {
+      originalname,
+      mimetype,
+      size: buffer.length,
+      buffer,
+    });
+    return uploaded;
+  }
+
+  async removePrivateImage(path: string): Promise<void> {
+    const { error } = await this.supabase.getClient().storage.from(DOCUMENTS_BUCKET).remove([path]);
+    if (error) this.logger.warn(`Could not remove private image "${path}": ${error.message}`);
+  }
+
+  async removePublicImage(path: string): Promise<void> {
+    const { error } = await this.supabase.getClient().storage.from(STORAGE_BUCKET).remove([path]);
+    if (error) this.logger.warn(`Could not remove public image "${path}": ${error.message}`);
+  }
+
   /**
    * Customer review photos. Stored under the vendor's folder so vendor
    * deletion tooling can sweep everything vendor-related in one prefix.

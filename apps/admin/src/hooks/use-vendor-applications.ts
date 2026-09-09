@@ -27,6 +27,7 @@ export interface VendorApplicationRow {
   phone: string;
   postcode: string;
   cuisineType: string;
+  cuisineTypes: string[];
   kitchenType: string;
   hasFsaRegistration: boolean;
   hygieneRegNumber: string | null;
@@ -56,6 +57,11 @@ export interface VendorApplicationDetail {
   deliveryRadiusMiles: number | null;
   orderTypes: string[];
   foodStory: string;
+  cuisineTypes: string[];
+  occasionSlugs: string[];
+  menuPhotoUrl: string | null;
+  menuBuildFromPhoto: boolean;
+  submittedAt: string | null;
   instagram: string | null;
   marketingConsent: boolean;
   status: VendorApplicationStatus;
