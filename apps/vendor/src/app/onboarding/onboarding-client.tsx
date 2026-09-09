@@ -59,13 +59,12 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
   // Terms acceptance: treat as done if status returns accepted, or while
   // loading (optimistic -- the gate re-checks server-side at activation).
   const termsDone = termsStatus.data?.accepted ?? termsJustAccepted;
-  // Menu step is driven by the onboarding-progress endpoint (>= 3 available
-  // items). While the query is loading we treat it as not-done so the
-  // indicator never flashes "complete" and then regresses.
-  const menuDone = progress.data?.menuComplete ?? false;
-  const menuItemCount = progress.data?.menuItemCount ?? 0;
-  // canGoLive requires terms acceptance in addition to the original four steps.
-  const canGoLive = profileDone && allDocsUploaded && termsDone && stripeReady && menuDone;
+  const menuDone =
+    progress.data?.steps.find((step) => step.name === 'allergen_declared_menu_item')?.complete ??
+    false;
+  // Publication eligibility comes from the server's fresh hard-gate evidence,
+  // never from this screen's local approximation.
+  const canGoLive = progress.data?.canProfileGoLive ?? false;
   const stepFlags = [profileDone, allDocsUploaded, termsDone, stripeReady, menuDone];
   const firstIncomplete = stepFlags.findIndex((f) => !f);
   const currentStep = (firstIncomplete === -1 ? 5 : firstIncomplete + 1) as 1 | 2 | 3 | 4 | 5;
@@ -75,8 +74,8 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
       <header>
         <h1 className="text-2xl font-semibold">Welcome to Feastpot, {vendor.businessName}</h1>
         <p className="text-sm text-muted-foreground">
-          Finish these four steps and our compliance team will approve you to start taking orders.
-          Status:{' '}
+          Complete the go-live requirements below. Optional profile improvements never block
+          publication. Status:{' '}
           <Badge variant={vendor.status === 'live' ? 'default' : 'secondary'}>
             {vendor.status}
           </Badge>
@@ -229,8 +228,8 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
           <>
             <p className="text-sm text-muted-foreground">
               {menuDone
-                ? `You have ${menuItemCount} items live - nice work.`
-                : `You need at least 3 items live before compliance can approve you (${menuItemCount} so far). The full editor is in the menu section.`}
+                ? 'You have a publishable item with a complete allergen declaration.'
+                : 'Add at least one available, approved item and declare its allergens or explicitly confirm it is free from all 14. The full editor is in the menu section.'}
             </p>
             <Link href={termsDone ? '/menu' : '/onboarding/terms'} className="mt-2 inline-block">
               <Button variant="outline" size="sm" className="gap-2">

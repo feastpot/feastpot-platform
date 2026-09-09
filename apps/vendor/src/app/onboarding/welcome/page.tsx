@@ -4,7 +4,9 @@ import { PortalShell } from '@/components/layout/portal-shell';
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
 
-import { WelcomeClient, type OnboardingProgress } from './welcome-client';
+import { type OnboardingProgress } from '@/hooks/use-onboarding-progress';
+
+import { WelcomeClient } from './welcome-client';
 
 // Reads cookies via Supabase server client → must be dynamic at runtime.
 export const dynamic = 'force-dynamic';
@@ -18,7 +20,7 @@ interface VendorMe {
 /**
  * First-login welcome screen. The dashboard redirects vendors here while
  * their kitchen isn't live yet (see apps/vendor/src/app/page.tsx). It shows
- * a 5-step setup checklist driven by GET /vendors/me/onboarding-progress.
+ * the derived go-live checklist driven by GET /vendors/me/onboarding-progress.
  *
  * Completion is tracked via `Vendor.status` (there is no
  * `onboardingCompletedAt` column), so once a vendor is live/probation we

@@ -42,6 +42,33 @@ enum VendorStatus {
   removed
 }
 
+enum VendorOnboardingStepName {
+  food_business_registration
+  public_liability_insurance
+  food_safety_certificate
+  photo_id_verification
+  stripe_connect
+  vendor_terms
+  tax_profile
+  allergen_declared_menu_item
+  fhrs_eligibility
+  menu_photography
+  optional_profile_content
+  vendor_pro_subscription
+}
+
+enum VendorOnboardingStepState {
+  not_started
+  in_progress
+  submitted
+  verified
+  rejected
+}
+
+/// REGISTERED_AWAITING_INSPECTION means the local-authority registration is
+/// confirmed and the first FHRS inspection has not happened yet. It does not
+/// block publication. Once a rating exists, a rating below 3 does.
+
 /// FSA Food Hygiene Rating Scheme compliance gate.
 ///
 /// RATED                        - vendor has a published FHRS rating; combined with
@@ -924,6 +951,7 @@ model Vendor {
   taxProfile                   VendorTaxProfile?
   platformReports              PlatformReport[]
   slugRedirects                VendorSlugRedirect[]
+  onboardingSteps              VendorOnboardingStep[]
 
   @@index([status])
   @@index([slug])
@@ -931,6 +959,27 @@ model Vendor {
   @@index([communityFavourite])
   @@index([businessName(ops: raw("gin_trgm_ops"))], type: Gin, map: "vendors_business_name_trgm_idx")
   @@map("vendors")
+}
+
+/// Auditable snapshot of each named onboarding step. Publication eligibility is
+/// never stored here: VendorOnboardingService derives canProfileGoLive from the
+/// current hard-gate evidence every time it is requested or a live transition
+/// is attempted.
+model VendorOnboardingStep {
+  id                String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vendorId          String                    @map("vendor_id") @db.Uuid
+  name              VendorOnboardingStepName
+  state             VendorOnboardingStepState @default(not_started)
+  blocksProgress    Boolean                   @map("blocks_progress")
+  blocksPublication Boolean                   @map("blocks_publication")
+  sourceCitation    String                    @map("source_citation") @db.VarChar(500)
+  updatedAt         DateTime                  @updatedAt @map("updated_at") @db.Timestamptz
+
+  vendor Vendor @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, name])
+  @@index([vendorId, blocksPublication, state])
+  @@map("vendor_onboarding_steps")
 }
 
 // Dates a vendor is closed: holidays, personal time, fully booked, etc.
@@ -2168,6 +2217,9 @@ model VendorVerification {
   fhrsRatingCheckedAt     DateTime?          @map("fhrs_rating_checked_at") @db.Timestamptz
   fhrsInspectionStatus    FhrsStatus         @map("fhrs_inspection_status")
   insuranceProvider       String?            @map("insurance_provider")
+  /// Pence of public liability cover verified by compliance. Current Vendor
+  /// Terms clause 2 and Annex B require at least GBP 5 million.
+  insuranceCoverPence     Int?               @map("insurance_cover_pence")
   insuranceValidUntil     DateTime?          @map("insurance_valid_until") @db.Timestamptz
   allergenTrainingHeld    Boolean            @default(false) @map("allergen_training_held")
   allergenTrainingUntil   DateTime?          @map("allergen_training_until") @db.Timestamptz

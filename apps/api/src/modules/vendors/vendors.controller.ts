@@ -229,6 +229,14 @@ export class VendorsController {
     return this.vendors.getOnboardingProgress(requireUser(user).id);
   }
 
+  @Get(':id/onboarding-readiness')
+  @ApiBearerAuth()
+  @Roles(UserRole.admin, UserRole.compliance, UserRole.support)
+  @ApiOperation({ summary: 'Derived vendor go-live readiness and cited gate checklist' })
+  getVendorOnboardingReadiness(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.vendors.getOnboardingReadiness(id);
+  }
+
   @Get('me/analytics')
   @ApiBearerAuth()
   @Roles(UserRole.vendor, UserRole.admin)

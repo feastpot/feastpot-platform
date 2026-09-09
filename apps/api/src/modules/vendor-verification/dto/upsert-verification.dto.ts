@@ -38,6 +38,11 @@ export class UpsertVerificationDto {
   insuranceProvider?: string | null;
 
   @IsOptional()
+  @IsInt()
+  @Min(0)
+  insuranceCoverPence?: number | null;
+
+  @IsOptional()
   @IsDateString()
   insuranceValidUntil?: string | null;
 

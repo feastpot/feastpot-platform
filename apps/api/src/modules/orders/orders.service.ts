@@ -413,14 +413,12 @@ export class OrdersService {
       });
     }
 
-    // FSA compliance gate (listing gate parity).
-    // Only RATED vendors with fsaHygieneRating >= 3 may accept orders.
-    // This mirrors the SQL WHERE clause in vendors.repository.ts search()
-    // and applies the same hard floor as PLATFORM_FACTS.vendorRequirements
-    // item 3 ("FHRS rating of at least 3 out of 5").
-    // A vendor whose rating later drops below 3 is blocked here even if
-    // their VendorStatus is still live - the floor is non-negotiable.
-    if (vendor.complianceStatus !== 'RATED' || (vendor.fsaHygieneRating ?? 0) < 3) {
+    // Listing-gate parity: awaiting a first FHRS inspection is allowed after
+    // registration. If a rating exists, the Vendor Terms floor of 3 applies.
+    const fhrsEligible =
+      vendor.complianceStatus === 'REGISTERED_AWAITING_INSPECTION' ||
+      (vendor.complianceStatus === 'RATED' && (vendor.fsaHygieneRating ?? 0) >= 3);
+    if (!fhrsEligible) {
       throw new ForbiddenException({
         code: 'VENDOR_NOT_COMPLIANT',
         message: 'This vendor is not currently accepting orders',

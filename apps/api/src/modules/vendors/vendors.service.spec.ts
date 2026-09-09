@@ -19,6 +19,7 @@ import type { TermsService } from '../terms/terms.service';
 import type { VendorMembersService } from '../vendor-members/vendor-members.service';
 
 import type { VendorRepository } from './vendors.repository';
+import type { VendorOnboardingService } from './vendor-onboarding.service';
 import { VendorsService } from './vendors.service';
 
 type RepoMock = jest.Mocked<
@@ -108,6 +109,10 @@ describe('VendorsService', () => {
     const terms = {
       assertAcceptedCurrentVersion: jest.fn().mockResolvedValue(undefined),
     } as unknown as TermsService;
+    const onboarding = {
+      getReadiness: jest.fn(),
+      assertCanProfileGoLive: jest.fn().mockResolvedValue(undefined),
+    } as unknown as VendorOnboardingService;
     service = new VendorsService(
       repo as unknown as VendorRepository,
       prisma,
@@ -120,6 +125,7 @@ describe('VendorsService', () => {
       members as unknown as VendorMembersService,
       terms,
       queue,
+      onboarding,
     );
   });
 
@@ -417,40 +423,23 @@ describe('VendorsService', () => {
   });
 
   describe('getOnboardingProgress', () => {
-    it('menu step requires >= 3 available items (matches onboarding copy)', async () => {
-      // Bypass membership resolution - we only care about the step maths.
+    it('delegates to the single derived readiness model', async () => {
       jest
         .spyOn(
           service as unknown as { resolveMyVendor: (u: string, r: unknown) => Promise<unknown> },
           'resolveMyVendor',
         )
         .mockResolvedValue({ id: 'v-1' });
-      const prismaMock = (
+      const onboarding = (
         service as unknown as {
-          prisma: { vendor: { findUnique: jest.Mock }; menuItem: { count: jest.Mock } };
+          onboarding: { getReadiness: jest.Mock };
         }
-      ).prisma;
-      prismaMock.vendor = {
-        findUnique: jest.fn().mockResolvedValue({
-          description: 'd',
-          logoUrl: 'l',
-          documents: [{}, {}, {}, {}],
-          stripeAccountId: 'acct_1',
-          payoutsEnabled: true,
-          deliveryConfig: { latitude: 51.5 },
-        }),
-      };
-      prismaMock.menuItem = { count: jest.fn().mockResolvedValue(2) };
+      ).onboarding;
+      const readiness = { vendorId: 'v-1', canProfileGoLive: false, steps: [] };
+      onboarding.getReadiness.mockResolvedValue(readiness);
 
-      const two = await service.getOnboardingProgress('u-1');
-      expect(two.menuComplete).toBe(false);
-      expect(two.menuItemCount).toBe(2);
-      expect(two.allComplete).toBe(false);
-
-      prismaMock.menuItem.count.mockResolvedValue(3);
-      const three = await service.getOnboardingProgress('u-1');
-      expect(three.menuComplete).toBe(true);
-      expect(three.allComplete).toBe(true);
+      await expect(service.getOnboardingProgress('u-1')).resolves.toBe(readiness);
+      expect(onboarding.getReadiness).toHaveBeenCalledWith('v-1');
     });
   });
 

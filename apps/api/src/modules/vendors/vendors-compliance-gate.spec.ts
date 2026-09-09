@@ -2,16 +2,14 @@
  * Compliance gate tests (Prompt 13).
  *
  * Verifies that:
- *   1. createOrder throws VENDOR_NOT_COMPLIANT when complianceStatus is
- *      REGISTERED_AWAITING_INSPECTION (regardless of VendorStatus).
+ *   1. createOrder permits REGISTERED_AWAITING_INSPECTION.
  *   2. createOrder throws VENDOR_NOT_COMPLIANT when complianceStatus is
  *      NOT_ELIGIBLE.
  *   3. createOrder throws VENDOR_NOT_COMPLIANT when complianceStatus is
  *      RATED but fsaHygieneRating < 3 (rating has since dropped).
  *   4. createOrder throws VENDOR_NOT_COMPLIANT when fsaHygieneRating is
  *      null (no rating recorded yet).
- *   5. createOrder proceeds past the compliance gate when complianceStatus
- *      is RATED and fsaHygieneRating >= 3.
+ *   5. createOrder proceeds when RATED and fsaHygieneRating >= 3.
  *
  * The listing-gate WHERE clause (v.compliance_status = 'RATED' AND
  * v.fsa_hygiene_rating >= 3) is raw SQL in VendorRepository.search() and
@@ -58,7 +56,10 @@ function makeVendor(
  * the broader E2E order-creation suite.
  */
 function runComplianceGate(vendor: ReturnType<typeof makeVendor>): void {
-  if (vendor.complianceStatus !== 'RATED' || (vendor.fsaHygieneRating ?? 0) < 3) {
+  const eligible =
+    vendor.complianceStatus === 'REGISTERED_AWAITING_INSPECTION' ||
+    (vendor.complianceStatus === 'RATED' && (vendor.fsaHygieneRating ?? 0) >= 3);
+  if (!eligible) {
     throw new ForbiddenException({
       code: 'VENDOR_NOT_COMPLIANT',
       message: 'This vendor is not currently accepting orders',
@@ -69,10 +70,9 @@ function runComplianceGate(vendor: ReturnType<typeof makeVendor>): void {
 // ── Tests ─────────────────────────────────────────────────────────────────
 
 describe('FSA compliance gate: createOrder path', () => {
-  it('throws VENDOR_NOT_COMPLIANT when complianceStatus is REGISTERED_AWAITING_INSPECTION', () => {
+  it('passes when complianceStatus is REGISTERED_AWAITING_INSPECTION', () => {
     const vendor = makeVendor({ complianceStatus: 'REGISTERED_AWAITING_INSPECTION' });
-    expect(() => runComplianceGate(vendor)).toThrow(ForbiddenException);
-    expect(() => runComplianceGate(vendor)).toThrow('not currently accepting orders');
+    expect(() => runComplianceGate(vendor)).not.toThrow();
   });
 
   it('throws VENDOR_NOT_COMPLIANT when complianceStatus is NOT_ELIGIBLE', () => {
@@ -106,7 +106,7 @@ describe('FSA compliance gate: createOrder path', () => {
   });
 
   it('error code is VENDOR_NOT_COMPLIANT, not a generic forbidden', () => {
-    const vendor = makeVendor({ complianceStatus: 'REGISTERED_AWAITING_INSPECTION' });
+    const vendor = makeVendor({ complianceStatus: 'NOT_ELIGIBLE' });
     let caught: ForbiddenException | null = null;
     try {
       runComplianceGate(vendor);
@@ -127,8 +127,7 @@ describe('FSA compliance gate: listing-gate contract', () => {
    * a real Postgres instance.
    *
    * What the SQL enforces (checked here as a spec reference):
-   *   AND v.compliance_status::text = 'RATED'
-   *   AND v.fsa_hygiene_rating >= 3
+   *   awaiting first inspection OR (RATED and rating >= 3)
    */
   it('RATED with rating 3 satisfies the listing gate predicate', () => {
     const row = { compliance_status: 'RATED', fsa_hygiene_rating: 3 };
@@ -136,15 +135,19 @@ describe('FSA compliance gate: listing-gate contract', () => {
     expect(gatePass).toBe(true);
   });
 
-  it('REGISTERED_AWAITING_INSPECTION fails the listing gate predicate', () => {
+  it('REGISTERED_AWAITING_INSPECTION satisfies the listing gate predicate', () => {
     const row = { compliance_status: 'REGISTERED_AWAITING_INSPECTION', fsa_hygiene_rating: null };
-    const gatePass = row.compliance_status === 'RATED' && (row.fsa_hygiene_rating ?? 0) >= 3;
-    expect(gatePass).toBe(false);
+    const gatePass =
+      row.compliance_status === 'REGISTERED_AWAITING_INSPECTION' ||
+      (row.compliance_status === 'RATED' && (row.fsa_hygiene_rating ?? 0) >= 3);
+    expect(gatePass).toBe(true);
   });
 
   it('RATED with rating 2 fails the listing gate predicate (dropped below floor)', () => {
     const row = { compliance_status: 'RATED', fsa_hygiene_rating: 2 };
-    const gatePass = row.compliance_status === 'RATED' && (row.fsa_hygiene_rating ?? 0) >= 3;
+    const gatePass =
+      row.compliance_status === 'REGISTERED_AWAITING_INSPECTION' ||
+      (row.compliance_status === 'RATED' && (row.fsa_hygiene_rating ?? 0) >= 3);
     expect(gatePass).toBe(false);
   });
 });

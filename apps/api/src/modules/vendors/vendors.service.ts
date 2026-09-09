@@ -32,7 +32,6 @@ import {
   VENDOR_READ_ROLES,
   VendorMembersService,
 } from '../vendor-members/vendor-members.service';
-import { isTaxProfileComplete } from '../vendor-tax-profile/vendor-tax-profile.service';
 
 import { AddBlackoutDto } from './dto/add-blackout.dto';
 import { CreateVendorDto } from './dto/create-vendor.dto';
@@ -55,6 +54,7 @@ import {
 import { VendorDashboardResponseDto } from './dto/vendor-dashboard.dto';
 import { VendorStatsResponseDto } from './dto/vendor-stats.dto';
 import { VendorRepository, type DecodedCursor, type SearchedVendorRow } from './vendors.repository';
+import { VendorOnboardingService } from './vendor-onboarding.service';
 
 const REVENUE_STATUSES_LIST: OrderStatus[] = [
   OrderStatus.accepted,
@@ -301,6 +301,7 @@ export class VendorsService {
     private readonly terms: TermsService,
     // Notifications queue for durable retry of vendor-application emails.
     @InjectQueue(NOTIFICATIONS_QUEUE) private readonly queue: Queue,
+    private readonly onboarding: VendorOnboardingService,
   ) {}
 
   /**
@@ -1270,40 +1271,11 @@ export class VendorsService {
     // so this matches /vendors/me - querying by userId alone would 404 for
     // non-owner members who can still reach the dashboard + welcome screen.
     const { id: vendorId } = await this.resolveMyVendor(userId, VENDOR_READ_ROLES);
-    const vendor = await this.prisma.vendor.findUnique({
-      where: { id: vendorId },
-      include: {
-        documents: true,
-        deliveryConfig: true,
-      },
-    });
+    return this.onboarding.getReadiness(vendorId);
+  }
 
-    if (!vendor) {
-      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
-    }
-
-    // Onboarding copy promises compliance review once the vendor has at
-    // least 3 items live, so the menu step uses that same threshold (it
-    // previously passed with a single available item, contradicting the UI).
-    const menuItemCount = await this.prisma.menuItem.count({
-      where: { vendorId, isAvailable: true },
-    });
-
-    const steps = {
-      profileComplete: !!(vendor.description && vendor.logoUrl),
-      documentsComplete: vendor.documents.length >= 4,
-      stripeComplete: !!vendor.stripeAccountId && vendor.payoutsEnabled,
-      menuComplete: menuItemCount >= 3,
-      deliveryComplete: !!vendor.deliveryConfig?.latitude,
-    };
-
-    return {
-      ...steps,
-      menuItemCount,
-      allComplete: Object.values(steps).every(Boolean),
-      completedCount: Object.values(steps).filter(Boolean).length,
-      totalSteps: 5,
-    };
+  getOnboardingReadiness(vendorId: string) {
+    return this.onboarding.getReadiness(vendorId);
   }
 
   async create(user: AuthUser, dto: CreateVendorDto) {
@@ -1495,31 +1467,10 @@ export class VendorsService {
       });
     }
 
-    // HMRC SI 2023/817: a vendor cannot go live without a complete tax profile.
-    // This gate applies to both pending→live and approved→live transitions.
+    // Publication eligibility is derived from fresh source evidence. It is
+    // deliberately not stored on Vendor, so it cannot drift from its inputs.
     if (dto.status === VendorStatus.live) {
-      await this.terms.assertAcceptedCurrentVersion(vendorId);
-      const taxProfile = await this.prisma.vendorTaxProfile.findUnique({
-        where: { vendorId },
-        select: {
-          entityType: true,
-          legalName: true,
-          addressLine1: true,
-          city: true,
-          postcode: true,
-          dateOfBirth: true,
-          companyNumber: true,
-          taxIdentifier: true,
-        },
-      });
-      if (!isTaxProfileComplete(taxProfile)) {
-        throw new BadRequestException({
-          code: 'TAX_PROFILE_INCOMPLETE',
-          message:
-            'This vendor cannot go live until their tax information is complete. ' +
-            'Required by the Platform Operators (Due Diligence and Reporting Requirements) Regulations 2023 (SI 2023/817).',
-        });
-      }
+      await this.onboarding.assertCanProfileGoLive(vendorId);
     }
 
     const result = await this.repo.transitionStatus({

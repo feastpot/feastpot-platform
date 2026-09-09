@@ -31,6 +31,7 @@ export interface VendorVerificationRecord {
   fhrsRatingCheckedAt: string | null;
   fhrsInspectionStatus: FhrsStatus;
   insuranceProvider: string | null;
+  insuranceCoverPence: number | null;
   insuranceValidUntil: string | null;
   allergenTrainingHeld: boolean;
   allergenTrainingUntil: string | null;
@@ -47,6 +48,7 @@ export interface UpsertVerificationPayload {
   fhrsRating?: number | null;
   fhrsRatingCheckedAt?: string | null;
   insuranceProvider?: string | null;
+  insuranceCoverPence?: number | null;
   insuranceValidUntil?: string | null;
   allergenTrainingHeld: boolean;
   allergenTrainingUntil?: string | null;
@@ -116,6 +118,34 @@ export function useVendorVerification(vendorId: string) {
   });
 }
 
+export interface VendorOnboardingStep {
+  name: string;
+  label: string;
+  state: 'not_started' | 'in_progress' | 'submitted' | 'verified' | 'rejected';
+  complete: boolean;
+  blocksProgress: boolean;
+  blocksPublication: boolean;
+  sourceCitation: string;
+}
+
+export interface VendorOnboardingReadiness {
+  vendorId: string;
+  canProgress: boolean;
+  canProfileGoLive: boolean;
+  blockingProgress: VendorOnboardingStep[];
+  blockingPublication: VendorOnboardingStep[];
+  steps: VendorOnboardingStep[];
+}
+
+export function useVendorOnboardingReadiness(vendorId: string) {
+  const { request, ready } = useApi();
+  return useQuery({
+    queryKey: ['admin', 'vendor', vendorId, 'onboarding-readiness'],
+    enabled: ready && Boolean(vendorId),
+    queryFn: () => request<VendorOnboardingReadiness>(`/vendors/${vendorId}/onboarding-readiness`),
+  });
+}
+
 export function useUpsertVerification(vendorId: string) {
   const { request } = useApi();
   const qc = useQueryClient();
@@ -127,6 +157,9 @@ export function useUpsertVerification(vendorId: string) {
       }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['admin', 'vendor', vendorId, 'verification'] });
+      void qc.invalidateQueries({
+        queryKey: ['admin', 'vendor', vendorId, 'onboarding-readiness'],
+      });
       void qc.invalidateQueries({ queryKey: ['admin', 'compliance', 'verification-summary'] });
     },
   });

@@ -6,16 +6,29 @@ import { apiRequest } from '@/lib/api/client';
 import { useAccessToken } from '@/lib/auth/use-access-token';
 
 export interface OnboardingProgress {
-  profileComplete: boolean;
-  documentsComplete: boolean;
-  stripeComplete: boolean;
-  menuComplete: boolean;
-  deliveryComplete: boolean;
-  /** Count of currently-available menu items (menu step needs >= 3). */
-  menuItemCount: number;
-  allComplete: boolean;
-  completedCount: number;
-  totalSteps: number;
+  vendorId: string;
+  canProgress: boolean;
+  canProfileGoLive: boolean;
+  blockingProgress: OnboardingStep[];
+  blockingPublication: OnboardingStep[];
+  steps: OnboardingStep[];
+}
+
+export type OnboardingStepState =
+  | 'not_started'
+  | 'in_progress'
+  | 'submitted'
+  | 'verified'
+  | 'rejected';
+
+export interface OnboardingStep {
+  name: string;
+  label: string;
+  state: OnboardingStepState;
+  complete: boolean;
+  blocksProgress: boolean;
+  blocksPublication: boolean;
+  sourceCitation: string;
 }
 
 /**
