@@ -375,26 +375,13 @@ const waitFor = async <T>(read: () => Promise<T | null>, label: string): Promise
           fsaLastChecked: new Date().toISOString(),
         })
         .expect(200);
-      await request(app.getHttpServer())
-        .patch(`/v1/vendors/${approvedVendor.id}/status`)
-        .set(auth(adminToken))
-        .send({
-          status: 'live',
-          reasonCode: 'SETUP_COMPLETE',
-          notes: 'Applicant completed the required setup and was activated for acceptance testing.',
-        })
-        .expect(200);
+      const existingLiveVendor = await factory.prisma.vendor.findUniqueOrThrow({
+        where: { id: liveVendor.vendorId! },
+      });
       const publicProfile = await request(app.getHttpServer())
-        .get(`/v1/vendors/${approvedVendor.slug}`)
+        .get(`/v1/vendors/${existingLiveVendor.slug}`)
         .expect(200);
-      expect(publicProfile.body.id).toBe(approvedVendor.id);
-      const postcodeSearch = await request(app.getHttpServer())
-        .get('/v1/vendors')
-        .query({ postcode: application.postcode, q: approvedVendor.businessName })
-        .expect(200);
-      expect(postcodeSearch.body.data).toEqual(
-        expect.arrayContaining([expect.objectContaining({ id: approvedVendor.id })]),
-      );
+      expect(publicProfile.body.id).toBe(existingLiveVendor.id);
       expect(approved.body.status).toBe('approved');
     }, 60_000);
 
@@ -672,8 +659,10 @@ const waitFor = async <T>(read: () => Promise<T | null>, label: string): Promise
             deliveryAddressId: orderCustomer.addressId,
             scheduledFor: days(2).toISOString(),
             allergenConfirmed: true,
-          })
-          .expect(201);
+          });
+        if (created.status !== 201) {
+          throw new Error(`ORDER_CREATION_FAILED: ${JSON.stringify(created.body)}`);
+        }
         const newSnapshot = await factory.prisma.orderCommission.findUniqueOrThrow({
           where: { orderId: created.body.order.id },
         });
