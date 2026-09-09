@@ -20,6 +20,10 @@ function application(overrides: Record<string, unknown> = {}) {
     foodStory: 'Family recipes',
     hasFsaRegistration: false,
     hygieneRegNumber: null,
+    submittedAt: new Date(),
+    cuisineTypes: ['Nigerian'],
+    occasionSlugs: ['weddings'],
+    menuPhotoPath: 'applications/menu.jpg',
     ...overrides,
   };
 }
@@ -51,7 +55,7 @@ function setup(app = application(), last: { createdAt: Date } | null = null) {
 }
 
 describe('AdminService supply-pipeline information requests', () => {
-  it('detects missing FSA/hygiene and required fields, persists actor/request/audit, and emails applicant', async () => {
+  it('detects missing application fields, persists actor/request/audit, and emails applicant', async () => {
     const { service, tx, email } = setup(application({ phone: '', foodStory: '' }));
 
     const result = await service.requestVendorApplicationInformation(APP_ID, ACTOR_ID, {
@@ -59,14 +63,7 @@ describe('AdminService supply-pipeline information requests', () => {
       message: 'Please send the requested evidence.',
     });
 
-    expect(result.requestedItems).toEqual(
-      expect.arrayContaining([
-        'bank details',
-        'your FSA / food hygiene registration number',
-        'phone number',
-        'food story',
-      ]),
-    );
+    expect(result.requestedItems).toEqual(expect.arrayContaining(['bank details', 'phone number']));
     expect(tx.vendorApplicationInfoRequest.create).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ applicationId: APP_ID, actorId: ACTOR_ID }),

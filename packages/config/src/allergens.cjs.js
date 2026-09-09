@@ -18,6 +18,23 @@ const ALLERGEN_FREE_SLUGS = [
   'sulphur-dioxide',
 ];
 
+const ALLERGEN_LABELS = [
+  'Celery',
+  'Cereals containing gluten',
+  'Crustaceans',
+  'Eggs',
+  'Fish',
+  'Lupin',
+  'Milk',
+  'Molluscs',
+  'Mustard',
+  'Nuts',
+  'Peanuts',
+  'Sesame seeds',
+  'Soya',
+  'Sulphur dioxide and sulphites',
+];
+
 const ALLERGEN_FREE_SLUG_SET = new Set(ALLERGEN_FREE_SLUGS);
 
 const DIETARY_PREFERENCE_SLUGS = ['vegan', 'vegetarian'];
@@ -35,6 +52,7 @@ const ALLERGEN_DISCLAIMER_SHORT =
   'Vendor-declared, not verified by Feastpot. Always confirm with the vendor.';
 
 exports.ALLERGEN_FREE_SLUGS = ALLERGEN_FREE_SLUGS;
+exports.ALLERGEN_LABELS = ALLERGEN_LABELS;
 exports.ALLERGEN_FREE_SLUG_SET = ALLERGEN_FREE_SLUG_SET;
 exports.DIETARY_PREFERENCE_SLUGS = DIETARY_PREFERENCE_SLUGS;
 exports.DIETARY_PREFERENCE_SLUG_SET = DIETARY_PREFERENCE_SLUG_SET;

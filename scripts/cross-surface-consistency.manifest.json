@@ -1,0 +1,210 @@
+{
+  "expectedProjects": ["cross-surface-consistency"],
+  "requiredTests": [
+    { "id": "D1", "project": "cross-surface-consistency" },
+    { "id": "D2", "project": "cross-surface-consistency" },
+    { "id": "D3", "project": "cross-surface-consistency" },
+    { "id": "D4", "project": "cross-surface-consistency" },
+    { "id": "D5", "project": "cross-surface-consistency" }
+  ],
+  "partA": {
+    "expectedProjects": ["part-a-platform-facts"],
+    "requiredTests": [
+      { "id": "A1", "project": "part-a-platform-facts" },
+      { "id": "A2", "project": "part-a-platform-facts" },
+      { "id": "A3", "project": "part-a-platform-facts" }
+    ]
+  },
+  "jest": {
+    "requiredTests": [
+      {
+        "file": "apps/api/src/e2e/admin-action-propagation.spec.ts",
+        "title": "approves an applicant, who can sign in to the vendor setup contract, while a live vendor is customer-discoverable"
+      },
+      {
+        "file": "apps/api/src/e2e/admin-action-propagation.spec.ts",
+        "title": "propagates suspension and low FHRS to the public customer search and provides a vendor reason/appeal contract"
+      },
+      {
+        "file": "apps/api/src/e2e/admin-action-propagation.spec.ts",
+        "title": "marks an expiring document renewal-due, then suspends it after day seven and removes its customer listing"
+      },
+      {
+        "file": "apps/api/src/e2e/admin-action-propagation.spec.ts",
+        "title": "publishes terms and commission notices into the vendor contract, preserving historical order commission snapshots"
+      },
+      {
+        "file": "apps/api/src/e2e/admin-action-propagation.spec.ts",
+        "title": "prompts the vendor to re-accept once the published material terms become effective"
+      },
+      {
+        "file": "apps/api/src/e2e/admin-action-propagation.spec.ts",
+        "title": "applies the newly effective commission to a new order without rewriting the earlier order snapshot"
+      },
+      {
+        "file": "apps/api/src/e2e/admin-action-propagation.spec.ts",
+        "title": "refunds through the admin API and exposes the customer status, vendor payout deduction, and balanced ledger pair"
+      },
+      {
+        "file": "apps/api/src/e2e/admin-action-propagation.spec.ts",
+        "title": "makes approval public, keeps rejection private with its reason, and propagates dispute outcomes to both contracts"
+      },
+      {
+        "file": "apps/api/src/e2e/cross-surface-reverse-propagation.spec.ts",
+        "title": "carries an uncovered-postcode signup from the public form to the admin coverage waitlist"
+      },
+      {
+        "file": "apps/api/src/e2e/cross-surface-reverse-propagation.spec.ts",
+        "title": "carries a public catering enquiry to operations with its new-enquiry SLA clock intact"
+      },
+      {
+        "file": "apps/api/src/e2e/cross-surface-reverse-propagation.spec.ts",
+        "title": "carries a customer review to the operations moderation queue"
+      },
+      {
+        "file": "apps/api/src/e2e/cross-surface-reverse-propagation.spec.ts",
+        "title": "carries a vendor document to the compliance receiving surface using test-mode storage"
+      },
+      {
+        "file": "apps/api/src/e2e/cross-surface-reverse-propagation.spec.ts",
+        "title": "carries a vendor-created item to the menu moderation queue"
+      },
+      {
+        "file": "apps/api/src/e2e/cross-surface-reverse-propagation.spec.ts",
+        "title": "carries a failed notification job to the administrator dead-letter surface"
+      },
+      {
+        "file": "apps/api/src/e2e/cross-surface-reverse-propagation.spec.ts",
+        "title": "carries a test-mode Stripe dispute delivery to finance chargebacks with its evidence deadline"
+      }
+    ]
+  },
+  "truthfulness": {
+    "percentageConsumers": [
+      "apps/admin/src/app/analytics/analytics-client.tsx",
+      "apps/admin/src/app/catering/catering-client.tsx",
+      "apps/admin/src/app/commission-rates/commission-rates-client.tsx",
+      "apps/admin/src/app/dashboard-client.tsx",
+      "apps/admin/src/app/feastpass-health/feastpass-health-client.tsx",
+      "apps/admin/src/app/legal/coverage/coverage-client.tsx",
+      "apps/admin/src/app/legal/legal-client.tsx",
+      "apps/admin/src/app/legal/notices/notices-client.tsx",
+      "apps/admin/src/app/orders/orders-client.tsx",
+      "apps/admin/src/app/payouts/payouts-client.tsx"
+    ],
+    "percentageDisplayExclusions": [
+      {
+        "path": "apps/admin/src/app/vendors/[id]/vendor-detail-client.tsx",
+        "expression": "`${(vendor.commissionBps / 100).toFixed(2)}%`",
+        "reason": "A configured commission rate defines a contractual per-100 rate; it is not an observed metric."
+      },
+      {
+        "path": "apps/admin/src/app/disputes/disputes-client.tsx",
+        "expression": "pct",
+        "reason": "The displayed delta is explicitly labelled against the prior 30-day dispute-count denominator."
+      },
+      {
+        "path": "apps/admin/src/app/commission-rates/commission-rates-client.tsx",
+        "expression": "r.ratePercent",
+        "reason": "A configured commission rate defines a contractual per-100 rate; it is not an observed metric."
+      },
+      {
+        "path": "apps/admin/src/app/catering-bookings/catering-bookings-client.tsx",
+        "expression": "b.commissionPercent",
+        "reason": "The booking commission is a snapshotted contractual per-100 rate, not an observed metric."
+      },
+      {
+        "path": "apps/admin/src/app/catering-bookings/catering-bookings-client.tsx",
+        "expression": "`${formatPounds(b.commissionPence)} (${b.commissionPercent}%)`",
+        "reason": "The booking commission is a snapshotted contractual per-100 rate alongside its monetary value."
+      },
+      {
+        "path": "apps/admin/src/app/catering/catering-client.tsx",
+        "expression": "commissionFacts.vendorReferred",
+        "reason": "This is a configured contractual per-100 commission rate, not a measured operational ratio."
+      },
+      {
+        "path": "apps/admin/src/app/catering/catering-client.tsx",
+        "expression": "commissionFacts.marketplaceRepeat",
+        "reason": "This is a configured contractual per-100 commission rate, not a measured operational ratio."
+      },
+      {
+        "path": "apps/admin/src/app/catering/catering-client.tsx",
+        "expression": "commissionFacts.marketplaceFirst",
+        "reason": "This is a configured contractual per-100 commission rate, not a measured operational ratio."
+      },
+      {
+        "path": "apps/admin/src/app/catering/catering-client.tsx",
+        "expression": "b.commissionPercent",
+        "reason": "The booking commission is a snapshotted contractual per-100 rate, not an observed metric."
+      },
+      {
+        "path": "apps/admin/src/app/catering/catering-client.tsx",
+        "expression": "`${formatPounds(b.commissionPence)} (${b.commissionPercent}%)`",
+        "reason": "The booking commission is a snapshotted contractual per-100 rate alongside its monetary value."
+      },
+      {
+        "path": "apps/admin/src/components/platform-facts.tsx",
+        "expression": "facts.cateringPolicy.depositPercent",
+        "reason": "The catering deposit is a configured contractual per-100 rate, not a measured operational ratio."
+      },
+      {
+        "path": "apps/admin/src/components/platform-facts.tsx",
+        "expression": "tier.refundPercent",
+        "reason": "A cancellation tier defines a contractual per-100 refund rate, not an observed operational ratio."
+      },
+      {
+        "path": "apps/admin/src/components/platform-facts.tsx",
+        "expression": "`${facts.commissionRates.marketplaceFirst}%`",
+        "reason": "This platform fact is a configured contractual per-100 commission rate, not an observed metric."
+      },
+      {
+        "path": "apps/admin/src/components/platform-facts.tsx",
+        "expression": "`${facts.commissionRates.marketplaceRepeat}%`",
+        "reason": "This platform fact is a configured contractual per-100 commission rate, not an observed metric."
+      },
+      {
+        "path": "apps/admin/src/components/platform-facts.tsx",
+        "expression": "`${facts.commissionRates.vendorReferred}%`",
+        "reason": "This platform fact is a configured contractual per-100 commission rate, not an observed metric."
+      },
+      {
+        "path": "apps/admin/src/components/platform-facts.tsx",
+        "expression": "`${facts.commissionRates.catering}%`",
+        "reason": "This platform fact is a configured contractual per-100 commission rate, not an observed metric."
+      },
+      {
+        "path": "apps/admin/src/components/platform-facts.tsx",
+        "expression": "`${facts.customerServiceFee.percent}%`",
+        "reason": "The service fee is a configured contractual per-100 rate, not a measured operational ratio."
+      }
+    ],
+    "idDisplayExclusions": [],
+    "auditActorExclusions": [
+      {
+        "action": "refund_reconciled_external",
+        "reason": "Stripe-originated reconciliation is an automated webhook action and has no authenticated human actor."
+      },
+      {
+        "action": "transfer_reversal_created",
+        "reason": "The transfer reversal is an automated consequence of a Stripe-originated external refund."
+      },
+      {
+        "action": "refund_failed_compensated",
+        "reason": "Refund failure compensation is performed by the background reconciler rather than a privileged user."
+      },
+      {
+        "action": "vendor_clawback_debt",
+        "reason": "Operational debt is recorded automatically after an asynchronous transfer reversal failure."
+      },
+      {
+        "action": "transfer_reversal_compensated",
+        "reason": "The scheduled reconciliation worker retries this reversal without an authenticated human actor."
+      },
+      {
+        "action": "vendor.stripe_account_updated",
+        "reason": "This account status update represents an inbound Stripe webhook and has no authenticated human actor."
+      }
+    ]
+  }
+}

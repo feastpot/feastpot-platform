@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@feastpot/ui';
 
 import { useAdminCoverage, useAdminLegalAlerts } from '@/hooks/use-legal';
 import { formatDateTime } from '@/lib/format';
-import { formatRatio } from '@/lib/format-ratio';
+import { formatRatio, ratioStatusClass } from '@/lib/format-ratio';
 
 function AlertBadge({ count, label, href }: { count: number; label: string; href: string }) {
   if (count === 0) return null;
@@ -96,15 +96,14 @@ export function LegalDashboardClient() {
         <CardContent>
           <div className="flex items-end gap-4">
             <div
-              className={`text-5xl font-bold tabular-nums ${
-                !hasCoverageData
-                  ? 'text-muted-foreground'
-                  : coveragePct === 100
-                    ? 'text-green-600'
-                    : coveragePct >= 95
-                      ? 'text-amber-500'
-                      : 'text-destructive'
-              }`}
+              className={`text-5xl font-bold tabular-nums ${ratioStatusClass(
+                totalActive,
+                coveragePct === 100
+                  ? 'text-green-600'
+                  : coveragePct >= 95
+                    ? 'text-amber-500'
+                    : 'text-destructive',
+              )}`}
             >
               {isCoveragePending ? '-' : formatRatio(onCurrentCount, totalActive, 0)}
             </div>
@@ -120,13 +119,15 @@ export function LegalDashboardClient() {
             <>
               <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-muted">
                 <div
-                  className={`h-full rounded-full transition-all ${
+                  className={`h-full rounded-full transition-all ${ratioStatusClass(
+                    totalActive,
                     coveragePct === 100
                       ? 'bg-green-500'
                       : coveragePct >= 95
                         ? 'bg-amber-400'
-                        : 'bg-destructive'
-                  }`}
+                        : 'bg-destructive',
+                    'bg-muted',
+                  )}`}
                   style={{ width: `${coveragePct}%` }}
                 />
               </div>

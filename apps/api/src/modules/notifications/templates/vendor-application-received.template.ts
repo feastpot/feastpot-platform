@@ -9,12 +9,13 @@ export interface VendorApplicationReceivedData {
   postcode: string;
   cuisineType: string;
   kitchenType: string;
-  hasFsaRegistration: boolean;
-  hygieneRegNumber: string;
+  hasFsaRegistration?: boolean;
+  hygieneRegNumber?: string | null;
   deliveryRadiusMiles?: number | null;
   orderTypes?: string[] | null;
   foodStory: string;
   instagram?: string | null;
+  menuPhotoUrl?: string | null;
   adminUrl: string;
 }
 
@@ -35,8 +36,6 @@ export function vendorApplicationReceivedTemplate(data: VendorApplicationReceive
     ['Postcode', data.postcode],
     ['Cuisine type', data.cuisineType],
     ['Kitchen type', data.kitchenType],
-    ['FSA registered', data.hasFsaRegistration ? 'Yes' : 'No'],
-    ['Hygiene registration number', data.hygieneRegNumber],
     [
       'Delivery radius',
       data.deliveryRadiusMiles != null ? `${data.deliveryRadiusMiles} miles` : 'Not provided',
@@ -48,7 +47,12 @@ export function vendorApplicationReceivedTemplate(data: VendorApplicationReceive
         : 'Not provided',
     ],
     ['Instagram', data.instagram ? `@${data.instagram}` : 'Not provided'],
+    ['Menu photo', data.menuPhotoUrl ?? 'Not provided'],
   ];
+  if (data.hasFsaRegistration !== undefined) {
+    rows.push(['FSA registered', data.hasFsaRegistration ? 'Yes' : 'No']);
+  }
+  if (data.hygieneRegNumber) rows.push(['Hygiene registration number', data.hygieneRegNumber]);
 
   const tableHtml = `
     <table style="width:100%;border-collapse:separate;border-spacing:0 4px;margin:16px 0;font-size:14px">

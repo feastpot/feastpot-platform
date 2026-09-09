@@ -365,12 +365,16 @@ export class VendorRepository {
         AND v.is_seed_data = false
         AND v.approved_at IS NOT NULL
         AND v.suspended_at IS NULL
-        -- FSA compliance gate (Prompt 13 / PLATFORM_FACTS.vendorRequirements item 3).
-        -- Only RATED vendors with fsa_hygiene_rating >= 3 are visible to customers.
-        -- A REGISTERED_AWAITING_INSPECTION vendor can complete all onboarding steps
-        -- but must never appear in customer search even if VendorStatus is live.
-        AND v.compliance_status::text = 'RATED'
-        AND v.fsa_hygiene_rating >= 3
+        -- Food-business registration is the publication gate. A vendor awaiting
+        -- their first FHRS inspection may publish; once a rating exists it must
+        -- be at least 3, as required by Vendor Terms clauses 2 and 10.
+        AND (
+          v.compliance_status::text = 'REGISTERED_AWAITING_INSPECTION'
+          OR (
+            v.compliance_status::text = 'RATED'
+            AND v.fsa_hygiene_rating >= 3
+          )
+        )
         ${cursorClause}
         ${cuisineClause}
         ${halalClause}

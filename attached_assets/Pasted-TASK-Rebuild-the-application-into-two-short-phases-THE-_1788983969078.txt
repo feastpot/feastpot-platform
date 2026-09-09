@@ -1,0 +1,75 @@
+TASK: Rebuild the application into two short phases.
+
+THE MEASURED PROBLEM
+Vendor acquisition analytics: 24 page views, 24 calculator
+uses (100%), 7 application starts (29.2%), 2 applications in
+the admin queue. So 71% never start, and most who start do
+not finish. Everyone who lands is engaged enough to use the
+calculator, so the pitch works. The form is where they go.
+
+PHASE 1: THE HOOK, TARGET UNDER 20 SECONDS
+Fields, and nothing more:
+  first name
+  email
+  mobile number
+  postcode
+On submit, create the lead record immediately. From this
+moment the applicant is recoverable even if they never return
+(see VO-05). Do not require account creation to reach this
+point.
+
+Above the form, state the commercial hook using LIVE RATES
+from the rate engine, never hardcoded. The strongest true
+line available is that vendors pay nothing on customers they
+bring themselves. Lead with that, then the marketplace rates.
+No upfront fee, no monthly fee, weekly payouts.
+
+PHASE 2: CREATION, TARGET UNDER 2 MINUTES
+  kitchen or business name
+  cuisine type (multi-select, African and Caribbean
+    sub-cuisines, plus other)
+  menu upload (see VO-03), including the "I do not have a
+    formatted menu, build it from my photo" option
+  which occasions they want to cook for (reuse the existing
+    occasion taxonomy)
+Show a live preview of their emerging profile as they type.
+Seeing their own storefront take shape is what creates the
+incentive to finish.
+
+MOVE OUT OF THE APPLICATION ENTIRELY
+These currently appear too early and are a likely cause of
+mid-form abandonment. Both current applications sit stuck at
+FSA "Missing", one since 18 June:
+  FSA registration number
+  hygiene rating
+  insurance certificate
+  food safety certificate
+  photo ID
+  bank details
+  tax information
+All move to post-approval verification (VO-04, VO-05). None
+is required to submit an application.
+
+SAVE AND RESUME
+Persist after every field, not on submit. If the applicant
+leaves at any point, they can return via a magic link and
+land exactly where they stopped. State this on screen so they
+know it is safe to stop.
+
+MOBILE FIRST
+Most cooks will apply on a phone, likely from an Instagram
+link. Test the whole flow at 375px. One question group per
+screen, large tap targets, numeric keypad for the phone
+field, postcode lookup rather than free text where possible.
+
+ACCESSIBILITY
+WCAG 2.2 AA. Labels not placeholders. Errors announced.
+Fully keyboard navigable.
+
+ACCEPTANCE CRITERIA
+- Phase 1 completes in under 20 seconds on a phone.
+- A lead record exists after Phase 1 regardless of what
+  follows.
+- No compliance field appears before approval.
+- Abandoning mid-form and returning restores exact position.
+- The commercial hook reads from the rate engine.

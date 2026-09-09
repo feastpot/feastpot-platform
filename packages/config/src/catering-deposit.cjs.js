@@ -4,6 +4,11 @@
 
 const MINIMUM_CATERING_QUOTE_PENCE = 5000;
 const CATERING_DEPOSIT_PERCENT = 25;
+const CATERING_CANCELLATION_TIERS = [
+  { minimumDaysBeforeEvent: 14, refundPercent: 100 },
+  { minimumDaysBeforeEvent: 8, refundPercent: 50 },
+  { minimumDaysBeforeEvent: 0, refundPercent: 0 },
+];
 
 class CateringDepositPolicyError extends Error {
   constructor(message) {
@@ -72,6 +77,7 @@ function calculateCateringQuoteExpiry(eventDate, now = new Date()) {
 
 exports.MINIMUM_CATERING_QUOTE_PENCE = MINIMUM_CATERING_QUOTE_PENCE;
 exports.CATERING_DEPOSIT_PERCENT = CATERING_DEPOSIT_PERCENT;
+exports.CATERING_CANCELLATION_TIERS = CATERING_CANCELLATION_TIERS;
 exports.CateringDepositPolicyError = CateringDepositPolicyError;
 exports.assertCateringDepositInvariant = assertCateringDepositInvariant;
 exports.calculateCateringDeposit = calculateCateringDeposit;

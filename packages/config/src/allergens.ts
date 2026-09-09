@@ -34,6 +34,24 @@ export const ALLERGEN_FREE_SLUGS = [
 
 export type AllergenFreeSlug = (typeof ALLERGEN_FREE_SLUGS)[number];
 
+/** Exact customer-facing labels, in the same order as ALLERGEN_FREE_SLUGS. */
+export const ALLERGEN_LABELS = [
+  'Celery',
+  'Cereals containing gluten',
+  'Crustaceans',
+  'Eggs',
+  'Fish',
+  'Lupin',
+  'Milk',
+  'Molluscs',
+  'Mustard',
+  'Nuts',
+  'Peanuts',
+  'Sesame seeds',
+  'Soya',
+  'Sulphur dioxide and sulphites',
+] as const;
+
 /** O(1) membership guard used in DTO validation and repository. */
 export const ALLERGEN_FREE_SLUG_SET: ReadonlySet<string> = new Set(ALLERGEN_FREE_SLUGS);
 

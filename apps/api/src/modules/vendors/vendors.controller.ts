@@ -54,6 +54,10 @@ import {
   StripeConnectLinkResponseDto,
   VendorAnalyticsResponseDto,
 } from './dto/vendor-analytics.dto';
+import {
+  CreateVendorApplicationDraftDto,
+  UpdateVendorApplicationDraftDto,
+} from './dto/vendor-application-draft.dto';
 import { VendorStatsResponseDto } from './dto/vendor-stats.dto';
 import {
   getCapacityForVendors,
@@ -120,6 +124,73 @@ export class VendorsController {
   })
   registerInterest(@Body() dto: RegisterVendorInterestDto, @Headers('x-fp-ref') fpRef?: string) {
     return this.vendors.registerInterest(dto, fpRef);
+  }
+
+  @Public()
+  @Post('application-drafts')
+  @ApiOperation({ summary: 'Create a recoverable vendor application after the short first phase' })
+  createApplicationDraft(
+    @Body() dto: CreateVendorApplicationDraftDto,
+    @Headers('x-fp-ref') fpRef?: string,
+  ) {
+    return this.vendors.createApplicationDraft(dto, fpRef);
+  }
+
+  @Public()
+  @Get('application-drafts/:token')
+  @ApiOperation({ summary: 'Resume a vendor application using its private opaque token' })
+  getApplicationDraft(@Param('token') token: string) {
+    return this.vendors.getApplicationDraft(token);
+  }
+
+  @Public()
+  @Patch('application-drafts/:token')
+  @ApiOperation({ summary: 'Persist one or more fields in an application draft' })
+  updateApplicationDraft(
+    @Param('token') token: string,
+    @Body() dto: UpdateVendorApplicationDraftDto,
+  ) {
+    return this.vendors.updateApplicationDraft(token, dto);
+  }
+
+  @Public()
+  @Post('application-drafts/:token/menu-photo')
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+      required: ['file'],
+    },
+  })
+  @ApiOperation({ summary: 'Upload the menu image attached to an anonymous application draft' })
+  async uploadApplicationDraftMenuPhoto(
+    @Param('token') token: string,
+    @UploadedFile(
+      new ParseFilePipe({
+        validators: [
+          new MaxFileSizeValidator({ maxSize: 5 * 1024 * 1024 }),
+          new FileTypeValidator({ fileType: /image\/(jpeg|png|webp)/ }),
+        ],
+      }),
+    )
+    file: Express.Multer.File,
+  ) {
+    const draft = await this.vendors.getApplicationDraft(token);
+    const uploaded = await this.storage.uploadVendorApplicationMenuImage({
+      applicationId: draft.id,
+      file,
+    });
+    return this.vendors.attachApplicationDraftMenuPhoto(token, uploaded.path, uploaded.publicUrl);
+  }
+
+  @Public()
+  @Post('application-drafts/:token/submit')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Submit a completed draft into the Admin application queue' })
+  submitApplicationDraft(@Param('token') token: string) {
+    return this.vendors.submitApplicationDraft(token);
   }
 
   @Get('me')
@@ -227,6 +298,14 @@ export class VendorsController {
   })
   getMyOnboardingProgress(@CurrentUser() user: AuthUser | null) {
     return this.vendors.getOnboardingProgress(requireUser(user).id);
+  }
+
+  @Get(':id/onboarding-readiness')
+  @ApiBearerAuth()
+  @Roles(UserRole.admin, UserRole.compliance, UserRole.support)
+  @ApiOperation({ summary: 'Derived vendor go-live readiness and cited gate checklist' })
+  getVendorOnboardingReadiness(@Param('id', new ParseUUIDPipe()) id: string) {
+    return this.vendors.getOnboardingReadiness(id);
   }
 
   @Get('me/analytics')

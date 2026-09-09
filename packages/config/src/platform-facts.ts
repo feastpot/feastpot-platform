@@ -11,6 +11,8 @@
  *      must not render a WhatsApp link when this is null.
  */
 import { COMMISSION_RATES } from './commission-rates';
+import { ALLERGEN_LABELS } from './allergens';
+import { CATERING_CANCELLATION_TIERS, CATERING_DEPOSIT_PERCENT } from './catering-deposit';
 
 export const PLATFORM_FACTS = {
   /**
@@ -144,3 +146,32 @@ export const PLATFORM_FACTS = {
 export function penceToPounds(pence: number): string {
   return (pence / 100).toFixed(2);
 }
+
+/**
+ * The public nine-fact contract. The terms version is deliberately supplied by
+ * the caller because it is live data, while every other value comes from the
+ * canonical engine configuration above.
+ */
+export function buildPlatformFactsModel(vendorTermsVersion: string) {
+  return {
+    commissionRates: PLATFORM_FACTS.commission,
+    customerServiceFee: PLATFORM_FACTS.serviceFee,
+    feastPassPricing: PLATFORM_FACTS.feastPass,
+    cateringPolicy: {
+      depositPercent: CATERING_DEPOSIT_PERCENT,
+      cancellationTiers: CATERING_CANCELLATION_TIERS,
+    },
+    payoutSchedule: PLATFORM_FACTS.payouts,
+    vendorEligibilityRequirements: PLATFORM_FACTS.vendorRequirements,
+    currentVendorTermsVersion: vendorTermsVersion,
+    support: {
+      hours: PLATFORM_FACTS.support.hours,
+      email: PLATFORM_FACTS.support.email,
+      complianceEmail: PLATFORM_FACTS.contact.complianceEmail,
+      appealsEmail: PLATFORM_FACTS.contact.appealsEmail,
+    },
+    allergens: ALLERGEN_LABELS,
+  } as const;
+}
+
+export type PlatformFactsModel = ReturnType<typeof buildPlatformFactsModel>;

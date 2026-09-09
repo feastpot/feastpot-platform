@@ -110,9 +110,8 @@ export function VendorApplicationsClient() {
               <TableRow>
                 <TableHead>Kitchen</TableHead>
                 <TableHead>Applicant</TableHead>
-                <TableHead>Cuisine / Kitchen</TableHead>
+                <TableHead>Cuisines</TableHead>
                 <TableHead>Submitted</TableHead>
-                <TableHead>FSA</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
@@ -120,14 +119,14 @@ export function VendorApplicationsClient() {
             <TableBody>
               {isLoading && (
                 <TableRow>
-                  <TableCell colSpan={7} className="py-6 text-center text-sm text-muted-foreground">
+                  <TableCell colSpan={6} className="py-6 text-center text-sm text-muted-foreground">
                     Loading…
                   </TableCell>
                 </TableRow>
               )}
               {!isLoading && rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} className="p-0">
+                  <TableCell colSpan={6} className="p-0">
                     <EmptyState
                       icon={ClipboardList}
                       title="No applications in this state"
@@ -152,17 +151,11 @@ export function VendorApplicationsClient() {
                     <div className="text-xs text-muted-foreground">{a.email}</div>
                   </TableCell>
                   <TableCell>
-                    <div className="text-sm">{a.cuisineType}</div>
-                    <div className="text-xs text-muted-foreground">{a.kitchenType}</div>
+                    <div className="text-sm">
+                      {a.cuisineTypes.length > 0 ? a.cuisineTypes.join(', ') : a.cuisineType}
+                    </div>
                   </TableCell>
                   <TableCell className="text-sm">{formatDate(a.createdAt)}</TableCell>
-                  <TableCell className="text-sm">
-                    {a.hygieneRegNumber ? (
-                      <span className="font-mono text-xs">{a.hygieneRegNumber}</span>
-                    ) : (
-                      <span className="font-medium text-destructive">Missing</span>
-                    )}
-                  </TableCell>
                   <TableCell>
                     <StatusPill tone={STATUS_TONE[a.status]}>{STATUS_LABEL[a.status]}</StatusPill>
                   </TableCell>

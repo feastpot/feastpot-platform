@@ -1,3 +1,5 @@
+import { createHash, randomBytes } from 'crypto';
+
 import { InjectQueue } from '@nestjs/bull';
 import {
   BadRequestException,
@@ -15,6 +17,7 @@ import type { Queue } from 'bull';
 import type { AuthUser } from '../../auth/types';
 import { RedisCacheService } from '../../common/cache/redis-cache.service';
 import { getServiceFeeBps } from '../../common/config/service-fee';
+import { normalisePostcode } from '../../common/postcode.util';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NOTIFICATIONS_QUEUE } from '../../queues/queues.module';
 import { StripeService } from '../../stripe/stripe.service';
@@ -24,6 +27,7 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { EmailProvider } from '../notifications/providers/email.provider';
 import { vendorApplicationAcknowledgedTemplate } from '../notifications/templates/vendor-application-acknowledged.template';
 import { vendorApplicationReceivedTemplate } from '../notifications/templates/vendor-application-received.template';
+import { vendorApplicationResumeTemplate } from '../notifications/templates/vendor-application-resume.template';
 import { TermsService } from '../terms/terms.service';
 import {
   VENDOR_AVAILABILITY_ROLES,
@@ -32,7 +36,6 @@ import {
   VENDOR_READ_ROLES,
   VendorMembersService,
 } from '../vendor-members/vendor-members.service';
-import { isTaxProfileComplete } from '../vendor-tax-profile/vendor-tax-profile.service';
 
 import { AddBlackoutDto } from './dto/add-blackout.dto';
 import { CreateVendorDto } from './dto/create-vendor.dto';
@@ -52,8 +55,13 @@ import {
   VendorAnalyticsResponseDto,
   WeeklyRevenueBucketDto,
 } from './dto/vendor-analytics.dto';
+import {
+  CreateVendorApplicationDraftDto,
+  UpdateVendorApplicationDraftDto,
+} from './dto/vendor-application-draft.dto';
 import { VendorDashboardResponseDto } from './dto/vendor-dashboard.dto';
 import { VendorStatsResponseDto } from './dto/vendor-stats.dto';
+import { VendorOnboardingService } from './vendor-onboarding.service';
 import { VendorRepository, type DecodedCursor, type SearchedVendorRow } from './vendors.repository';
 
 const REVENUE_STATUSES_LIST: OrderStatus[] = [
@@ -301,7 +309,296 @@ export class VendorsService {
     private readonly terms: TermsService,
     // Notifications queue for durable retry of vendor-application emails.
     @InjectQueue(NOTIFICATIONS_QUEUE) private readonly queue: Queue,
+    private readonly onboarding: VendorOnboardingService,
   ) {}
+
+  private applicationTokenHash(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
+  private async getActiveApplicationDraft(token: string) {
+    const draft = await this.prisma.vendorApplication.findUnique({
+      where: { resumeTokenHash: this.applicationTokenHash(token) },
+    });
+    if (!draft || !draft.resumeExpiresAt || draft.resumeExpiresAt <= new Date()) {
+      throw new NotFoundException({
+        code: 'APPLICATION_DRAFT_NOT_FOUND',
+        message: 'This application link is invalid or has expired',
+      });
+    }
+    return draft;
+  }
+
+  async createApplicationDraft(dto: CreateVendorApplicationDraftDto, fpRef?: string) {
+    const token = randomBytes(32).toString('base64url');
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const email = dto.email.trim().toLowerCase();
+    let referrerVendorId: string | null = null;
+
+    const referralLinkId = fpRef?.split('|')[0]?.trim();
+    if (referralLinkId) {
+      const link = await this.prisma.vendorReferralLink.findUnique({
+        where: { id: referralLinkId },
+        select: {
+          vendorId: true,
+          vendor: { select: { user: { select: { email: true } } } },
+        },
+      });
+      if (link && link.vendor.user.email.toLowerCase() !== email) {
+        referrerVendorId = link.vendorId;
+      }
+    }
+
+    const draft = await this.prisma.vendorApplication.create({
+      data: {
+        fullName: dto.firstName.trim(),
+        email,
+        phone: dto.mobileNumber.trim(),
+        postcode: normalisePostcode(dto.postcode),
+        // These legacy non-null columns are populated during Phase 2. Empty
+        // draft values never enter the admin queue because submittedAt is null.
+        kitchenName: '',
+        cuisineType: '',
+        kitchenType: 'other',
+        hasFsaRegistration: false,
+        foodStory: '',
+        marketingConsent: false,
+        resumeTokenHash: this.applicationTokenHash(token),
+        resumeExpiresAt: expiresAt,
+        currentStep: 'phase_2_business_name',
+        referrerVendorId,
+      },
+      select: {
+        id: true,
+        fullName: true,
+        email: true,
+        phone: true,
+        postcode: true,
+        currentStep: true,
+        updatedAt: true,
+      },
+    });
+
+    const webBase =
+      this.config.get<string>('WEB_URL') ??
+      this.config.get<string>('CUSTOMER_WEB_URL') ??
+      'https://feastpot.co.uk';
+    const resumeUrl = `${webBase.replace(/\/$/, '')}/become-a-vendor?resume=${encodeURIComponent(token)}`;
+    const message = vendorApplicationResumeTemplate({
+      firstName: draft.fullName,
+      resumeUrl,
+      expiresAt,
+    });
+    try {
+      await this.queue.add(
+        NotificationEvent.vendor_application_email_raw,
+        { to: email, subject: message.subject, html: message.html },
+        {
+          attempts: 3,
+          backoff: { type: 'exponential', delay: 30_000 },
+          removeOnComplete: true,
+          jobId: `vendor-application-resume-${draft.id}`,
+        },
+      );
+    } catch (error) {
+      this.logger.error(
+        `Could not enqueue resume email for application ${draft.id}: ${(error as Error).message}`,
+      );
+    }
+
+    return { ...draft, resumeToken: token, resumeExpiresAt: expiresAt };
+  }
+
+  async getApplicationDraft(token: string) {
+    const draft = await this.getActiveApplicationDraft(token);
+    return {
+      id: draft.id,
+      firstName: draft.fullName,
+      email: draft.email,
+      mobileNumber: draft.phone,
+      postcode: draft.postcode,
+      kitchenName: draft.kitchenName,
+      cuisineTypes: draft.cuisineTypes,
+      occasionSlugs: draft.occasionSlugs,
+      menuPhotoUrl: draft.menuPhotoUrl,
+      menuBuildFromPhoto: draft.menuBuildFromPhoto,
+      currentStep: draft.currentStep,
+      submittedAt: draft.submittedAt,
+      updatedAt: draft.updatedAt,
+    };
+  }
+
+  async updateApplicationDraft(token: string, dto: UpdateVendorApplicationDraftDto) {
+    const draft = await this.getActiveApplicationDraft(token);
+    if (draft.submittedAt) {
+      throw new ConflictException({
+        code: 'APPLICATION_ALREADY_SUBMITTED',
+        message: 'This application has already been submitted',
+      });
+    }
+    const result = await this.prisma.vendorApplication.updateMany({
+      where: { id: draft.id, submittedAt: null, submissionClaimToken: null },
+      data: {
+        ...(dto.kitchenName !== undefined ? { kitchenName: dto.kitchenName.trim() } : {}),
+        ...(dto.cuisineTypes !== undefined
+          ? { cuisineTypes: dto.cuisineTypes, cuisineType: dto.cuisineTypes.join(', ') }
+          : {}),
+        ...(dto.occasionSlugs !== undefined ? { occasionSlugs: dto.occasionSlugs } : {}),
+        ...(dto.menuBuildFromPhoto !== undefined
+          ? { menuBuildFromPhoto: dto.menuBuildFromPhoto }
+          : {}),
+        ...(dto.currentStep !== undefined ? { currentStep: dto.currentStep } : {}),
+      },
+    });
+    if (result.count === 0) {
+      throw new ConflictException({
+        code: 'APPLICATION_ALREADY_SUBMITTED',
+        message: 'This application has already been submitted',
+      });
+    }
+    return this.getApplicationDraft(token);
+  }
+
+  async attachApplicationDraftMenuPhoto(token: string, path: string, previewUrl: string) {
+    const draft = await this.getActiveApplicationDraft(token);
+    if (draft.submittedAt) {
+      throw new ConflictException({
+        code: 'APPLICATION_ALREADY_SUBMITTED',
+        message: 'This application has already been submitted',
+      });
+    }
+    const result = await this.prisma.vendorApplication.updateMany({
+      where: { id: draft.id, submittedAt: null, submissionClaimToken: null },
+      data: { menuPhotoPath: path, menuPhotoUrl: previewUrl },
+    });
+    if (result.count === 0) {
+      throw new ConflictException({
+        code: 'APPLICATION_ALREADY_SUBMITTED',
+        message: 'This application has already been submitted',
+      });
+    }
+    return this.getApplicationDraft(token);
+  }
+
+  async submitApplicationDraft(token: string) {
+    const draft = await this.getActiveApplicationDraft(token);
+    if (draft.submittedAt) {
+      return this.getApplicationDraft(token);
+    }
+
+    const missing = [
+      !draft.kitchenName.trim() && 'kitchen or business name',
+      draft.cuisineTypes.length === 0 && 'cuisine type',
+      !draft.menuPhotoPath && 'menu photo',
+      draft.occasionSlugs.length === 0 && 'occasions',
+    ].filter(Boolean);
+    if (missing.length > 0) {
+      throw new BadRequestException({
+        code: 'APPLICATION_INCOMPLETE',
+        message: `Complete these fields before submitting: ${missing.join(', ')}`,
+      });
+    }
+
+    const now = new Date();
+    const claimToken = createHash('sha256').update(randomBytes(32)).digest('hex');
+    const claim = await this.prisma.vendorApplication.updateMany({
+      where: {
+        id: draft.id,
+        submittedAt: null,
+        OR: [{ submissionClaimToken: null }, { submissionClaimExpiresAt: { lt: now } }],
+      },
+      data: {
+        submissionClaimToken: claimToken,
+        submissionClaimExpiresAt: new Date(now.getTime() + 5 * 60 * 1000),
+      },
+    });
+    if (claim.count === 0) {
+      const current = await this.getApplicationDraft(token);
+      if (current.submittedAt) return current;
+      throw new ConflictException({
+        code: 'APPLICATION_SUBMISSION_CONFLICT',
+        message: 'This application is already being submitted',
+      });
+    }
+    let promotedPath: string | null = null;
+    try {
+      const promotedImage = await this.storage.promoteVendorApplicationMenuImage({
+        applicationId: draft.id,
+        path: draft.menuPhotoPath!,
+      });
+      promotedPath = promotedImage.path;
+      const finalized = await this.prisma.vendorApplication.updateMany({
+        where: { id: draft.id, submissionClaimToken: claimToken, submittedAt: null },
+        data: {
+          submittedAt: new Date(),
+          currentStep: 'submitted',
+          menuPhotoUrl: promotedImage.publicUrl,
+          submissionClaimToken: null,
+          submissionClaimExpiresAt: null,
+        },
+      });
+      if (finalized.count === 0) throw new Error('Application submission claim was lost');
+      await this.storage.removePrivateImage(draft.menuPhotoPath!);
+    } catch (error) {
+      if (promotedPath) await this.storage.removePublicImage(promotedPath);
+      await this.prisma.vendorApplication.updateMany({
+        where: { id: draft.id, submissionClaimToken: claimToken },
+        data: { submissionClaimToken: null, submissionClaimExpiresAt: null },
+      });
+      throw error;
+    }
+    const application = await this.prisma.vendorApplication.findUniqueOrThrow({
+      where: { id: draft.id },
+    });
+
+    const adminEmail =
+      this.config.get<string>('VENDOR_APPLICATIONS_ADMIN_EMAIL') ?? 'soul@feastpot.co.uk';
+    const adminBase = this.config.get<string>('ADMIN_URL') ?? 'https://admin.feastpot.co.uk';
+    const adminMsg = vendorApplicationReceivedTemplate({
+      applicationId: application.id,
+      fullName: application.fullName,
+      kitchenName: application.kitchenName,
+      email: application.email,
+      phone: application.phone,
+      postcode: application.postcode,
+      cuisineType: application.cuisineType,
+      kitchenType: application.kitchenType,
+      orderTypes: application.occasionSlugs,
+      foodStory: application.menuBuildFromPhoto
+        ? 'Applicant wants Feastpot to build the menu from their uploaded photo.'
+        : 'Applicant uploaded a formatted menu.',
+      menuPhotoUrl: application.menuPhotoUrl,
+      adminUrl: `${adminBase}/vendor-applications/${application.id}`,
+    });
+    const applicantMsg = vendorApplicationAcknowledgedTemplate({
+      firstName: application.fullName,
+      kitchenName: application.kitchenName,
+    });
+    const options = {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 30_000 } as const,
+      removeOnComplete: true,
+    };
+    await Promise.allSettled([
+      this.queue.add(
+        NotificationEvent.vendor_application_email_raw,
+        { to: adminEmail, subject: adminMsg.subject, html: adminMsg.html },
+        { ...options, jobId: `vendor-app-admin-${application.id}` },
+      ),
+      this.queue.add(
+        NotificationEvent.vendor_application_email_raw,
+        { to: application.email, subject: applicantMsg.subject, html: applicantMsg.html },
+        { ...options, jobId: `vendor-app-applicant-${application.id}` },
+      ),
+    ]);
+
+    return {
+      id: application.id,
+      status: application.status,
+      kitchenName: application.kitchenName,
+      submittedAt: application.submittedAt,
+    };
+  }
 
   /**
    * T010: resolve the caller's vendor row and assert their effective
@@ -398,6 +695,7 @@ export class VendorsService {
         // not persist a blank version string - we want the current default
         // so legal can correlate the row against the right T&Cs revision.
         acceptedTermsVersion: dto.acceptedTermsVersion?.trim() || '2026-05',
+        submittedAt: new Date(),
         // Referral attribution: written once, never overwritten.
         referrerVendorId,
       },
@@ -1270,40 +1568,11 @@ export class VendorsService {
     // so this matches /vendors/me - querying by userId alone would 404 for
     // non-owner members who can still reach the dashboard + welcome screen.
     const { id: vendorId } = await this.resolveMyVendor(userId, VENDOR_READ_ROLES);
-    const vendor = await this.prisma.vendor.findUnique({
-      where: { id: vendorId },
-      include: {
-        documents: true,
-        deliveryConfig: true,
-      },
-    });
+    return this.onboarding.getReadiness(vendorId);
+  }
 
-    if (!vendor) {
-      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
-    }
-
-    // Onboarding copy promises compliance review once the vendor has at
-    // least 3 items live, so the menu step uses that same threshold (it
-    // previously passed with a single available item, contradicting the UI).
-    const menuItemCount = await this.prisma.menuItem.count({
-      where: { vendorId, isAvailable: true },
-    });
-
-    const steps = {
-      profileComplete: !!(vendor.description && vendor.logoUrl),
-      documentsComplete: vendor.documents.length >= 4,
-      stripeComplete: !!vendor.stripeAccountId && vendor.payoutsEnabled,
-      menuComplete: menuItemCount >= 3,
-      deliveryComplete: !!vendor.deliveryConfig?.latitude,
-    };
-
-    return {
-      ...steps,
-      menuItemCount,
-      allComplete: Object.values(steps).every(Boolean),
-      completedCount: Object.values(steps).filter(Boolean).length,
-      totalSteps: 5,
-    };
+  getOnboardingReadiness(vendorId: string) {
+    return this.onboarding.getReadiness(vendorId);
   }
 
   async create(user: AuthUser, dto: CreateVendorDto) {
@@ -1495,31 +1764,10 @@ export class VendorsService {
       });
     }
 
-    // HMRC SI 2023/817: a vendor cannot go live without a complete tax profile.
-    // This gate applies to both pending→live and approved→live transitions.
+    // Publication eligibility is derived from fresh source evidence. It is
+    // deliberately not stored on Vendor, so it cannot drift from its inputs.
     if (dto.status === VendorStatus.live) {
-      await this.terms.assertAcceptedCurrentVersion(vendorId);
-      const taxProfile = await this.prisma.vendorTaxProfile.findUnique({
-        where: { vendorId },
-        select: {
-          entityType: true,
-          legalName: true,
-          addressLine1: true,
-          city: true,
-          postcode: true,
-          dateOfBirth: true,
-          companyNumber: true,
-          taxIdentifier: true,
-        },
-      });
-      if (!isTaxProfileComplete(taxProfile)) {
-        throw new BadRequestException({
-          code: 'TAX_PROFILE_INCOMPLETE',
-          message:
-            'This vendor cannot go live until their tax information is complete. ' +
-            'Required by the Platform Operators (Due Diligence and Reporting Requirements) Regulations 2023 (SI 2023/817).',
-        });
-      }
+      await this.onboarding.assertCanProfileGoLive(vendorId);
     }
 
     const result = await this.repo.transitionStatus({

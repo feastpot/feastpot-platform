@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
-import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
 
 import { LegalTrustStrip } from '@/components/legal/legal-shell';
 
@@ -111,12 +110,12 @@ const SECTIONS: FaqSection[] = [
       },
       {
         question: 'When do I get paid?',
-        answer: `Vendor payouts run ${PLATFORM_FACTS.payouts.frequency}, every ${PLATFORM_FACTS.payouts.day}, via Stripe Connect. Feastpot deducts a ${COMMISSION_RATES.marketplaceFirst.percent}% first-order marketplace commission from each order subtotal.`,
+        answer:
+          'See the current platform facts below for the payout schedule and commission rates.',
       },
       {
-        // D3 fix: list now matches PLATFORM_FACTS.vendorRequirements including FHRS 3+.
         question: 'What documents do I need to submit?',
-        answer: `To join Feastpot you need: ${PLATFORM_FACTS.vendorRequirements.join('; ')}. The vendor portal walks you through each step.`,
+        answer: 'See the current platform facts below for the complete eligibility document list.',
       },
     ],
   },

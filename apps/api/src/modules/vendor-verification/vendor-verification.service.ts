@@ -171,6 +171,7 @@ export class VendorVerificationService {
       fhrsRatingCheckedAt: dto.fhrsRatingCheckedAt ? new Date(dto.fhrsRatingCheckedAt) : null,
       fhrsInspectionStatus: dto.fhrsInspectionStatus,
       insuranceProvider: dto.insuranceProvider ?? null,
+      insuranceCoverPence: dto.insuranceCoverPence ?? null,
       insuranceValidUntil: dto.insuranceValidUntil ? new Date(dto.insuranceValidUntil) : null,
       allergenTrainingHeld: dto.allergenTrainingHeld,
       allergenTrainingUntil: dto.allergenTrainingUntil ? new Date(dto.allergenTrainingUntil) : null,

@@ -5,6 +5,7 @@ import { CatalogueModule } from '../catalogue/catalogue.module';
 import { TermsModule } from '../terms/terms.module';
 import { VendorMembersModule } from '../vendor-members/vendor-members.module';
 
+import { VendorOnboardingService } from './vendor-onboarding.service';
 import { VendorTrustSignalsController } from './vendor-trust-signals.controller';
 import { VendorsController } from './vendors.controller';
 import { VendorRepository } from './vendors.repository';
@@ -23,9 +24,9 @@ import { VendorsService } from './vendors.service';
   // "Cannot define the same handler twice" at boot.
   imports: [PrismaModule, CatalogueModule, VendorMembersModule, TermsModule],
   controllers: [VendorsController, VendorTrustSignalsController],
-  providers: [VendorsService, VendorRepository],
+  providers: [VendorsService, VendorRepository, VendorOnboardingService],
   // PrismaModule is @Global, so VendorsService can inject PrismaService for stats
   // without re-importing it here.
-  exports: [VendorsService],
+  exports: [VendorsService, VendorOnboardingService],
 })
 export class VendorsModule {}

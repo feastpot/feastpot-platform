@@ -482,9 +482,9 @@ export class AdminService {
         this.prisma.vendorApplication.findMany({
           where: {
             status: { in: IN_FLIGHT_APPLICATION_STATUSES },
-            OR: [{ createdAt: { lt: sla } }, { hygieneRegNumber: null }],
+            submittedAt: { not: null, lt: sla },
           },
-          select: { id: true, kitchenName: true, createdAt: true, hygieneRegNumber: true },
+          select: { id: true, kitchenName: true, submittedAt: true },
           orderBy: { createdAt: 'asc' },
           take: 50,
         }),
@@ -514,17 +514,14 @@ export class AdminService {
         }),
       ]);
       for (const row of applications) {
-        const missing = !row.hygieneRegNumber;
         items.push({
-          kind: missing ? 'vendor_application_missing_fsa' : 'vendor_application_past_sla',
-          title: missing
-            ? `${row.kitchenName} is missing an FSA number`
-            : `${row.kitchenName} application is past SLA`,
+          kind: 'vendor_application_past_sla',
+          title: `${row.kitchenName} application is past SLA`,
           href: `/vendor-applications/${row.id}`,
-          deadline: missing
-            ? null
-            : new Date(row.createdAt.getTime() + 48 * 3_600_000).toISOString(),
-          consequence: missing ? 100 : 85,
+          deadline: row.submittedAt
+            ? new Date(row.submittedAt.getTime() + 48 * 3_600_000).toISOString()
+            : null,
+          consequence: 85,
         });
       }
       for (const row of documents) {
@@ -573,7 +570,7 @@ export class AdminService {
         this.prisma.vendorApplication.count({
           where: {
             status: { in: IN_FLIGHT_APPLICATION_STATUSES },
-            OR: [{ createdAt: { lt: sla } }, { hygieneRegNumber: null }],
+            submittedAt: { not: null, lt: sla },
           },
         }),
         this.prisma.vendorDocument.count({
@@ -1472,6 +1469,7 @@ export class AdminService {
     const rows = await this.prisma.vendorApplication.findMany({
       where: {
         ...(status ? { status } : { status: { in: IN_FLIGHT_APPLICATION_STATUSES } }),
+        submittedAt: { not: null },
         ...(includeTestData ? {} : { isTestData: false }),
       },
       orderBy: { createdAt: 'desc' },
@@ -1494,6 +1492,7 @@ export class AdminService {
       phone: r.phone,
       postcode: r.postcode,
       cuisineType: r.cuisineType,
+      cuisineTypes: r.cuisineTypes,
       kitchenType: r.kitchenType,
       hasFsaRegistration: r.hasFsaRegistration,
       hygieneRegNumber: r.hygieneRegNumber,
@@ -1510,8 +1509,8 @@ export class AdminService {
   }
 
   async getVendorApplication(id: string) {
-    const row = await this.prisma.vendorApplication.findUnique({
-      where: { id },
+    const row = await this.prisma.vendorApplication.findFirst({
+      where: { id, submittedAt: { not: null } },
       include: {
         reviewedBy: { select: { id: true, firstName: true, lastName: true, email: true } },
         vendor: { select: { id: true, slug: true, status: true, businessName: true } },
@@ -1533,32 +1532,27 @@ export class AdminService {
   }
 
   private missingApplicationInformation(app: {
-    hygieneRegNumber: string | null;
-    hasFsaRegistration: boolean;
     fullName: string;
     kitchenName: string;
     email: string;
     phone: string;
     postcode: string;
-    cuisineType: string;
-    kitchenType: string;
-    foodStory: string;
+    cuisineTypes: string[];
+    occasionSlugs: string[];
+    menuPhotoPath: string | null;
   }): string[] {
     const items: string[] = [];
-    if (!app.hasFsaRegistration || !app.hygieneRegNumber?.trim()) {
-      items.push('your FSA / food hygiene registration number');
-    }
     const required: Array<[string, string]> = [
       ['full name', app.fullName],
       ['kitchen name', app.kitchenName],
       ['email address', app.email],
       ['phone number', app.phone],
       ['postcode', app.postcode],
-      ['cuisine type', app.cuisineType],
-      ['kitchen type', app.kitchenType],
-      ['food story', app.foodStory],
     ];
     for (const [label, value] of required) if (!value?.trim()) items.push(label);
+    if (app.cuisineTypes.length === 0) items.push('cuisine type');
+    if (app.occasionSlugs.length === 0) items.push('occasions');
+    if (!app.menuPhotoPath) items.push('menu photo');
     return items;
   }
 
@@ -1570,6 +1564,11 @@ export class AdminService {
     const result = await this.prisma.$transaction(async (tx) => {
       const app = await tx.vendorApplication.findUnique({ where: { id } });
       if (!app)
+        throw new NotFoundException({
+          code: 'VENDOR_APPLICATION_NOT_FOUND',
+          message: 'Vendor application not found',
+        });
+      if (!app.submittedAt)
         throw new NotFoundException({
           code: 'VENDOR_APPLICATION_NOT_FOUND',
           message: 'Vendor application not found',
@@ -1720,6 +1719,7 @@ export class AdminService {
     const [applications, vendors, applicationGroups, vendorGroups] = await Promise.all([
       this.prisma.vendorApplication.findMany({
         where: {
+          submittedAt: { not: null },
           ...(includeTestData ? {} : { isTestData: false }),
           ...(status
             ? {
@@ -1776,7 +1776,11 @@ export class AdminService {
       }),
       this.prisma.vendorApplication.groupBy({
         by: ['status'],
-        where: { ...(includeTestData ? {} : { isTestData: false }), vendorId: null },
+        where: {
+          ...(includeTestData ? {} : { isTestData: false }),
+          vendorId: null,
+          submittedAt: { not: null },
+        },
         _count: { _all: true },
       }),
       this.prisma.vendor.groupBy({
@@ -1866,6 +1870,12 @@ export class AdminService {
       where: { id },
     });
     if (!app) {
+      throw new NotFoundException({
+        code: 'VENDOR_APPLICATION_NOT_FOUND',
+        message: 'Vendor application not found',
+      });
+    }
+    if (!app.submittedAt) {
       throw new NotFoundException({
         code: 'VENDOR_APPLICATION_NOT_FOUND',
         message: 'Vendor application not found',
@@ -2127,8 +2137,13 @@ export class AdminService {
             userId: supabaseUserId,
             businessName: app.kitchenName,
             slug,
-            description: app.foodStory,
-            cuisines: [app.cuisineType],
+            description:
+              app.foodStory ||
+              `Independent ${
+                app.cuisineTypes.length > 0 ? app.cuisineTypes.join(', ') : app.cuisineType
+              } kitchen.`,
+            cuisines: app.cuisineTypes.length > 0 ? app.cuisineTypes : [app.cuisineType],
+            coverImageUrl: app.menuPhotoUrl,
             status: VendorStatus.approved, // approved (not yet `live`) - vendor still has menu/Stripe setup ahead
             commissionBps: Math.round(COMMISSION_RATES.marketplaceFirst.percent * 100),
             approvedAt: new Date(),
@@ -2440,7 +2455,10 @@ export class AdminService {
     includeTestData = false,
   ): Promise<Record<VendorApplicationStatus | 'all', number>> {
     const grouped = await this.prisma.vendorApplication.groupBy({
-      where: includeTestData ? {} : { isTestData: false },
+      where: {
+        submittedAt: { not: null },
+        ...(includeTestData ? {} : { isTestData: false }),
+      },
       by: ['status'],
       _count: { _all: true },
     });

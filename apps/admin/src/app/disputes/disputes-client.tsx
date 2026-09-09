@@ -640,7 +640,7 @@ function DeltaBadge({ pct }: { pct: number }) {
       {Icon && <Icon className="h-3.5 w-3.5" />}
       <span>
         {pct > 0 ? '+' : ''}
-        {pct}% vs last 30 days
+        {pct}% relative to prior 30-day dispute count (denominator)
       </span>
     </div>
   );

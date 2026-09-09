@@ -1,4 +1,9 @@
 'use strict';
+const { ALLERGEN_LABELS } = require('./allergens.cjs.js');
+const {
+  CATERING_CANCELLATION_TIERS,
+  CATERING_DEPOSIT_PERCENT,
+} = require('./catering-deposit.cjs.js');
 // CJS runtime entry for @feastpot/config/platform-facts.
 // Generated from platform-facts.ts - keep in sync when values change.
 const { COMMISSION_RATES } = require('./commission-rates.cjs.js');
@@ -62,5 +67,28 @@ function penceToPounds(pence) {
   return (pence / 100).toFixed(2);
 }
 
+function buildPlatformFactsModel(vendorTermsVersion) {
+  return {
+    commissionRates: PLATFORM_FACTS.commission,
+    customerServiceFee: PLATFORM_FACTS.serviceFee,
+    feastPassPricing: PLATFORM_FACTS.feastPass,
+    cateringPolicy: {
+      depositPercent: CATERING_DEPOSIT_PERCENT,
+      cancellationTiers: CATERING_CANCELLATION_TIERS,
+    },
+    payoutSchedule: PLATFORM_FACTS.payouts,
+    vendorEligibilityRequirements: PLATFORM_FACTS.vendorRequirements,
+    currentVendorTermsVersion: vendorTermsVersion,
+    support: {
+      hours: PLATFORM_FACTS.support.hours,
+      email: PLATFORM_FACTS.support.email,
+      complianceEmail: PLATFORM_FACTS.contact.complianceEmail,
+      appealsEmail: PLATFORM_FACTS.contact.appealsEmail,
+    },
+    allergens: ALLERGEN_LABELS,
+  };
+}
+
 exports.PLATFORM_FACTS = PLATFORM_FACTS;
 exports.penceToPounds = penceToPounds;
+exports.buildPlatformFactsModel = buildPlatformFactsModel;

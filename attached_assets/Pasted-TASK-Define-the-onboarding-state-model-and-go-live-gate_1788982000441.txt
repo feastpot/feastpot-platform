@@ -1,0 +1,75 @@
+TASK: Define the onboarding state model and go-live gates
+before changing any screen.
+
+WHY FIRST
+The conversion work that follows removes friction. Without an
+explicit gate model, "remove friction" quietly becomes
+"remove safeguards". Define what may be deferred and what may
+never be, then build the flow around it.
+
+THE CENTRAL DISTINCTION
+Two different questions, currently conflated:
+  CAN PROGRESS: may the applicant continue through
+    onboarding with this item outstanding?
+  CAN PUBLISH: may this vendor be discoverable by customers
+    and accept orders with this item outstanding?
+Almost everything can defer progress. Very little can defer
+publication.
+
+HARD GATES, BLOCK PUBLICATION, NO EXCEPTIONS
+  Food business registration with the local authority.
+    Mandatory, free, required at least 28 days before
+    trading. NOT the same thing as a hygiene rating.
+  Public liability insurance, minimum £1m (terms clause 3.1).
+    May be deferred during onboarding, must NEVER be deferred
+    past go-live.
+  Level 2 food safety certificate or equivalent.
+  Photo ID verification.
+  Stripe Connect onboarding complete and payouts enabled.
+  Vendor terms accepted (blocking step, see FP-03).
+  Tax profile complete for HMRC platform reporting
+    (SI 2023/817).
+  At least one menu item with a full allergen declaration or
+    an explicit free-from-all-14 confirmation.
+
+SOFT STATE, DOES NOT BLOCK PUBLICATION
+  FHRS rating where the vendor is REGISTERED but awaiting
+    first inspection. Display "Registered with [authority],
+    awaiting first inspection" on the public profile. This is
+    already implemented; keep it, do not extend it.
+  Menu photography quality.
+  Optional profile content: bio, cover image, story.
+  Vendor Pro subscription.
+
+DO NOT RELAX
+  FHRS rating below 3 where a rating EXISTS: immediate
+    suspension, no publication. Different from awaiting
+    inspection.
+  The allergen gate, in any form.
+
+PRISMA
+Model onboarding as explicit named steps with per-step state
+(not started, in progress, submitted, verified, rejected),
+each carrying whether it blocks progress and whether it
+blocks publication. Derive a single canProfileGoLive boolean
+from the hard gates rather than storing it, so it can never
+drift from its inputs.
+
+TRACEABILITY
+Every hard gate must reference the terms clause or statute it
+enforces, in a code comment and in the admin UI. If a gate
+has no such source, ask me whether it should exist at all.
+
+VENDOR-FACING PROGRESS
+One clear checklist the vendor can see at any time: what is
+done, what remains, what is blocking go-live specifically
+versus what is merely outstanding. Never present a blocking
+item and an optional item with equal weight.
+
+ACCEPTANCE CRITERIA
+- canProfileGoLive is derived, never stored.
+- A vendor missing any hard gate cannot be published, proven
+  by test for each gate individually.
+- A vendor awaiting first inspection CAN be published.
+- A vendor with an FHRS rating below 3 CANNOT.
+- Every gate cites its source.

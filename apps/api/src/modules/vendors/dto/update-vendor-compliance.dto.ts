@@ -17,7 +17,7 @@ export class UpdateVendorComplianceDto {
     enum: VendorComplianceStatus,
     description:
       'RATED: vendor has an FSA rating >= 3 and may appear in search / accept orders. ' +
-      'REGISTERED_AWAITING_INSPECTION: registered but not yet inspected; onboarding allowed, not live. ' +
+      'REGISTERED_AWAITING_INSPECTION: registered but not yet inspected; publication allowed when all other gates pass. ' +
       'NOT_ELIGIBLE: unregistered; cannot proceed past application stage.',
   })
   @IsEnum(VendorComplianceStatus)

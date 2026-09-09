@@ -14,3 +14,15 @@ export function formatRatio(numerator: number, denominator: number, decimals = 1
   if (denominator <= 0) return 'No data yet';
   return `${((numerator / denominator) * 100).toFixed(decimals)}%`;
 }
+
+/**
+ * Couples success colouring to the denominator used by a ratio. Keeping this
+ * decision beside the class branch prevents empty datasets looking healthy.
+ */
+export function ratioStatusClass(
+  denominator: number,
+  dataClass: string,
+  neutralClass = 'text-muted-foreground',
+): string {
+  return denominator > 0 ? dataClass : neutralClass;
+}

@@ -1,0 +1,79 @@
+TASK: Build the cross-surface consistency suite.
+
+WHY THIS EXISTS
+Every recurring defect in this product has been a
+disagreement between surfaces: marketing said 12% while legal
+terms said nothing; Settings said 12% while the engine said
+8%; the payout PDF hardcoded 12%; the terms described rules
+the code did not enforce. Individual app tests cannot catch
+this class. Only a suite reading the same fact from every
+surface can.
+
+PART A: ONE FACT, FOUR SURFACES
+Read from the customer site, vendor portal, admin console and
+API, and assert all four agree:
+  commission rates per segment
+  the customer service fee percentage and cap
+  FeastPass pricing
+  catering deposit percentage and cancellation tiers
+  payout cadence and the day payouts run
+  vendor eligibility requirements (the document list)
+  the current effective vendor terms version number
+  support hours and contact addresses
+  the 14 allergen names and their exact labels
+Any disagreement fails the build and NAMES BOTH SOURCES.
+
+PART B: ADMIN ACTION PROPAGATION
+Perform in admin, assert in vendor and customer:
+  approve a vendor -> vendor can sign in and set up; becomes
+    discoverable for their postcode
+  suspend a vendor -> disappears from customer search; vendor
+    sees the reason and appeal route
+  FHRS drops below 3 -> immediate suspension propagates to
+    customer search
+  publish a terms version -> vendor sees the notice banner
+    with a correct countdown; re-acceptance prompt after the
+    effective date
+  change a commission rate -> vendor sees the notice; new
+    orders use the new rate; earlier orders keep the old
+  approve a menu item -> appears on the customer site
+  reject a menu item -> vendor sees the reason; item never
+    appears publicly
+  refund an order -> customer sees it; vendor payout reduced;
+    ledger records the pair
+  resolve a dispute -> both parties see the outcome
+  expire a vendor document -> renewal due, then suspended at
+    day 7, then absent from customer search
+
+PART C: THE REVERSE DIRECTION
+  customer joins the coverage waitlist for an uncovered
+    postcode -> appears in /coverage-waitlist. VERIFY THIS
+    PIPELINE WORKS AT ALL; the waitlist is currently empty
+    despite the form being live on the homepage.
+  customer submits a catering enquiry -> appears in /catering
+    with a correct SLA
+  customer leaves a review -> appears in /reviews
+  vendor uploads a document -> appears in /compliance
+  vendor creates an item -> appears in /menu-moderation
+  a failed notification -> appears in Dead letters
+  a Stripe dispute -> appears in /chargebacks with its
+    evidence deadline
+
+PART D: DATA TRUTHFULNESS
+  every percentage in admin has a denominator
+  no metric renders green success against a zero denominator
+  no raw UUID where a name exists
+  test records distinguishable from real
+  the audit log records an actor for every privileged action
+
+CI
+Required merge gate. This is the suite protecting against the
+defect class that has recurred throughout this project.
+
+ACCEPTANCE CRITERIA
+- All nine facts agree across four surfaces.
+- Every propagation completes and is asserted on the
+  receiving surface.
+- The coverage waitlist pipeline is proven working.
+- A deliberately introduced disagreement fails the build and
+  names both sources.

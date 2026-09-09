@@ -59,14 +59,14 @@ const RATE_SURFACES: RateSurface[] = [
   {
     name: 'public /become-a-vendor',
     file: 'apps/web/src/app/become-a-vendor/page.tsx',
-    required: ["apiRequest<RateRow[]>('/terms/rate-schedule')", 'COMMISSION_RATES'],
+    required: ["apiRequest<RateRow[]>('/terms/rate-schedule')", "'standard_commission'"],
   },
   {
     name: 'earnings projection calculator',
     file: 'apps/web/src/app/become-a-vendor/earnings-calculator.tsx',
     required: ['RATE_KEYS.marketplaceFirst', "rate.status === 'LIVE'", 'COMMISSION_RATES'],
   },
-  { name: '/help FAQ', file: 'apps/web/src/app/help/page.tsx', required: ['COMMISSION_RATES'] },
+  { name: '/help FAQ', file: 'apps/web/src/app/help/page.tsx', required: ['PLATFORM_FACTS'] },
   {
     name: 'vendor terms Annex A',
     file: 'apps/web/src/app/legal/vendor-terms/legal-layers.tsx',

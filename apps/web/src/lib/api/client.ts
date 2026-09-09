@@ -70,13 +70,19 @@ export async function apiRequest<T>(path: string, opts: ApiRequestOptions = {}):
     ...opts.headers,
     Accept: 'application/json',
   };
-  if (opts.body !== undefined) headers['Content-Type'] = 'application/json';
+  const isFormData = typeof FormData !== 'undefined' && opts.body instanceof FormData;
+  if (opts.body !== undefined && !isFormData) headers['Content-Type'] = 'application/json';
   if (opts.accessToken) headers.Authorization = `Bearer ${opts.accessToken}`;
 
   const res = await fetch(url, {
     method: opts.method ?? 'GET',
     headers,
-    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+    body:
+      opts.body !== undefined
+        ? isFormData
+          ? (opts.body as FormData)
+          : JSON.stringify(opts.body)
+        : undefined,
     signal: opts.signal,
     // Next.js cache hints - only consumed when called from a Server Component.
     next: opts.next,

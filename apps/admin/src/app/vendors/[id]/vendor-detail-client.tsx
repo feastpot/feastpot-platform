@@ -40,6 +40,7 @@ import {
 } from '@/hooks/use-vendor-detail';
 import {
   useUpsertVerification,
+  useVendorOnboardingReadiness,
   useVendorVerification,
   type FhrsStatus,
   type UpsertVerificationPayload,
@@ -129,6 +130,7 @@ export function VendorDetailClient({
   useAdminVendors('pending');
 
   const { data: verification, isLoading: verificationLoading } = useVendorVerification(vendorId);
+  const { data: readiness, isLoading: readinessLoading } = useVendorOnboardingReadiness(vendorId);
   const upsertVerification = useUpsertVerification(vendorId);
   const updateCompliance = useUpdateVendorCompliance(vendorId);
 
@@ -215,6 +217,7 @@ export function VendorDetailClient({
     fhrsRating: null,
     fhrsRatingCheckedAt: null,
     insuranceProvider: null,
+    insuranceCoverPence: null,
     insuranceValidUntil: null,
     allergenTrainingHeld: false,
     allergenTrainingUntil: null,
@@ -232,6 +235,7 @@ export function VendorDetailClient({
         fhrsRating: existing.fhrsRating,
         fhrsRatingCheckedAt: existing.fhrsRatingCheckedAt?.slice(0, 10) ?? null,
         insuranceProvider: existing.insuranceProvider,
+        insuranceCoverPence: existing.insuranceCoverPence,
         insuranceValidUntil: existing.insuranceValidUntil?.slice(0, 10) ?? null,
         allergenTrainingHeld: existing.allergenTrainingHeld,
         allergenTrainingUntil: existing.allergenTrainingUntil?.slice(0, 10) ?? null,
@@ -247,6 +251,7 @@ export function VendorDetailClient({
         fhrsRating: null,
         fhrsRatingCheckedAt: null,
         insuranceProvider: null,
+        insuranceCoverPence: null,
         insuranceValidUntil: null,
         allergenTrainingHeld: false,
         allergenTrainingUntil: null,
@@ -572,6 +577,68 @@ export function VendorDetailClient({
           />
         )}
 
+        {/* ── Derived onboarding and go-live readiness ───────────────── */}
+        <Card className="lg:col-span-3">
+          <CardHeader>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <CardTitle className="text-base">Go-live readiness</CardTitle>
+              {readiness && (
+                <StatusPill tone={readiness.canProfileGoLive ? 'success' : 'warning'}>
+                  {readiness.canProfileGoLive ? 'Ready to publish' : 'Publication blocked'}
+                </StatusPill>
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {readinessLoading && <p className="text-sm text-muted-foreground">Loading…</p>}
+            {readiness && (
+              <div className="space-y-5">
+                <section>
+                  <h3 className="mb-2 text-sm font-semibold">Publication gates</h3>
+                  <div className="space-y-2">
+                    {readiness.steps
+                      .filter((step) => step.blocksPublication)
+                      .map((step) => (
+                        <div
+                          key={step.name}
+                          className={`rounded-md border p-3 text-sm ${
+                            step.complete
+                              ? 'border-teal/30 bg-teal/5'
+                              : 'border-amber-300 bg-amber-50'
+                          }`}
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="font-medium">{step.label}</span>
+                            <span className="rounded-full bg-white px-2 py-0.5 text-xs capitalize">
+                              {step.state.replaceAll('_', ' ')}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {step.sourceCitation}
+                          </p>
+                        </div>
+                      ))}
+                  </div>
+                </section>
+                <section>
+                  <h3 className="mb-2 text-sm font-semibold">
+                    Optional, does not block publication
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {readiness.steps
+                      .filter((step) => !step.blocksPublication)
+                      .map((step) => (
+                        <span key={step.name} className="rounded-full border px-3 py-1 text-xs">
+                          {step.label}: {step.state.replaceAll('_', ' ')}
+                        </span>
+                      ))}
+                  </div>
+                </section>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* ── Verification record ─────────────────────────────────────── */}
         <Card className="lg:col-span-3">
           <CardHeader className="flex flex-row items-center justify-between">
@@ -616,7 +683,7 @@ export function VendorDetailClient({
                   label="Insurance"
                   value={
                     verification.insuranceValidUntil
-                      ? `${verification.insuranceProvider ? `${verification.insuranceProvider} - ` : ''}valid until ${formatDate(verification.insuranceValidUntil)}`
+                      ? `${verification.insuranceProvider ? `${verification.insuranceProvider} - ` : ''}${verification.insuranceCoverPence ? `£${(verification.insuranceCoverPence / 100).toLocaleString('en-GB')} cover - ` : ''}valid until ${formatDate(verification.insuranceValidUntil)}`
                       : '-'
                   }
                 />
@@ -970,6 +1037,27 @@ export function VendorDetailClient({
                   setVForm((f) => ({ ...f, insuranceValidUntil: e.target.value || null }))
                 }
               />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Insurance cover (£)</label>
+              <Input
+                type="number"
+                min={0}
+                step={100000}
+                value={vForm.insuranceCoverPence == null ? '' : vForm.insuranceCoverPence / 100}
+                onChange={(e) =>
+                  setVForm((f) => ({
+                    ...f,
+                    insuranceCoverPence: e.target.value
+                      ? Math.round(Number(e.target.value) * 100)
+                      : null,
+                  }))
+                }
+                placeholder="5000000"
+              />
+              <p className="text-xs text-muted-foreground">
+                Current Vendor Terms clause 2 and Annex B require at least £5 million.
+              </p>
             </div>
             <div className="col-span-full flex items-center gap-2">
               <input

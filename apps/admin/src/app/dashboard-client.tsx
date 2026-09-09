@@ -45,7 +45,7 @@ import { useCoverageWaitlist } from '@/hooks/use-coverage-waitlist';
 import { useApi } from '@/hooks/use-api';
 import { formatPence } from '@/lib/format';
 import { getEnquiryUrgency } from '@/lib/catering-urgency';
-import { formatRatio } from '@/lib/format-ratio';
+import { formatRatio, ratioStatusClass } from '@/lib/format-ratio';
 
 // ── Catering urgency strip ─────────────────────────────────────────────────
 
@@ -411,9 +411,10 @@ export function DashboardClient({
                     </span>
                   </TableCell>
                   <TableCell
-                    className={`text-right ${
-                      v.ordersCount === 0 ? 'text-muted-foreground' : disputeColor(v.disputeRatePct)
-                    }`}
+                    className={`text-right ${ratioStatusClass(
+                      v.ordersCount,
+                      disputeColor(v.disputeRatePct),
+                    )}`}
                   >
                     {formatRatio(v.disputesCount, v.ordersCount)}
                     <span className="block text-xs text-muted-foreground">

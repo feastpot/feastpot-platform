@@ -78,3 +78,5 @@
 - [Live link-audit concurrency](live-link-audit-concurrency.md) - cold Next route compilation needs capped crawl concurrency and generous per-request timeouts; unbounded parallel requests self-abort.
 - [Test-data provenance](test-data-provenance.md) — use explicit persisted markers; hide fixtures from operational/public surfaces by default, with labelled admin-only retrieval.
 - [Menu moderation pilot](menu-moderation-pilot.md) — manual approval is the launch posture; bind decisions to submission revisions and keep allergen gates at publication and checkout.
+- [Vendor onboarding readiness](vendor-onboarding-readiness.md) - go-live is derived from fresh evidence; awaiting first FHRS inspection may publish, but an existing rating below 3 blocks.
+- [Two-phase vendor application](two-phase-vendor-application.md) - anonymous drafts stay private from Admin; exact-step resume uses hashed tokens; menu images publish only on claimed submission.

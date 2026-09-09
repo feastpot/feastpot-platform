@@ -1,6 +1,16 @@
 export const MINIMUM_CATERING_QUOTE_PENCE = 5_000;
 export const CATERING_DEPOSIT_PERCENT = 25;
 
+/**
+ * Deposit refund policy for a customer-initiated cancellation before the
+ * balance has been paid. Boundaries are full calendar days until the event.
+ */
+export const CATERING_CANCELLATION_TIERS = [
+  { minimumDaysBeforeEvent: 14, refundPercent: 100 },
+  { minimumDaysBeforeEvent: 8, refundPercent: 50 },
+  { minimumDaysBeforeEvent: 0, refundPercent: 0 },
+] as const;
+
 export interface CateringDepositBreakdown {
   totalPence: number;
   minimumDepositPence: number;

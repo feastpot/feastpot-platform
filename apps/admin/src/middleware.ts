@@ -22,13 +22,13 @@ import { createClient } from '@/lib/supabase/middleware';
  */
 
 // Routes the middleware never redirects away from, regardless of auth state.
-const PUBLIC_PATHS = ['/sign-in', '/unauthorized'];
+const PUBLIC_PATHS = ['/sign-in', '/unauthorized', '/platform-facts'];
 
 // Routes accessible to an authenticated but aal1 user (enrolment + its API).
 // Must include /settings/2fa itself to prevent redirect loops, and any API
 // routes the enrolment page hits (Supabase client handles MFA directly, so
 // no additional API routes are needed here).
-const AAL2_ALLOWLIST = ['/settings/2fa', '/sign-in', '/unauthorized'];
+const AAL2_ALLOWLIST = ['/settings/2fa', '/sign-in', '/unauthorized', '/platform-facts'];
 
 /**
  * Decode the `aal` claim from a Supabase JWT without a network round-trip.

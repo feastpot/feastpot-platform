@@ -39,6 +39,7 @@ import {
 } from '@/hooks/use-discount-codes';
 import { ApiError } from '@/lib/api/client';
 import { formatPence } from '@/lib/format';
+import { ratioStatusClass } from '@/lib/format-ratio';
 
 interface Props {
   canCreate: boolean;
@@ -509,7 +510,14 @@ function DiscountRow({
             aria-valuemax={r.maxUses ?? undefined}
             aria-label={`${r.usedCount} of ${r.maxUses} redemptions used`}
           >
-            <div className="h-full rounded-full bg-emerald-600" style={{ width: `${usedPct}%` }} />
+            <div
+              className={`h-full rounded-full ${ratioStatusClass(
+                r.maxUses ?? 0,
+                'bg-emerald-600',
+                'bg-muted',
+              )}`}
+              style={{ width: `${usedPct}%` }}
+            />
           </div>
         ) : null}
       </TableCell>

@@ -19,8 +19,10 @@ import type { StripeService } from '../../stripe/stripe.service';
 import type { SupabaseStorageService } from '../catalogue/supabase-storage.service';
 import type { NotificationsService } from '../notifications/notifications.service';
 import type { EmailProvider } from '../notifications/providers/email.provider';
+import type { TermsService } from '../terms/terms.service';
 import type { VendorMembersService } from '../vendor-members/vendor-members.service';
 
+import type { VendorOnboardingService } from './vendor-onboarding.service';
 import type { VendorRepository } from './vendors.repository';
 import { VendorsService } from './vendors.service';
 
@@ -109,7 +111,12 @@ function makeService() {
     { send: jest.fn().mockResolvedValue(undefined) } as unknown as EmailProvider,
     storage,
     members as unknown as VendorMembersService,
+    { assertAcceptedCurrentVersion: jest.fn() } as unknown as TermsService,
     { add: jest.fn().mockResolvedValue(undefined) } as unknown as Queue,
+    {
+      getReadiness: jest.fn(),
+      assertCanProfileGoLive: jest.fn(),
+    } as unknown as VendorOnboardingService,
   );
 
   return { service, repo, storage, cache };
