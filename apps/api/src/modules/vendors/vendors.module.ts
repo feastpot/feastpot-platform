@@ -5,8 +5,8 @@ import { CatalogueModule } from '../catalogue/catalogue.module';
 import { TermsModule } from '../terms/terms.module';
 import { VendorMembersModule } from '../vendor-members/vendor-members.module';
 
-import { VendorTrustSignalsController } from './vendor-trust-signals.controller';
 import { VendorOnboardingService } from './vendor-onboarding.service';
+import { VendorTrustSignalsController } from './vendor-trust-signals.controller';
 import { VendorsController } from './vendors.controller';
 import { VendorRepository } from './vendors.repository';
 import { VendorsService } from './vendors.service';

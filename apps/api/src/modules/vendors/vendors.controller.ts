@@ -51,13 +51,13 @@ import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { UpsertCapacityDto } from './dto/upsert-capacity.dto';
 import { UpsertDeliveryConfigDto } from './dto/upsert-delivery-config.dto';
 import {
-  CreateVendorApplicationDraftDto,
-  UpdateVendorApplicationDraftDto,
-} from './dto/vendor-application-draft.dto';
-import {
   StripeConnectLinkResponseDto,
   VendorAnalyticsResponseDto,
 } from './dto/vendor-analytics.dto';
+import {
+  CreateVendorApplicationDraftDto,
+  UpdateVendorApplicationDraftDto,
+} from './dto/vendor-application-draft.dto';
 import { VendorStatsResponseDto } from './dto/vendor-stats.dto';
 import {
   getCapacityForVendors,

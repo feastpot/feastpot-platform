@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 
 import { LegalTrustStrip } from '@/components/legal/legal-shell';
-import { PlatformFacts } from '@/components/platform-facts';
 
 export const metadata: Metadata = {
   title: 'Help &amp; FAQ',
@@ -166,8 +165,6 @@ export default function HelpPage() {
           </div>
         </a>
       </section>
-
-      <PlatformFacts />
 
       {/* FAQ SECTIONS */}
       {SECTIONS.map((section, idx) => (

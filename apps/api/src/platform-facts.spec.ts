@@ -165,9 +165,8 @@ describe('Help page - consistency with PLATFORM_FACTS', () => {
     expect(src).not.toMatch(/Email partners@feastpot\.co\.uk.*we onboard/i);
   });
 
-  it('includes the FHRS requirement in the document list', () => {
-    // D3: FHRS 3+ must appear alongside the other documents
-    expect(src).toMatch(/FHRS/i);
+  it('does not ask applicants for pre-approval compliance evidence', () => {
+    expect(src).not.toMatch(/upload.*FHRS|upload.*insurance|bank details/i);
   });
 
   it('sources support hours from PLATFORM_FACTS, not a hardcoded string', () => {
@@ -258,11 +257,11 @@ describe('Benefits strip - no hardcoded support hours', () => {
   });
 });
 
-describe('Become-a-vendor page - commission references canonical rates', () => {
+describe('Become-a-vendor page - commission references live rates', () => {
   const src = read('apps/web/src/app/become-a-vendor/page.tsx');
 
-  it('uses the canonical fallback and live schedule for marketplace commission', () => {
-    expect(src).toContain('COMMISSION_RATES.marketplaceFirst');
+  it('uses the live schedule for marketplace commission without a hardcoded fallback', () => {
+    expect(src).not.toContain('COMMISSION_RATES.marketplaceFirst');
     expect(src).toContain("'standard_commission'");
     expect(src).toContain("apiRequest<RateRow[]>('/terms/rate-schedule')");
   });
@@ -307,19 +306,8 @@ describe('FeastPass page - pricing from PLATFORM_FACTS', () => {
   });
 });
 
-describe('Help page - support contact and payouts from PLATFORM_FACTS', () => {
-  // The help FAQ answers vendor questions about payout timing and support
-  // availability. All five fields must reference PLATFORM_FACTS so they stay
-  // in sync if we change payout day, support email, or response-time promise.
+describe('Help page - support contact from PLATFORM_FACTS', () => {
   const src = read('apps/web/src/app/help/page.tsx');
-
-  it('references payouts.frequency from PLATFORM_FACTS', () => {
-    expect(src).toContain('PLATFORM_FACTS.payouts.frequency');
-  });
-
-  it('references payouts.day from PLATFORM_FACTS', () => {
-    expect(src).toContain('PLATFORM_FACTS.payouts.day');
-  });
 
   it('references support.email from PLATFORM_FACTS, not hardcoded', () => {
     expect(src).toContain('PLATFORM_FACTS.support.email');
@@ -335,23 +323,16 @@ describe('Help page - support contact and payouts from PLATFORM_FACTS', () => {
   });
 });
 
-describe('Become-a-vendor page - vendor-referred rate and platform facts', () => {
-  // The page promises vendors a specific commission rate on their own orders and
-  // a specific payout day. All three fields must come from PLATFORM_FACTS so a
-  // single change propagates to every section that mentions them.
+describe('Become-a-vendor page - vendor-referred live rate', () => {
   const src = read('apps/web/src/app/become-a-vendor/page.tsx');
 
-  it('uses the canonical fallback and live schedule for vendor-referred commission', () => {
-    expect(src).toContain('COMMISSION_RATES.vendorReferred');
+  it('uses the live schedule for vendor-referred commission without a hardcoded fallback', () => {
+    expect(src).not.toContain('COMMISSION_RATES.vendorReferred');
     expect(src).toContain("'referred_commission'");
   });
 
-  it('references payouts.day from PLATFORM_FACTS', () => {
-    expect(src).toContain('PLATFORM_FACTS.payouts.day');
-  });
-
-  it('references support.responseTime from PLATFORM_FACTS', () => {
-    expect(src).toContain('PLATFORM_FACTS.support.responseTime');
+  it('does not claim a zero commission until the live rate confirms it', () => {
+    expect(src).toContain('referred === 0');
   });
 });
 

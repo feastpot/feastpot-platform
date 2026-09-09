@@ -1,3 +1,5 @@
+import { createHash, randomBytes } from 'crypto';
+
 import { InjectQueue } from '@nestjs/bull';
 import {
   BadRequestException,
@@ -11,7 +13,6 @@ import { ConfigService } from '@nestjs/config';
 import { ModerationStatus, OrderStatus, UserRole, VendorStatus } from '@prisma/client';
 import type { VendorMemberRole } from '@prisma/client';
 import type { Queue } from 'bull';
-import { createHash, randomBytes } from 'crypto';
 
 import type { AuthUser } from '../../auth/types';
 import { RedisCacheService } from '../../common/cache/redis-cache.service';
@@ -48,20 +49,20 @@ import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { UpsertCapacityDto } from './dto/upsert-capacity.dto';
 import { UpsertDeliveryConfigDto } from './dto/upsert-delivery-config.dto';
 import {
-  CreateVendorApplicationDraftDto,
-  UpdateVendorApplicationDraftDto,
-} from './dto/vendor-application-draft.dto';
-import {
   HourlyOrdersBucketDto,
   StripeConnectLinkResponseDto,
   TopDishDto,
   VendorAnalyticsResponseDto,
   WeeklyRevenueBucketDto,
 } from './dto/vendor-analytics.dto';
+import {
+  CreateVendorApplicationDraftDto,
+  UpdateVendorApplicationDraftDto,
+} from './dto/vendor-application-draft.dto';
 import { VendorDashboardResponseDto } from './dto/vendor-dashboard.dto';
 import { VendorStatsResponseDto } from './dto/vendor-stats.dto';
-import { VendorRepository, type DecodedCursor, type SearchedVendorRow } from './vendors.repository';
 import { VendorOnboardingService } from './vendor-onboarding.service';
+import { VendorRepository, type DecodedCursor, type SearchedVendorRow } from './vendors.repository';
 
 const REVENUE_STATUSES_LIST: OrderStatus[] = [
   OrderStatus.accepted,

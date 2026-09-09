@@ -22,8 +22,8 @@ import type { EmailProvider } from '../notifications/providers/email.provider';
 import type { TermsService } from '../terms/terms.service';
 import type { VendorMembersService } from '../vendor-members/vendor-members.service';
 
-import type { VendorRepository } from './vendors.repository';
 import type { VendorOnboardingService } from './vendor-onboarding.service';
+import type { VendorRepository } from './vendors.repository';
 import { VendorsService } from './vendors.service';
 
 // ── fixtures ──────────────────────────────────────────────────────────────────
