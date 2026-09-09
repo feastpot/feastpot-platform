@@ -231,7 +231,10 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
                 ? 'You have a publishable item with a complete allergen declaration.'
                 : 'Add at least one available, approved item and declare its allergens or explicitly confirm it is free from all 14. The full editor is in the menu section.'}
             </p>
-            <Link href={termsDone ? '/menu' : '/onboarding/terms'} className="mt-2 inline-block">
+            <Link
+              href={termsDone ? '/menu/import' : '/onboarding/terms'}
+              className="mt-2 inline-block"
+            >
               <Button variant="outline" size="sm" className="gap-2">
                 <Upload className="h-4 w-4" /> Open menu builder
               </Button>

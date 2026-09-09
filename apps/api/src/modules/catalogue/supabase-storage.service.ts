@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import {
   BadRequestException,
   Injectable,
@@ -15,6 +17,8 @@ export const DOCUMENTS_BUCKET = 'feastpot-documents';
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/webp']);
 const MAX_BYTES = 5 * 1024 * 1024;
+const IMPORT_MIME = new Set(['application/pdf', 'image/jpeg', 'image/png', 'image/webp']);
+const IMPORT_MAX_BYTES = 10 * 1024 * 1024;
 
 /** Magic-byte sniff for the three formats we accept. */
 function looksLikeImage(buf: Buffer): boolean {
@@ -31,6 +35,11 @@ function looksLikeImage(buf: Buffer): boolean {
   )
     return true;
   return false;
+}
+
+function looksLikeImport(buf: Buffer, mime: string): boolean {
+  if (mime === 'application/pdf') return buf.subarray(0, 5).toString('ascii') === '%PDF-';
+  return looksLikeImage(buf);
 }
 
 export interface UploadedImage {
@@ -154,6 +163,45 @@ export class SupabaseStorageService implements OnModuleInit {
       });
     }
     return { path, publicUrl: data.signedUrl };
+  }
+
+  /** Store an import original in the private documents bucket. */
+  async uploadMenuImportSource(params: {
+    vendorId: string;
+    importId: string;
+    file: { originalname: string; mimetype: string; size: number; buffer: Buffer };
+  }): Promise<{ path: string }> {
+    const { file } = params;
+    if (!IMPORT_MIME.has(file.mimetype) || !looksLikeImport(file.buffer, file.mimetype)) {
+      throw new BadRequestException({
+        code: 'INVALID_IMPORT_CONTENT',
+        message: 'File must be a valid JPEG, PNG, WebP, or PDF',
+      });
+    }
+    if (file.size > IMPORT_MAX_BYTES || file.buffer.length > IMPORT_MAX_BYTES) {
+      throw new BadRequestException({
+        code: 'IMPORT_FILE_TOO_LARGE',
+        message: `File exceeds ${IMPORT_MAX_BYTES} bytes`,
+      });
+    }
+    const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120) || 'source';
+    // Never allow retries or duplicate filenames to overwrite an original.
+    const path = `vendors/${params.vendorId}/menu-imports/${params.importId}/${randomUUID()}-${safeName}`;
+    const { error } = await this.supabase
+      .getClient()
+      .storage.from(DOCUMENTS_BUCKET)
+      .upload(path, file.buffer, {
+        contentType: file.mimetype,
+        upsert: false,
+      });
+    if (error) {
+      this.logger.error(`Menu import upload failed: ${error.message}`);
+      throw new InternalServerErrorException({
+        code: 'IMPORT_UPLOAD_FAILED',
+        message: 'Could not store menu import source',
+      });
+    }
+    return { path };
   }
 
   async promoteVendorApplicationMenuImage(params: {

@@ -318,6 +318,20 @@ enum ModerationStatus {
   rejected
 }
 
+enum MenuImportStatus {
+  processing
+  extracted
+  failed
+  applied
+}
+
+enum MenuImportItemStatus {
+  candidate
+  accepted
+  rejected
+  applied
+}
+
 enum LoyaltyTxType {
   earned
   redeemed
@@ -966,6 +980,7 @@ model Vendor {
   platformReports              PlatformReport[]
   slugRedirects                VendorSlugRedirect[]
   onboardingSteps              VendorOnboardingStep[]
+  menuImports                  MenuImport[]
 
   @@index([status])
   @@index([slug])
@@ -1067,6 +1082,7 @@ model MenuItem {
   orderItems          OrderItem[]
   allergenRemediation MenuItemAllergenRemediation?
   moderatedBy         User?                        @relation("MenuItemModerator", fields: [moderatedById], references: [id], onDelete: SetNull)
+  menuImportItems     MenuImportItem[]
 
   @@index([vendorId])
   @@index([menuId])
@@ -1077,6 +1093,51 @@ model MenuItem {
   @@index([moderationStatus, submittedAt])
   @@index([allergens], type: Gin)
   @@map("menu_items")
+}
+
+/// Private vendor menu source files and their deterministic OCR candidates.
+/// Originals are deliberately retained when extraction fails for audit/retry.
+model MenuImport {
+  id           String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vendorId     String           @map("vendor_id") @db.Uuid
+  status       MenuImportStatus @default(processing)
+  sourceFiles  Json             @map("source_files")
+  errorCode    String?          @map("error_code") @db.VarChar(80)
+  errorMessage String?          @map("error_message")
+  createdAt    DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  vendor Vendor           @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  items  MenuImportItem[]
+
+  @@index([vendorId, createdAt(sort: Desc)])
+  @@index([vendorId, status])
+  @@map("menu_imports")
+}
+
+/// Human-reviewable extraction result. Prices and portions are nullable because
+/// the parser must never guess ambiguous values.
+model MenuImportItem {
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  importId            String               @map("import_id") @db.Uuid
+  menuItemId          String?              @unique @map("menu_item_id") @db.Uuid
+  name                String               @db.VarChar(255)
+  description         String?
+  pricePence          Int?                 @map("price_pence")
+  portionLabel        String?              @map("portion_label") @db.VarChar(64)
+  reviewFlags         String[]             @default([])
+  allergens           String[]             @default([])
+  allergensFreeFrom   Boolean              @default(false) @map("allergens_free_from")
+  allergenConfirmedAt DateTime?            @map("allergen_confirmed_at") @db.Timestamptz
+  status              MenuImportItemStatus @default(candidate)
+  createdAt           DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt           DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+
+  import   MenuImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+  menuItem MenuItem?  @relation(fields: [menuItemId], references: [id], onDelete: SetNull)
+
+  @@index([importId, status])
+  @@map("menu_import_items")
 }
 
 model MenuItemAllergenRemediation {

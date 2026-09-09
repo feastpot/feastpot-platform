@@ -451,7 +451,7 @@ function PhaseTwo({
       {screen === 'phase_2_menu' && (
         <Question
           title="Show us one menu photo."
-          hint="A clear photo is enough. We use it to bring your first storefront to life."
+          hint="Send us your menu however you have it. We will type it up. A screenshot or clear photo is enough."
         >
           <label className="flex min-h-36 cursor-pointer items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-[#d8c8b5] bg-[#fffaf1] p-5 text-center">
             <ImagePlus className="text-[#b84f32]" />
@@ -980,6 +980,10 @@ export default function BecomeAVendorPage() {
           <p className="mt-3 max-w-xl text-[#6c665d]">
             Two phases, five clear questions. Your progress is saved as you go, and we email a
             resume link so you never start over.
+          </p>
+          <p className="mt-3 max-w-xl font-semibold text-[#4f493f]">
+            Send us your menu however you have it. We will type it up, and you can review the draft
+            before anything is published.
           </p>
           <button
             type="button"
