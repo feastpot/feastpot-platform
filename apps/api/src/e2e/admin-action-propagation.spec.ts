@@ -641,6 +641,8 @@ const waitFor = async <T>(read: () => Promise<T | null>, label: string): Promise
     it('applies the newly effective commission to a new order without rewriting the earlier order snapshot', async () => {
       const orderCustomer = await factory.create('C2');
       try {
+        const scheduledFor = days(2);
+        scheduledFor.setHours(12, 0, 0, 0);
         await factory.prisma.vendor.update({
           where: { id: liveVendor.vendorId! },
           data: { status: 'live', suspendedAt: null },
@@ -657,7 +659,7 @@ const waitFor = async <T>(read: () => Promise<T | null>, label: string): Promise
             vendorId: liveVendor.vendorId,
             items: [{ menuItemId: liveVendor.menuItemId, quantity: 1 }],
             deliveryAddressId: orderCustomer.addressId,
-            scheduledFor: days(2).toISOString(),
+            scheduledFor: scheduledFor.toISOString(),
             allergenConfirmed: true,
           });
         if (created.status !== 201) {
