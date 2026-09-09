@@ -97,7 +97,7 @@ function RateIntroduction({ rates, error }: { rates: RateRow[]; error: string })
           Your customers
         </p>
         <p className="mt-2 font-display text-4xl font-black">
-          {referred == null ? '—' : `${pct(referred)}%`}
+          {referred == null ? 'Not available' : `${pct(referred)}%`}
         </p>
         <p className="mt-1 text-sm text-[#4f5a4e]">live referred commission</p>
         {referred === 0 && (
@@ -112,7 +112,7 @@ function RateIntroduction({ rates, error }: { rates: RateRow[]; error: string })
           Customers we find
         </p>
         <p className="mt-2 font-display text-4xl font-black">
-          {standard == null ? '—' : `${pct(standard)}%`}
+          {standard == null ? 'Not available' : `${pct(standard)}%`}
         </p>
         <p className="mt-1 text-sm text-[#6c665d]">live marketplace rate</p>
       </div>
@@ -477,7 +477,7 @@ function PhaseTwo({
                 update({ menuBuildFromPhoto: event.target.checked }, undefined, true)
               }
             />
-            I do not have a formatted menu — build it from my photo
+            I do not have a formatted menu: build it from my photo
           </label>
           {menuError && <p className="text-sm text-[#9a3f29]">{menuError}</p>}
           <NextButton
