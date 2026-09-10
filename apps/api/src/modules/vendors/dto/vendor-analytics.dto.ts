@@ -1,6 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsIn, IsOptional } from 'class-validator';
 import { TaxEntityType } from '@prisma/client';
+import { IsIn, IsOptional } from 'class-validator';
 
 export class WeeklyRevenueBucketDto {
   @ApiProperty({ description: 'ISO date for the Monday that starts this week (UTC)' })
