@@ -31,6 +31,7 @@ export function isTaxProfileComplete(
         dateOfBirth: Date | null;
         companyNumber: string | null;
         taxIdentifier: string | null;
+        financialAccountId?: string | null;
       }
     | null
     | undefined,
@@ -41,12 +42,13 @@ export function isTaxProfileComplete(
   }
   if (profile.entityType === TaxEntityType.SOLE_TRADER && !profile.dateOfBirth) return false;
   if (profile.entityType === TaxEntityType.LIMITED_COMPANY && !profile.companyNumber) return false;
+  if (!profile.taxIdentifier || !profile.financialAccountId) return false;
   return true;
 }
 
 // ─── Stripe → TaxProfile field mapping ───────────────────────────────────────
 
-function mapStripeAccount(account: Stripe.Account): Partial<{
+export function mapStripeAccount(account: Stripe.Account): Partial<{
   entityType: TaxEntityType;
   legalName: string;
   tradingName: string;
@@ -111,6 +113,22 @@ function mapStripeAccount(account: Stripe.Account): Partial<{
     }
   }
 
+  // Stripe only exposes a bank account's safe display fields. Keep the
+  // local reconciliation identifier masked: never persist account numbers.
+  const externalAccounts = account.external_accounts;
+  const banks = externalAccounts?.data?.filter((item) => item.object === 'bank_account') ?? [];
+  const bank = banks.find((item) => item.default_for_currency) ?? banks[0];
+  if (bank && bank.object === 'bank_account') {
+    if (bank.last4) {
+      result.financialAccountId = [
+        bank.country ?? 'unknown',
+        bank.routing_number ?? 'unknown',
+        `****${bank.last4}`,
+      ].join(':');
+    }
+    if (bank.account_holder_name) result.accountHolderName = bank.account_holder_name;
+  }
+
   return result;
 }
 
@@ -126,15 +144,36 @@ export class VendorTaxProfileService {
     private readonly notifications: NotificationsService,
   ) {}
 
+  /** Vendor responses never expose UTRs or NI numbers. */
+  private vendorView<T extends { taxIdentifier: string | null }>(profile: T | null) {
+    if (!profile) return null;
+    const taxIdentifier = profile.taxIdentifier?.trim() || null;
+    return {
+      ...profile,
+      taxIdentifier: null,
+      taxIdentifierProvided: Boolean(taxIdentifier),
+      taxIdentifierMasked: taxIdentifier ? `****${taxIdentifier.slice(-4)}` : null,
+    };
+  }
+
   // ── Vendor-facing ─────────────────────────────────────────────────────────
 
   async getMyProfile(user: AuthUser) {
     const vendor = await this.resolveVendor(user.id);
-    return this.prisma.vendorTaxProfile.findUnique({ where: { vendorId: vendor.id } });
+    const profile = await this.prisma.vendorTaxProfile.findUnique({
+      where: { vendorId: vendor.id },
+    });
+    return this.vendorView(profile);
   }
 
   async upsertMyProfile(user: AuthUser, dto: UpsertTaxProfileDto) {
     const vendor = await this.resolveVendor(user.id);
+    const existing = await this.prisma.vendorTaxProfile.findUnique({
+      where: { vendorId: vendor.id },
+      select: { taxIdentifier: true },
+    });
+    const suppliedTaxIdentifier = dto.taxIdentifier?.trim();
+    const taxIdentifier = suppliedTaxIdentifier || existing?.taxIdentifier || null;
     const profile = await this.prisma.vendorTaxProfile.upsert({
       where: { vendorId: vendor.id },
       create: {
@@ -149,7 +188,7 @@ export class VendorTaxProfileService {
         country: dto.country ?? 'GB',
         dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : null,
         companyNumber: dto.companyNumber,
-        taxIdentifier: dto.taxIdentifier,
+        taxIdentifier,
         taxIdCountry: dto.taxIdCountry ?? 'GB',
         vatNumber: dto.vatNumber,
         // Reset verification when the vendor self-edits
@@ -166,7 +205,7 @@ export class VendorTaxProfileService {
         country: dto.country ?? 'GB',
         dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
         companyNumber: dto.companyNumber,
-        taxIdentifier: dto.taxIdentifier,
+        taxIdentifier: suppliedTaxIdentifier || undefined,
         taxIdCountry: dto.taxIdCountry ?? 'GB',
         vatNumber: dto.vatNumber,
         // Reset to PENDING when vendor self-edits so compliance re-reviews
@@ -178,7 +217,7 @@ export class VendorTaxProfileService {
       },
     });
     this.logger.log(`Tax profile upserted for vendor ${vendor.id}`);
-    return profile;
+    return this.vendorView(profile);
   }
 
   /**
@@ -198,7 +237,7 @@ export class VendorTaxProfileService {
 
     let stripeAccount: Stripe.Account;
     try {
-      stripeAccount = await this.stripe.retrieveAccount(vendor.stripeAccountId);
+      stripeAccount = await this.stripe.retrieveAccount(vendor.stripeAccountId, true);
     } catch {
       throw new BadRequestException({
         code: 'STRIPE_FETCH_FAILED',
@@ -222,65 +261,52 @@ export class VendorTaxProfileService {
       return undefined;
     };
 
-    const profile = await this.prisma.vendorTaxProfile.upsert({
+    if (!existing) {
+      const profile = await this.prisma.vendorTaxProfile.create({
+        data: {
+          vendorId: vendor.id,
+          entityType: mapped.entityType ?? TaxEntityType.SOLE_TRADER,
+          legalName: mapped.legalName ?? vendor.businessName,
+          tradingName: mapped.tradingName,
+          addressLine1: mapped.addressLine1 ?? '',
+          addressLine2: mapped.addressLine2,
+          city: mapped.city ?? '',
+          postcode: mapped.postcode ?? '',
+          country: mapped.country ?? 'GB',
+          dateOfBirth: mapped.dateOfBirth,
+          companyNumber: mapped.companyNumber,
+          financialAccountId: mapped.financialAccountId,
+          accountHolderName: mapped.accountHolderName,
+          verificationStatus: VerificationStatus.PENDING,
+        },
+      });
+      this.logger.log(`Tax profile pre-filled from Stripe for vendor ${vendor.id}`);
+      return this.vendorView(profile);
+    }
+
+    const updateData = {
+      entityType: fillIfBlank('entityType', existing),
+      legalName: fillIfBlank('legalName', existing),
+      tradingName: fillIfBlank('tradingName', existing),
+      addressLine1: fillIfBlank('addressLine1', existing),
+      addressLine2: fillIfBlank('addressLine2', existing),
+      city: fillIfBlank('city', existing),
+      postcode: fillIfBlank('postcode', existing),
+      dateOfBirth: fillIfBlank('dateOfBirth', existing),
+      companyNumber: fillIfBlank('companyNumber', existing),
+      financialAccountId: fillIfBlank('financialAccountId', existing),
+      accountHolderName: fillIfBlank('accountHolderName', existing),
+    };
+    const hasChanges = Object.values(updateData).some((value) => value !== undefined);
+    if (!hasChanges) return this.vendorView(existing);
+
+    const profile = await this.prisma.vendorTaxProfile.update({
       where: { vendorId: vendor.id },
-      create: {
-        vendorId: vendor.id,
-        entityType: mapped.entityType ?? TaxEntityType.SOLE_TRADER,
-        legalName: mapped.legalName ?? vendor.businessName,
-        tradingName: mapped.tradingName,
-        addressLine1: mapped.addressLine1 ?? '',
-        addressLine2: mapped.addressLine2,
-        city: mapped.city ?? '',
-        postcode: mapped.postcode ?? '',
-        country: mapped.country ?? 'GB',
-        dateOfBirth: mapped.dateOfBirth,
-        companyNumber: mapped.companyNumber,
-        financialAccountId: mapped.financialAccountId,
-        accountHolderName: mapped.accountHolderName,
-        verificationStatus: VerificationStatus.PENDING,
-      },
-      update: {
-        // Only patch null columns
-        ...(fillIfBlank('entityType', existing) !== undefined
-          ? { entityType: fillIfBlank('entityType', existing) }
-          : {}),
-        ...(fillIfBlank('legalName', existing) !== undefined
-          ? { legalName: fillIfBlank('legalName', existing) }
-          : {}),
-        ...(fillIfBlank('tradingName', existing) !== undefined
-          ? { tradingName: fillIfBlank('tradingName', existing) }
-          : {}),
-        ...(fillIfBlank('addressLine1', existing) !== undefined
-          ? { addressLine1: fillIfBlank('addressLine1', existing) }
-          : {}),
-        ...(fillIfBlank('addressLine2', existing) !== undefined
-          ? { addressLine2: fillIfBlank('addressLine2', existing) }
-          : {}),
-        ...(fillIfBlank('city', existing) !== undefined
-          ? { city: fillIfBlank('city', existing) }
-          : {}),
-        ...(fillIfBlank('postcode', existing) !== undefined
-          ? { postcode: fillIfBlank('postcode', existing) }
-          : {}),
-        ...(fillIfBlank('dateOfBirth', existing) !== undefined
-          ? { dateOfBirth: fillIfBlank('dateOfBirth', existing) }
-          : {}),
-        ...(fillIfBlank('companyNumber', existing) !== undefined
-          ? { companyNumber: fillIfBlank('companyNumber', existing) }
-          : {}),
-        ...(fillIfBlank('financialAccountId', existing) !== undefined
-          ? { financialAccountId: fillIfBlank('financialAccountId', existing) }
-          : {}),
-        ...(fillIfBlank('accountHolderName', existing) !== undefined
-          ? { accountHolderName: fillIfBlank('accountHolderName', existing) }
-          : {}),
-        lastReviewedAt: new Date(),
-      },
+      data: updateData,
     });
 
     this.logger.log(`Tax profile pre-filled from Stripe for vendor ${vendor.id}`);
-    return profile;
+    return this.vendorView(profile);
   }
 
   // ── Admin-facing ──────────────────────────────────────────────────────────

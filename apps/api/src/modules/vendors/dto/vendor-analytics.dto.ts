@@ -1,4 +1,6 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { TaxEntityType } from '@prisma/client';
+import { IsIn, IsOptional } from 'class-validator';
 
 export class WeeklyRevenueBucketDto {
   @ApiProperty({ description: 'ISO date for the Monday that starts this week (UTC)' })
@@ -53,10 +55,23 @@ export class VendorAnalyticsResponseDto {
   reorderRatePct!: number;
 }
 
-export class StripeConnectLinkResponseDto {
-  @ApiProperty({ description: 'Hosted Stripe URL the vendor should be redirected to' })
-  url!: string;
+export class StripeConnectSessionDto {
+  @ApiPropertyOptional({ enum: [TaxEntityType.SOLE_TRADER, TaxEntityType.LIMITED_COMPANY] })
+  @IsOptional()
+  @IsIn([TaxEntityType.SOLE_TRADER, TaxEntityType.LIMITED_COMPANY])
+  entityType?: TaxEntityType;
+}
 
+export class StripeConnectSessionResponseDto {
   @ApiProperty({ description: 'Connected account id (acct_…) - useful for debugging' })
   accountId!: string;
+
+  @ApiProperty()
+  clientSecret!: string;
+
+  @ApiProperty({ enum: [TaxEntityType.SOLE_TRADER, TaxEntityType.LIMITED_COMPANY] })
+  businessType!: TaxEntityType;
+
+  @ApiProperty()
+  payoutsEnabled!: boolean;
 }
