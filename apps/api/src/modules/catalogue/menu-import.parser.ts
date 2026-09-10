@@ -43,7 +43,10 @@ export function parseMenuText(text: string): ParsedMenuCandidate[] {
       ? Math.round(Number((match[1] ?? `${match[2]}.${match[3]}`).replace(',', '.')) * 100)
       : undefined;
     const name = clean(
-      (match ? line.replace(PRICE, '') : line).replace(/^[\s\-–—:|•]+|[\s\-–—:|•]+$/g, ''),
+      (match ? line.replace(PRICE, '') : line).replace(
+        /^[\s\-–\u2014:|•]+|[\s\-–\u2014:|•]+$/g,
+        '',
+      ),
     );
     if (
       !name ||

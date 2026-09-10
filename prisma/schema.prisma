@@ -1125,8 +1125,8 @@ model MenuImportItem {
   description         String?
   pricePence          Int?                 @map("price_pence")
   portionLabel        String?              @map("portion_label") @db.VarChar(64)
-  reviewFlags         String[]             @default([])
-  allergens           String[]             @default([])
+  reviewFlags         String[]             @default([]) @map("review_flags")
+  allergens           String[]             @default(dbgenerated("(ARRAY[]::character varying[])::character varying(64)[]")) @db.VarChar(64)
   allergensFreeFrom   Boolean              @default(false) @map("allergens_free_from")
   allergenConfirmedAt DateTime?            @map("allergen_confirmed_at") @db.Timestamptz
   status              MenuImportItemStatus @default(candidate)
