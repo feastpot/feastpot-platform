@@ -1,12 +1,19 @@
 import { createHash } from 'crypto';
 
 import { InjectQueue } from '@nestjs/bull';
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+  Optional,
+} from '@nestjs/common';
 import { AcceptanceMethod, NoticeChannel, TermsDocumentType } from '@prisma/client';
 import type { Queue } from 'bull';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { TERMS_NOTICES_QUEUE } from '../../queues/queues.module';
+import { AnalyticsService } from '../analytics/analytics.service';
 
 import { AcceptTermsVersionDto } from './dto/accept-terms-version.dto';
 import { PublishTermsVersionDto } from './dto/publish-terms-version.dto';
@@ -30,6 +37,7 @@ export class TermsService {
   constructor(
     private readonly prisma: PrismaService,
     @InjectQueue(TERMS_NOTICES_QUEUE) private readonly noticesQueue: Queue,
+    @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
   // ─── Publishing ─────────────────────────────────────────────────────────────
@@ -317,6 +325,7 @@ export class TermsService {
       });
       return record;
     });
+    void this.analytics?.trackServer('terms_accepted', { vendorId });
 
     await this.noticesQueue.add(
       GENERATE_ACCEPTANCE_PDF_JOB,

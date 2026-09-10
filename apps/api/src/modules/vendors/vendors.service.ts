@@ -8,6 +8,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -27,6 +28,7 @@ import { normalisePostcode } from '../../common/postcode.util';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NOTIFICATIONS_QUEUE } from '../../queues/queues.module';
 import { StripeService } from '../../stripe/stripe.service';
+import { AnalyticsService } from '../analytics/analytics.service';
 import { SupabaseStorageService } from '../catalogue/supabase-storage.service';
 import { NotificationEvent } from '../notifications/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -317,6 +319,7 @@ export class VendorsService {
     // Notifications queue for durable retry of vendor-application emails.
     @InjectQueue(NOTIFICATIONS_QUEUE) private readonly queue: Queue,
     private readonly onboarding: VendorOnboardingService,
+    @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
   private applicationTokenHash(token: string): string {
@@ -336,7 +339,15 @@ export class VendorsService {
     return draft;
   }
 
-  async createApplicationDraft(dto: CreateVendorApplicationDraftDto, fpRef?: string) {
+  async createApplicationDraft(
+    dto: CreateVendorApplicationDraftDto,
+    fpRef?: string,
+    anonVisitorId?: string,
+  ) {
+    const safeAnonVisitorId =
+      anonVisitorId && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(anonVisitorId)
+        ? anonVisitorId
+        : null;
     const token = randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     const email = dto.email.trim().toLowerCase();
@@ -374,6 +385,7 @@ export class VendorsService {
         resumeExpiresAt: expiresAt,
         currentStep: 'phase_2_business_name',
         referrerVendorId,
+        anonVisitorId: safeAnonVisitorId,
       },
       select: {
         id: true,
@@ -382,8 +394,29 @@ export class VendorsService {
         phone: true,
         postcode: true,
         currentStep: true,
+        createdAt: true,
         updatedAt: true,
       },
+    });
+    // Join pre-draft landing/start events to this application while the
+    // anonymous cohort key is still available. This is an explicit analytics
+    // relation, not an identity graph, and cascades away with the application.
+    if (safeAnonVisitorId && this.prisma.analyticsEvent) {
+      await this.prisma.analyticsEvent.updateMany({
+        where: {
+          anonVisitorId: safeAnonVisitorId,
+          applicationId: null,
+          createdAt: {
+            gte: new Date(draft.createdAt.getTime() - 24 * 60 * 60 * 1000),
+            lte: new Date(draft.createdAt.getTime() + 24 * 60 * 60 * 1000),
+          },
+        },
+        data: { applicationId: draft.id },
+      });
+    }
+    void this.analytics?.trackServer('application_phase_1_completed', {
+      applicationId: draft.id,
+      anonVisitorId: safeAnonVisitorId ?? undefined,
     });
 
     const webBase =
@@ -557,6 +590,11 @@ export class VendorsService {
     const application = await this.prisma.vendorApplication.findUniqueOrThrow({
       where: { id: draft.id },
     });
+    void this.analytics?.trackServer('application_submitted', {
+      applicationId: application.id,
+      anonVisitorId: application.anonVisitorId ?? undefined,
+      properties: { phase: 'phase_2' },
+    });
 
     const adminEmail =
       this.config.get<string>('VENDOR_APPLICATIONS_ADMIN_EMAIL') ?? 'soul@feastpot.co.uk';
@@ -635,8 +673,12 @@ export class VendorsService {
    * dedupe by email here so an applicant who fat-fingers the kitchen name
    * can re-submit. The admin queue surfaces same-email duplicates naturally.
    */
-  async registerInterest(dto: RegisterVendorInterestDto, fpRef?: string) {
+  async registerInterest(dto: RegisterVendorInterestDto, fpRef?: string, anonVisitorId?: string) {
     const normalisedEmail = dto.email.trim().toLowerCase();
+    const safeAnonVisitorId =
+      anonVisitorId && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(anonVisitorId)
+        ? anonVisitorId
+        : null;
 
     // Resolve the referring vendor from the fp_ref cookie forwarded by the
     // web app as the X-Fp-Ref header. The cookie format is
@@ -705,9 +747,23 @@ export class VendorsService {
         submittedAt: new Date(),
         // Referral attribution: written once, never overwritten.
         referrerVendorId,
+        anonVisitorId: safeAnonVisitorId,
       },
       select: { id: true, kitchenName: true, createdAt: true, status: true },
     });
+    if (safeAnonVisitorId && this.prisma.analyticsEvent) {
+      await this.prisma.analyticsEvent.updateMany({
+        where: {
+          anonVisitorId: safeAnonVisitorId,
+          applicationId: null,
+          createdAt: {
+            gte: new Date(application.createdAt.getTime() - 24 * 60 * 60 * 1000),
+            lte: new Date(application.createdAt.getTime() + 24 * 60 * 60 * 1000),
+          },
+        },
+        data: { applicationId: application.id },
+      });
+    }
 
     // Enqueue both emails as durable Bull jobs (3 attempts, exponential
     // backoff starting at 30 s). If Resend is down the job retries up to
@@ -1818,6 +1874,13 @@ export class VendorsService {
       notes: dto.notes,
       orderCapWeekly: dto.orderCapWeekly,
     });
+    if (dto.status === VendorStatus.live) {
+      void this.analytics?.trackServer('vendor_live', {
+        vendorId,
+        userId: vendor.userId,
+        properties: { previous_status: vendor.status },
+      });
+    }
 
     // Critical: a suspended/removed vendor must NOT remain visible in the
     // search cache for up to 5 min. Same for a vendor coming back online.

@@ -255,12 +255,25 @@ export class NotificationProcessor {
     const sent: Channel[] = [];
     const skipped: Channel[] = [];
 
-    const enabledChannels = await this.filterEnabledChannels(user.id, eventName, template.channels);
+    // Recovery deliberately uses one channel per stage (SMS at 2h, email thereafter).
+    // Keep this decision at the delivery boundary so preferences/suppressions still apply.
+    const recoveryChannel =
+      eventName === 'vendor_onboarding_recovery'
+        ? data.deliveryChannel === 'sms'
+          ? (['sms'] as Channel[])
+          : data.deliveryChannel === 'email'
+            ? (['email'] as Channel[])
+            : data.recoveryStage === 'sms_2h'
+              ? (['sms'] as Channel[])
+              : (['email'] as Channel[])
+        : template.channels;
+    const enabledChannels = await this.filterEnabledChannels(user.id, eventName, recoveryChannel);
 
-    for (const channel of template.channels) {
+    for (const channel of recoveryChannel) {
       if (!enabledChannels.includes(channel)) {
         // Recipient has opted this (event, channel) out - not an error, skip it.
         skipped.push(channel);
+        await this.updateRecoveryDelivery(data, 'skipped', 'notification preference');
         continue;
       }
 
@@ -288,6 +301,7 @@ export class NotificationProcessor {
             data,
           );
           skipped.push(channel);
+          await this.updateRecoveryDelivery(data, 'skipped', 'suppressed');
           continue;
         }
       }
@@ -313,8 +327,10 @@ export class NotificationProcessor {
             NotificationStatus.sent,
             data,
           );
+          await this.updateRecoveryDelivery(data, 'delivered');
         } else {
           skipped.push(channel);
+          await this.updateRecoveryDelivery(data, 'skipped', 'provider declined delivery');
         }
       } catch (e) {
         this.logger.error(
@@ -329,6 +345,7 @@ export class NotificationProcessor {
           NotificationStatus.failed,
           data,
         );
+        await this.updateRecoveryDelivery(data, 'failed', (e as Error).message);
         // Re-throw so BullMQ retries the WHOLE job (all channels). Acceptable
         // because each channel's send is itself idempotent on the provider side
         // (Stripe-style: same event, same content) - duplicates are tolerable
@@ -338,6 +355,31 @@ export class NotificationProcessor {
     }
 
     return { sent, skipped };
+  }
+
+  private async updateRecoveryDelivery(
+    data: Record<string, unknown>,
+    status: 'delivered' | 'skipped' | 'failed',
+    outcome?: string,
+  ): Promise<void> {
+    if (typeof data.recoveryStageId === 'string') {
+      await this.prisma.vendorRecoveryStage.updateMany({
+        where: { id: data.recoveryStageId, sentAt: null },
+        data: status === 'delivered' ? { sentAt: new Date() } : { skippedAt: new Date() },
+      });
+    }
+    if (typeof data.recoveryChaseId === 'string') {
+      await this.prisma.vendorRecoveryChase.update({
+        where: { id: data.recoveryChaseId },
+        data: {
+          status,
+          deliveredAt: status === 'delivered' ? new Date() : null,
+          skippedAt: status === 'skipped' ? new Date() : null,
+          failedAt: status === 'failed' ? new Date() : null,
+          outcome: outcome ?? null,
+        },
+      });
+    }
   }
 
   /**

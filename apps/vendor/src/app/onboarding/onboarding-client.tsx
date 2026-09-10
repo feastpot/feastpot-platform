@@ -5,7 +5,7 @@ import { brandColors } from '@feastpot/ui/brand';
 import { Check, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { DocumentRow, REQUIRED_DOCS } from '@/components/compliance/compliance-docs';
 import { useToast } from '@/components/ui/toaster';
@@ -13,6 +13,12 @@ import { StripeAccountOnboarding } from '@/components/onboarding/stripe-account-
 import { useOnboardingProgress } from '@/hooks/use-onboarding-progress';
 import { useTermsAcceptanceStatus } from '@/hooks/use-terms-acceptance';
 import { useUploadDocument, useVendorDocuments } from '@/hooks/use-vendor-documents';
+import {
+  RequiredOnboardingItemName,
+  useRequiredOnboardingItems,
+  useUpdateRequiredOnboardingItem,
+} from '@/hooks/use-required-onboarding-items';
+import { useTrackEvent } from '@/hooks/use-track-event';
 
 interface VendorSummary {
   id: string;
@@ -46,9 +52,27 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
   const progress = useOnboardingProgress();
   const termsStatus = useTermsAcceptanceStatus();
   const upload = useUploadDocument(vendor.id);
+  const requiredItems = useRequiredOnboardingItems();
+  const updateRequiredItem = useUpdateRequiredOnboardingItem();
+  const track = useTrackEvent();
+  const itemParam = search?.get('item') as RequiredOnboardingItemName | null;
+  const itemRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const router = useRouter();
   const refreshProgress = useCallback(() => router.refresh(), [router]);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!itemParam || !requiredItems.isSuccess) return;
+    const item = itemRefs.current[itemParam];
+    if (!item) return;
+    item.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    item.focus({ preventScroll: true });
+  }, [itemParam, requiredItems.isSuccess]);
+
+  const requiredItemStates = useMemo(
+    () => new Map((requiredItems.data ?? []).map((item) => [item.name, item.state])),
+    [requiredItems.data],
+  );
 
   // Newest-first: keep the first occurrence per type so re-uploads surface
   // immediately. `new Map(arr)` would keep the LAST (oldest) value on key
@@ -92,6 +116,112 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
       </header>
 
       <StepIndicator currentStep={currentStep} />
+
+      {itemParam && (
+        <Card className="border-teal/40 bg-teal/5" role="status">
+          <CardContent className="p-3 text-sm">
+            Welcome back. We opened the requested onboarding item for you, so you can resume it
+            whenever you are ready.
+          </CardContent>
+        </Card>
+      )}
+
+      <Step
+        n={0}
+        title="Required items"
+        done={
+          requiredItems.isSuccess &&
+          REQUIRED_ONBOARDING_ITEMS.every(
+            (item) => requiredItemStates.get(item.name) === 'supplied',
+          )
+        }
+        body={
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              These are practical next steps after approval. You can defer an item and return to it
+              later, but any deferred required item still blocks going live where shown.
+            </p>
+            {requiredItems.isLoading && (
+              <p className="text-sm text-muted-foreground">Loading your required items…</p>
+            )}
+            {requiredItems.isError && (
+              <p className="text-sm text-destructive">
+                We could not load your required items. Please refresh and try again.
+              </p>
+            )}
+            {REQUIRED_ONBOARDING_ITEMS.map((item) => {
+              const state = requiredItemStates.get(item.name) ?? 'outstanding';
+              const isFocused = itemParam === item.name;
+              return (
+                <div
+                  key={item.name}
+                  ref={(element) => {
+                    itemRefs.current[item.name] = element;
+                  }}
+                  tabIndex={-1}
+                  className={`rounded-lg border p-3 ${isFocused ? 'border-teal ring-2 ring-teal/30' : ''}`}
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="font-medium">{item.label}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{item.help}</p>
+                    </div>
+                    <Badge variant={state === 'supplied' ? 'default' : 'secondary'}>
+                      {state === 'supplied'
+                        ? 'Provided'
+                        : state === 'deferred'
+                          ? 'I’ll add this later'
+                          : 'To do'}
+                    </Badge>
+                  </div>
+                  {state !== 'supplied' ? (
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <Link href={item.evidenceHref}>
+                        <Button size="sm" variant="outline">
+                          {state === 'deferred' ? 'Resume / add now' : 'Add now'}
+                        </Button>
+                      </Link>
+                      <Button
+                        size="sm"
+                        variant={state === 'deferred' ? 'default' : 'outline'}
+                        disabled={updateRequiredItem.isPending}
+                        onClick={() => {
+                          updateRequiredItem.mutate(
+                            { name: item.name, state: 'deferred' },
+                            {
+                              onSuccess: () =>
+                                track(
+                                  'vendor_required_item_deferred',
+                                  { item: item.name },
+                                  vendor.id,
+                                ),
+                              onError: () =>
+                                toast({
+                                  title: 'Could not save this yet',
+                                  description: 'Please try again.',
+                                  variant: 'destructive',
+                                }),
+                            },
+                          );
+                        }}
+                      >
+                        I&apos;ll add this later
+                      </Button>
+                      {state === 'deferred' && (
+                        <span className="text-xs text-amber-700">Still blocks going live</span>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Supplied and recorded by Feastpot. This status is read-only here.
+                    </p>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        }
+      />
 
       <Step
         n={1}
@@ -248,6 +378,44 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
     </div>
   );
 }
+
+const REQUIRED_ONBOARDING_ITEMS: Array<{
+  name: RequiredOnboardingItemName;
+  label: string;
+  help: string;
+  evidenceHref: string;
+}> = [
+  {
+    name: 'food_business_registration',
+    label: 'Food Business Registration',
+    help: 'Register with your local council at least 28 days before trading.',
+    evidenceHref: '/account-and-compliance#doc-kitchen_reg',
+  },
+  {
+    name: 'fhrs_eligibility',
+    label: 'FSA / FHRS',
+    help: 'You can trade while awaiting your first inspection; an existing rating below 3 is not eligible.',
+    evidenceHref: '/account-and-compliance',
+  },
+  {
+    name: 'public_liability_insurance',
+    label: 'Public liability insurance',
+    help: 'Compare providers for cover of at least £5m and check that catering and delivery work are included.',
+    evidenceHref: '/account-and-compliance#doc-insurance',
+  },
+  {
+    name: 'food_safety_certificate',
+    label: 'Level 2 Food Safety certificate',
+    help: 'Take a recognised Level 2 Food Safety course and keep the certificate available for review.',
+    evidenceHref: '/account-and-compliance#doc-hygiene_cert',
+  },
+  {
+    name: 'photo_id_verification',
+    label: 'Photo ID',
+    help: 'Your ID is used only for verification, stored securely, and accessed by authorised compliance staff.',
+    evidenceHref: '/account-and-compliance#doc-photo_id',
+  },
+];
 
 /**
  * Horizontal step indicator rendered above the four step cards.

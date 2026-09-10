@@ -22,6 +22,7 @@ export const ADMIN_DESTINATION_ROLES = {
   '/discount-codes': ['admin', 'finance'],
   '/feastpass-health': ['admin', 'finance'],
   '/analytics': ['admin', 'finance', 'support'],
+  '/vendor-acquisition': ['admin', 'finance', 'support'],
   '/attribution': ['admin', 'finance', 'support'],
   '/coverage': ['admin', 'support'],
   '/push/compose': ['admin'],

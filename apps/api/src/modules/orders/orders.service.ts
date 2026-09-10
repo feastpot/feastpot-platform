@@ -375,6 +375,13 @@ export class OrdersService {
     );
     const orderId = created.order.id;
     await this.confirmOrder(orderId, customerId, provider);
+    // Delivery normally captures through Stripe. This synthetic identifier has
+    // no provider-side object, so remove it after the mocked confirmation to
+    // keep later real status transitions inside the guarded test boundary.
+    await this.prisma.payment.updateMany({
+      where: { orderId, stripePaymentIntentId: paymentIntentId },
+      data: { stripePaymentIntentId: null },
+    });
     return { ...created, orderId, paymentIntentId, confirmed: true };
   }
 
@@ -1218,6 +1225,10 @@ export class OrdersService {
       },
       { jobId: `order_confirmation:${orderId}` },
     );
+    void this.analytics?.trackServer('first_order', {
+      vendorId: order.vendorId,
+      properties: { order_type: 'standard' },
+    });
     return { confirmed: true, orderId };
   }
 

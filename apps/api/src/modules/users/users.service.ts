@@ -191,6 +191,17 @@ export class UsersService {
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      // Remove analytics identity/correlation before marking the account
+      // deleted. Keeping these links would create a hidden identity graph
+      // outside the user's operational data.
+      await tx.analyticsEvent.updateMany({
+        where: { userId },
+        data: { userId: null, vendorId: null, anonVisitorId: null, applicationId: null },
+      });
+      await tx.vendorApplication.updateMany({
+        where: { vendor: { userId } },
+        data: { anonVisitorId: null },
+      });
       const u = await tx.user.update({
         where: { id: userId },
         data: { status: dto.status },
@@ -233,10 +244,20 @@ export class UsersService {
    * dependent rows here.
    */
   async deleteMe(userId: string): Promise<void> {
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { status: UserStatus.deleted },
-      select: { id: true },
+    await this.prisma.$transaction(async (tx) => {
+      await tx.analyticsEvent.updateMany({
+        where: { userId },
+        data: { userId: null, vendorId: null, anonVisitorId: null, applicationId: null },
+      });
+      await tx.vendorApplication.updateMany({
+        where: { vendor: { userId } },
+        data: { anonVisitorId: null },
+      });
+      await tx.user.update({
+        where: { id: userId },
+        data: { status: UserStatus.deleted },
+        select: { id: true },
+      });
     });
 
     const { error } = await this.supabase.getClient().auth.admin.deleteUser(userId);

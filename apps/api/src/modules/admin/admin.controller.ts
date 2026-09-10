@@ -70,6 +70,10 @@ import {
   RequestVendorApplicationInformationDto,
 } from './dto/request-vendor-application-information.dto';
 import { UpdateVendorApplicationDto } from './dto/update-vendor-application.dto';
+import {
+  BulkVendorRecoveryChaseDto,
+  VendorRecoveryChaseDto,
+} from './dto/vendor-recovery-chase.dto';
 
 interface SearchAnalyticsRow {
   query: string;
@@ -219,6 +223,29 @@ export class AdminController {
   })
   async workQueue(@CurrentUser() user: AuthUser) {
     return this.admin.getWorkQueue(user.role, await this.queueSnapshots.snapshots());
+  }
+
+  @Get('vendor-recovery')
+  @Roles(UserRole.admin, UserRole.compliance, UserRole.support)
+  @ApiOperation({ summary: 'Post-approval vendor onboarding recovery queue' })
+  vendorRecoveryQueue() {
+    return this.admin.listVendorRecoveryQueue();
+  }
+
+  @Post('vendor-recovery/:vendorId/chase')
+  @Roles(UserRole.admin, UserRole.compliance, UserRole.support)
+  chaseVendorRecovery(
+    @Param('vendorId', new ParseUUIDPipe()) vendorId: string,
+    @Req() req: AuthedRequest,
+    @Body() dto: VendorRecoveryChaseDto,
+  ) {
+    return this.admin.chaseVendorRecovery(vendorId, req.user!.id, dto);
+  }
+
+  @Post('vendor-recovery/bulk-chase')
+  @Roles(UserRole.admin, UserRole.compliance, UserRole.support)
+  bulkChaseVendorRecovery(@Req() req: AuthedRequest, @Body() dto: BulkVendorRecoveryChaseDto) {
+    return this.admin.bulkChaseVendorRecovery(req.user!.id, dto.requests);
   }
 
   @Get('command-search')
