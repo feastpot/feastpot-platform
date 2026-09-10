@@ -10,6 +10,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { randomBytes } from 'node:crypto';
 import {
   DisputeStatus,
   DocumentStatus,
@@ -2864,6 +2865,474 @@ export class AdminService {
       },
       ...deltas,
     };
+  }
+
+  /**
+   * Creates deliberately marked fixtures used by production smoke tests. The
+   * password is returned exactly once and is never written to Prisma.
+   */
+  async createTestVendorPersonas(confirmation: string, actorId: string) {
+    const phrase = 'CREATE PRODUCTION TEST VENDORS';
+    if (confirmation !== phrase) {
+      throw new BadRequestException({
+        code: 'TEST_PERSONA_CONFIRMATION_REQUIRED',
+        message: `confirmation must exactly equal "${phrase}"`,
+      });
+    }
+
+    const specs = [
+      {
+        key: 'nigerian-live',
+        email: 'test-vendor-nigerian@feastpot.test',
+        slug: 'test-nigerian-kitchen',
+      },
+      {
+        key: 'caribbean-live',
+        email: 'test-vendor-caribbean@feastpot.test',
+        slug: 'test-caribbean-kitchen',
+      },
+      {
+        key: 'applicant-under-review',
+        email: 'test-vendor-applicant@feastpot.test',
+        slug: 'test-applicant-kitchen',
+      },
+      {
+        key: 'cape-verdean-live',
+        email: 'test-vendor-cape-verdean@feastpot.test',
+        slug: 'test-cape-verdean-kitchen',
+      },
+    ] as const;
+    const createdAuth: string[] = [];
+    const personas: Array<{
+      key: string;
+      email: string;
+      slug: string;
+      userId: string;
+      password: string;
+    }> = [];
+    try {
+      const result = await this.prisma.$transaction(
+        async (tx) => {
+          await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('admin-test-vendor-personas-v1'))`;
+          const existing = await tx.user.findMany({
+            where: { email: { in: specs.map((s) => s.email) } },
+            select: { email: true },
+          });
+          const existingSlugs = await tx.vendor.findMany({
+            where: { slug: { in: specs.map((s) => s.slug) } },
+            select: { slug: true },
+          });
+          const existingApplications = await tx.vendorApplication.findMany({
+            where: { email: { in: specs.map((s) => s.email) } },
+            select: { email: true },
+          });
+          if (existing.length || existingSlugs.length || existingApplications.length) {
+            throw new ConflictException({
+              code: 'TEST_PERSONAS_ALREADY_EXIST',
+              message: 'One or more deterministic test persona emails or slugs already exists',
+              emails: [
+                ...existing.map((u) => u.email),
+                ...existingApplications.map((a) => a.email),
+              ],
+              slugs: existingSlugs.map((v) => v.slug),
+            });
+          }
+          const currentTerms = await tx.termsVersion.findFirst({
+            where: { documentType: 'VENDOR_TERMS', effectiveAt: { lte: new Date() } },
+            orderBy: { effectiveAt: 'desc' },
+          });
+          if (!currentTerms)
+            throw new BadRequestException({
+              code: 'CURRENT_VENDOR_TERMS_REQUIRED',
+              message: 'Current VENDOR_TERMS is required',
+            });
+          const reserved = new Set<string>(specs.map((s) => s.email));
+          for (let page = 1; ; page++) {
+            const listed = await this.supabase
+              .getClient()
+              .auth.admin.listUsers({ page, perPage: 1000 });
+            if (listed.error)
+              throw new InternalServerErrorException({
+                code: 'TEST_PERSONA_ORPHAN_SCAN_FAILED',
+                message: `Could not inspect reserved Auth users: ${listed.error.message}`,
+              });
+            const users = listed.data?.users ?? [];
+            for (const user of users.filter(
+              (u) => u.email && reserved.has(u.email.toLowerCase()),
+            )) {
+              const deleted = await this.supabase.getClient().auth.admin.deleteUser(user.id);
+              if (deleted.error)
+                throw new InternalServerErrorException({
+                  code: 'TEST_PERSONA_ORPHAN_DELETE_FAILED',
+                  message: `Could not remove an orphaned reserved Auth user; retry after cleanup: ${deleted.error.message}`,
+                });
+            }
+            if (users.length < 1000) break;
+          }
+          for (const spec of specs) {
+            const password = randomBytes(30).toString('base64url');
+            const { data, error } = await this.supabase.getClient().auth.admin.createUser({
+              email: spec.email,
+              password,
+              email_confirm: true,
+              app_metadata: { role: 'vendor', testPersona: true },
+              user_metadata: { role: 'vendor', testPersona: true, personaKey: spec.key },
+            });
+            if (error || !data.user?.id)
+              throw new InternalServerErrorException({
+                code: 'TEST_PERSONA_AUTH_CREATE_FAILED',
+                message: error?.message ?? 'Supabase did not return a user',
+              });
+            createdAuth.push(data.user.id);
+            personas.push({ ...spec, userId: data.user.id, password });
+          }
+          const now = new Date();
+          const live = async (
+            p: (typeof personas)[number],
+            businessName: string,
+            cuisines: string[],
+            images: string[],
+            withImport = false,
+            cape = false,
+          ) => {
+            const user = await tx.user.create({
+              data: {
+                id: p.userId,
+                email: p.email,
+                firstName: 'Production',
+                lastName: 'Test Vendor',
+                role: UserRole.vendor,
+                emailVerified: true,
+                isTestData: true,
+                provenance: 'admin-test-persona',
+              },
+            });
+            const vendor = await tx.vendor.create({
+              data: {
+                userId: user.id,
+                businessName,
+                slug: p.slug,
+                cuisines,
+                status: VendorStatus.live,
+                isSeedData: true,
+                approvedAt: now,
+                termsActivatedAt: now,
+                complianceStatus: 'RATED',
+                fsaHygieneRating: 4,
+                fsaRegistrationNumber: 'ADMIN-TEST-FSA-0001',
+                fsaRatingDate: now,
+                stripeAccountId: `acct_admin_test_${p.key.replace(/[^a-z0-9]/g, '_')}`,
+                payoutsEnabled: true,
+                stripeChargesEnabled: true,
+                stripePayoutsEnabled: true,
+                stripeRequirementsCurrentlyDue: [],
+                stripeRequirementsEventuallyDue: [],
+                stripeRequirementsPastDue: [],
+                stripeRequirementsPendingVerification: [],
+                description: `Test persona for ${businessName}`,
+                coverImageUrl: images[0],
+                logoUrl: images[0],
+                specialities: cuisines,
+                ...(cape
+                  ? { maxTraysPerDay: 80, eventCateringManualQuote: true, largeOrderLeadHours: 48 }
+                  : {}),
+              },
+            });
+            await tx.vendorDocument.createMany({
+              data: (['insurance', 'hygiene_cert', 'photo_id'] as const).map((type) => ({
+                vendorId: vendor.id,
+                type,
+                status: 'verified' as const,
+                fileUrl: `https://fixtures.feastpot.test/admin-test-persona/${p.key}/${type}.pdf`,
+                fileName: `admin-test-persona-${type}.pdf`,
+                reviewedBy: actorId,
+                reviewedAt: now,
+              })),
+            });
+            await tx.vendorTaxProfile.create({
+              data: {
+                vendorId: vendor.id,
+                entityType: 'SOLE_TRADER',
+                legalName: `Admin Test Persona ${p.key}`,
+                tradingName: businessName,
+                addressLine1: 'Synthetic test address',
+                city: 'London',
+                postcode: 'ZZ1 1ZZ',
+                country: 'GB',
+                taxIdentifier: `TEST-${p.key.toUpperCase()}`,
+                taxIdCountry: 'GB',
+                dateOfBirth: new Date('1980-01-01T00:00:00.000Z'),
+                financialAccountId: `fa_admin_test_${p.key.replace(/[^a-z0-9]/g, '_')}`,
+                verificationStatus: 'VERIFIED',
+                verificationMethod: 'admin-test-persona',
+                verifiedAt: now,
+                lastReviewedAt: now,
+              },
+            });
+            await tx.vendorRequiredOnboardingItem.createMany({
+              data: Object.values(VendorOnboardingStepName).map((name) => ({
+                vendorId: vendor.id,
+                name,
+                state: 'supplied' as const,
+                suppliedAt: now,
+              })),
+              skipDuplicates: true,
+            });
+            const menu = await tx.menu.create({
+              data: { vendorId: vendor.id, name: 'Production test menu', isActive: true },
+            });
+            const itemNames = cape
+              ? ['Cachupa', 'Pastéis de milho']
+              : cuisines[0] === 'Caribbean'
+                ? ['Jerk chicken', 'Rice and peas']
+                : ['Jollof rice', 'Egusi soup'];
+            const items = await Promise.all(
+              itemNames.map((name, i) =>
+                tx.menuItem.create({
+                  data: {
+                    vendorId: vendor.id,
+                    menuId: menu.id,
+                    name,
+                    category: 'Mains',
+                    pricePence: 1200 + i * 300,
+                    imageUrls: [images[i % images.length]],
+                    allergens: [],
+                    tags: ['test-persona'],
+                    isAvailable: true,
+                    moderationStatus: 'approved',
+                    submittedAt: now,
+                    decidedAt: now,
+                    allergensFreeFrom: true,
+                  },
+                }),
+              ),
+            );
+            let applicationId: string;
+            const app = await tx.vendorApplication.create({
+              data: {
+                fullName: 'Production Test Vendor',
+                kitchenName: businessName,
+                email: p.email,
+                phone: '+440000000000',
+                postcode: 'SE15 4ST',
+                cuisineType: cuisines[0],
+                cuisineTypes: cuisines,
+                kitchenType: 'commercial',
+                hasFsaRegistration: true,
+                foodStory: 'Admin-created production test persona.',
+                status: VendorApplicationStatus.approved,
+                submittedAt: now,
+                reviewedAt: now,
+                vendorId: vendor.id,
+                isTestData: true,
+              },
+            });
+            applicationId = app.id;
+            await tx.termsAcceptance.create({
+              data: {
+                vendorId: vendor.id,
+                termsVersionId: currentTerms.id,
+                ipAddress: '127.0.0.1',
+                userAgent: 'Feastpot admin test persona generator',
+                acceptanceText: `I accept the currently effective vendor terms (${currentTerms.version}) [admin-test-persona]`,
+                contentHash: currentTerms.contentHash,
+                scrolledToEnd: true,
+                method: 'CLICKWRAP',
+              },
+            });
+            await tx.vendorVerification.create({
+              data: {
+                vendorId: vendor.id,
+                registrationNumber: 'ADMIN-TEST-FSA-0001',
+                registrationAuthority: 'Synthetic Food Standards Agency fixture',
+                registrationConfirmedAt: now,
+                fhrsRating: 4,
+                fhrsRatingCheckedAt: now,
+                fhrsInspectionStatus: 'RATED',
+                insuranceProvider: 'Synthetic test insurer',
+                insuranceCoverPence: 500000000,
+                insuranceValidUntil: new Date(now.getTime() + 365 * 86400000),
+                allergenTrainingHeld: true,
+                allergenTrainingUntil: new Date(now.getTime() + 365 * 86400000),
+                idVerifiedAt: now,
+                overallState: 'VERIFIED',
+              },
+            });
+            if (withImport) {
+              await tx.menuImport.create({
+                data: {
+                  vendorId: vendor.id,
+                  status: 'applied',
+                  sourceFiles: [
+                    {
+                      kind: 'instagram-screenshot',
+                      label: 'Synthetic Instagram menu reference (no API access)',
+                      source: 'admin-test-persona',
+                    },
+                    {
+                      kind: 'whatsapp-export',
+                      label: 'Synthetic WhatsApp menu reference (no API access)',
+                      source: 'admin-test-persona',
+                    },
+                  ],
+                  items: {
+                    create: items.map((item) => ({
+                      menuItemId: item.id,
+                      name: item.name,
+                      pricePence: item.pricePence,
+                      status: 'applied',
+                      allergens: [],
+                      allergensFreeFrom: true,
+                      allergenConfirmedAt: now,
+                    })),
+                  },
+                },
+              });
+            }
+            if (cape) {
+              const enquiry = await tx.cateringEnquiry.create({
+                data: {
+                  occasionType: 'Corporate event',
+                  guestCountBand: '50-100',
+                  postcode: 'SE15 4ST',
+                  outwardCode: 'SE15',
+                  contactName: 'Production Test Customer',
+                  email: 'test-catering-customer@feastpot.test',
+                  status: 'ASSIGNED',
+                  source: 'admin-test-persona',
+                  isTestData: true,
+                  provenance: 'admin-test-persona',
+                  eventDate: '2035-06-15',
+                  preferredTime: '12:00-14:00',
+                  notes: 'Synthetic admin-test-persona request.',
+                },
+              });
+              await tx.vendorCapacity.create({
+                data: {
+                  vendorId: vendor.id,
+                  serviceDate: new Date(Date.now() + 30 * 86400000),
+                  capacityType: 'event_catering',
+                  totalSlots: 80,
+                },
+              });
+              await tx.cateringBooking.create({
+                data: {
+                  enquiryId: enquiry.id,
+                  vendorId: vendor.id,
+                  customerEmail: enquiry.email,
+                  customerName: enquiry.contactName,
+                  eventDate: new Date('2035-06-15T12:00:00Z'),
+                  preferredTime: '12:00-14:00',
+                  eventAddress: 'Synthetic event address, SE15 4ST',
+                  guestCount: 60,
+                  totalPence: 0,
+                  depositPence: 0,
+                  balancePence: 0,
+                  commissionPercent: 0,
+                  commissionPence: 0,
+                  status: 'ASSIGNED',
+                  quoteExpiresAt: new Date(Date.now() + 86400000),
+                  assignNote: 'admin-test-persona received request; no quote issued',
+                },
+              });
+            }
+            return {
+              key: p.key,
+              email: p.email,
+              password: p.password,
+              vendorId: vendor.id,
+              applicationId,
+              summary: `${businessName} live test persona`,
+            };
+          };
+          const nigerian = await live(
+            personas[0],
+            'Test Lagos Kitchen',
+            ['Nigerian'],
+            ['https://images.unsplash.com/photo-1604329760661-e71dc83f8f26'],
+          );
+          const caribbean = await live(
+            personas[1],
+            'Test Caribbean Kitchen',
+            ['Caribbean'],
+            ['https://images.unsplash.com/photo-1601050690597-df0568f70950'],
+            true,
+          );
+          await tx.user.create({
+            data: {
+              id: personas[2].userId,
+              email: personas[2].email,
+              firstName: 'Production',
+              lastName: 'Test Applicant',
+              role: UserRole.vendor,
+              emailVerified: true,
+              isTestData: true,
+              provenance: 'admin-test-persona',
+            },
+          });
+          const applicant = await tx.vendorApplication.create({
+            data: {
+              fullName: 'Production Test Applicant',
+              kitchenName: 'Test Applicant Kitchen',
+              email: personas[2].email,
+              phone: '+440000000001',
+              postcode: 'M1 1AE',
+              cuisineType: 'West African',
+              cuisineTypes: ['West African'],
+              kitchenType: 'home',
+              hasFsaRegistration: false,
+              foodStory: 'Awaiting FSA registration and hygiene rating.',
+              status: VendorApplicationStatus.under_review,
+              submittedAt: now,
+              isTestData: true,
+            },
+          });
+          const cape = await live(
+            personas[3],
+            'Test Cape Verde Kitchen',
+            ['Cape Verdean'],
+            ['https://images.unsplash.com/photo-1547592180-85f173990554'],
+            false,
+            true,
+          );
+          await tx.auditLog.create({
+            data: {
+              actorId,
+              action: 'admin.test_personas.vendors_created',
+              entityType: 'vendor_personas',
+              entityId: applicant.id,
+              metadata: { personaKeys: personas.map((p) => p.key) } as Prisma.JsonObject,
+            },
+          });
+          return [
+            nigerian,
+            caribbean,
+            {
+              key: personas[2].key,
+              email: personas[2].email,
+              password: personas[2].password,
+              applicationId: applicant.id,
+              summary: 'Applicant under review; awaiting FSA registration and hygiene rating',
+            },
+            cape,
+          ];
+        },
+        { maxWait: 10_000, timeout: 120_000 },
+      );
+      return { personas: result };
+    } catch (error) {
+      const cleanup = await Promise.allSettled(
+        createdAuth.map((id) => this.supabase.getClient().auth.admin.deleteUser(id)),
+      );
+      cleanup.forEach((outcome) => {
+        if (outcome.status === 'rejected' || outcome.value?.error) {
+          this.logger.error(
+            `Failed to clean up test persona auth user: ${outcome.status === 'rejected' ? String(outcome.reason) : outcome.value.error?.message}`,
+          );
+        }
+      });
+      throw error;
+    }
   }
 }
 

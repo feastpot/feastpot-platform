@@ -38,7 +38,7 @@ import {
   Search,
   UserSearch,
 } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { PageHeader } from '@/components/layout/page-header';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -46,6 +46,7 @@ import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
 import {
   useAdminUsersList,
   useCreateStaffUser,
+  useCreateProductionTestVendors,
   useExportUser,
   useIssueCredit,
   useReinstateUser,
@@ -57,6 +58,7 @@ import {
   type AssignableUserRoleValue,
   type JoinedRange,
   type StaffRoleValue,
+  type ProductionTestVendorPersona,
 } from '@/hooks/use-admin-users';
 import { useDebounce } from '@/hooks/use-debounce';
 import { useDownloadCsv } from '@/hooks/use-download-csv';
@@ -154,6 +156,7 @@ interface UsersClientProps {
 export function UsersClient({ currentUserId, role }: UsersClientProps) {
   const [filters, setFilters] = useState(DEFAULT_FILTERS);
   const [createOpen, setCreateOpen] = useState(false);
+  const [testVendorsOpen, setTestVendorsOpen] = useState(false);
   const canManageUsers = role === 'admin';
   // Track cursor history so prev-page is just a pop. We don't refetch
   // count between pages - total comes back unchanged with each query.
@@ -226,14 +229,21 @@ export function UsersClient({ currentUserId, role }: UsersClientProps) {
         title="Users"
         description="Look up a customer, issue credit, suspend or export their data."
         actions={
-          <Button
-            onClick={() => setCreateOpen(true)}
-            disabled={!canManageUsers}
-            title={canManageUsers ? 'Invite a new staff user' : 'Only admins can create users'}
-          >
-            <Plus className="mr-2 h-4 w-4" />
-            Add user
-          </Button>
+          <>
+            <Button
+              onClick={() => setCreateOpen(true)}
+              disabled={!canManageUsers}
+              title={canManageUsers ? 'Invite a new staff user' : 'Only admins can create users'}
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              Add user
+            </Button>
+            {canManageUsers && (
+              <Button variant="outline" onClick={() => setTestVendorsOpen(true)}>
+                Create test vendors
+              </Button>
+            )}
+          </>
         }
       />
 
@@ -243,6 +253,9 @@ export function UsersClient({ currentUserId, role }: UsersClientProps) {
           onOpenChange={setCreateOpen}
           onSuccess={() => list.refetch()}
         />
+      )}
+      {canManageUsers && (
+        <CreateTestVendorsDialog open={testVendorsOpen} onOpenChange={setTestVendorsOpen} />
       )}
 
       {/* Search row */}
@@ -623,6 +636,150 @@ function TestDataLabel({ provenance }: { provenance: string | null }) {
     >
       Test data
     </span>
+  );
+}
+
+function CreateTestVendorsDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean;
+  onOpenChange: (value: boolean) => void;
+}) {
+  const [confirmation, setConfirmation] = useState('');
+  const [personas, setPersonas] = useState<ProductionTestVendorPersona[] | null>(null);
+  const mutation = useCreateProductionTestVendors();
+  const resetMutation = mutation.reset;
+
+  useEffect(() => {
+    if (!open) {
+      setConfirmation('');
+      setPersonas(null);
+      resetMutation();
+    }
+    return () => {
+      setConfirmation('');
+      setPersonas(null);
+      resetMutation();
+    };
+  }, [open, resetMutation]);
+
+  function close() {
+    setConfirmation('');
+    setPersonas(null);
+    resetMutation();
+    onOpenChange(false);
+  }
+
+  function create() {
+    mutation.mutate(undefined, {
+      onSuccess: (result) => {
+        setPersonas(result.personas);
+        setConfirmation('');
+      },
+    });
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(value) => (value ? onOpenChange(true) : close())}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Create production test vendors</DialogTitle>
+          <DialogDescription>
+            This creates marked production test data. These vendor accounts and applications must
+            never be treated as real customer or vendor data.
+          </DialogDescription>
+        </DialogHeader>
+        {personas ? (
+          <div className="space-y-3">
+            <div className="rounded-md border border-amber-500/50 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+              Save these credentials now. Passwords cannot be retrieved after this dialog is closed.
+            </div>
+            <div className="overflow-x-auto rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Field</TableHead>
+                    {personas.map((persona) => (
+                      <TableHead key={persona.key}>{persona.key}</TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(['email', 'password', 'vendorId', 'applicationId'] as const).map((field) => (
+                    <TableRow key={field}>
+                      <TableCell className="font-medium">{field}</TableCell>
+                      {personas.map((persona) => {
+                        const value = persona[field];
+                        return (
+                          <TableCell key={`${persona.key}-${field}`}>
+                            {value ? (
+                              <button
+                                type="button"
+                                className="max-w-[260px] break-all text-left font-mono text-xs underline decoration-dotted underline-offset-2"
+                                title="Copy to clipboard"
+                                onClick={() => void navigator.clipboard?.writeText(value)}
+                              >
+                                {value}
+                              </button>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                        );
+                      })}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            {personas.map((persona) => (
+              <p key={`${persona.key}-summary`} className="text-xs text-muted-foreground">
+                <span className="font-medium">{persona.key}:</span> {persona.summary}
+              </p>
+            ))}
+            <div className="flex justify-end">
+              <Button onClick={close}>Close</Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="rounded-md border border-destructive/50 bg-destructive/5 px-3 py-2 text-sm">
+              <strong>Production warning:</strong> this action creates real records in the
+              production environment, clearly marked as test data. Only continue if you have
+              approval to create them.
+            </div>
+            <label className="block text-sm">
+              <span className="mb-1 block text-muted-foreground">
+                Type <span className="font-mono">CREATE PRODUCTION TEST VENDORS</span> to confirm
+              </span>
+              <Input
+                value={confirmation}
+                onChange={(event) => setConfirmation(event.target.value)}
+                autoComplete="off"
+                disabled={mutation.isPending}
+                placeholder="CREATE PRODUCTION TEST VENDORS"
+              />
+            </label>
+            {mutation.error && (
+              <p className="text-xs text-destructive">{(mutation.error as Error).message}</p>
+            )}
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" onClick={close} disabled={mutation.isPending}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={confirmation !== 'CREATE PRODUCTION TEST VENDORS' || mutation.isPending}
+                onClick={create}
+              >
+                {mutation.isPending ? 'Creating…' : 'Create production test vendors'}
+              </Button>
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
 
