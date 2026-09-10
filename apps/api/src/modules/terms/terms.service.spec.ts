@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { AcceptanceMethod, TermsDocumentType } from '@prisma/client';
+import { AcceptanceMethod, RateStatus, TermsDocumentType } from '@prisma/client';
 import type { Queue } from 'bull';
 
 import type { PrismaService } from '../../prisma/prisma.service';
@@ -7,6 +7,7 @@ import type { PrismaService } from '../../prisma/prisma.service';
 import {
   buildVendorTermsAcceptanceLabel,
   GENERATE_ACCEPTANCE_PDF_JOB,
+  SEND_TERMS_NOTICES_JOB,
   TermsService,
 } from './terms.service';
 
@@ -42,6 +43,10 @@ describe('TermsService legal invariants', () => {
       findUnique: jest.Mock;
       upsert: jest.Mock;
     };
+    rateScheduleEntry: {
+      findMany: jest.Mock;
+      createMany: jest.Mock;
+    };
     vendor: { update: jest.Mock };
     $transaction: jest.Mock;
   };
@@ -60,6 +65,10 @@ describe('TermsService legal invariants', () => {
       termsAcceptance: {
         findUnique: jest.fn(),
         upsert: jest.fn(),
+      },
+      rateScheduleEntry: {
+        findMany: jest.fn(),
+        createMany: jest.fn(),
       },
       vendor: { update: jest.fn() },
       $transaction: jest.fn(),
@@ -125,6 +134,105 @@ describe('TermsService legal invariants', () => {
         solicitorSignOff: 'Reviewed and approved',
       }),
     ).rejects.toBeInstanceOf(BadRequestException);
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('publishes every rate row with a changed commission inside the version transaction', async () => {
+    const current = version({
+      id: 'rate-v1',
+      documentType: TermsDocumentType.RATE_SCHEDULE,
+      version: '2.1',
+      supersededAt: null,
+    });
+    const replacement = version({
+      id: 'rate-v2',
+      documentType: TermsDocumentType.RATE_SCHEDULE,
+      version: 'RS-2026-09-23',
+      effectiveAt: new Date('2026-09-23T12:00:00.000Z'),
+      supersededAt: null,
+    });
+    prisma.termsVersion.findFirst.mockResolvedValue(current);
+    prisma.termsVersion.create.mockResolvedValue(replacement);
+    prisma.rateScheduleEntry.findMany.mockResolvedValue([
+      {
+        id: 'entry-1',
+        versionId: current.id,
+        key: 'standard_commission',
+        label: 'First order',
+        rateDisplay: '8%',
+        rateValue: { toString: () => '8.00' },
+        basis: 'Food subtotal',
+        vatNote: 'VAT note',
+        status: RateStatus.LIVE,
+        sortOrder: 1,
+      },
+      {
+        id: 'entry-2',
+        versionId: current.id,
+        key: 'customer_service_fee',
+        label: 'Customer service fee',
+        rateDisplay: '5% (max £2.99)',
+        rateValue: { toString: () => '5.00' },
+        basis: 'Customer-facing',
+        vatNote: 'Not deducted from vendor payout',
+        status: RateStatus.CUSTOMER_SIDE,
+        sortOrder: 2,
+      },
+    ]);
+
+    await service.publishRateScheduleVersion({
+      source: 'MARKETPLACE',
+      isFirstOrder: true,
+      newRatePct: 9,
+      previousRatePct: 8,
+      effectiveFrom: replacement.effectiveAt,
+      createdBy: 'admin-1',
+    });
+
+    expect(prisma.rateScheduleEntry.createMany).toHaveBeenCalledWith({
+      data: [
+        expect.objectContaining({
+          versionId: replacement.id,
+          key: 'standard_commission',
+          rateDisplay: '9%',
+          rateValue: 9,
+          status: RateStatus.LIVE,
+        }),
+        expect.objectContaining({
+          versionId: replacement.id,
+          key: 'customer_service_fee',
+          rateDisplay: '5% (max £2.99)',
+          rateValue: 5,
+          status: RateStatus.CUSTOMER_SIDE,
+        }),
+      ],
+    });
+    expect(queue.add).toHaveBeenCalledWith(
+      SEND_TERMS_NOTICES_JOB,
+      { termsVersionId: replacement.id },
+      expect.any(Object),
+    );
+  });
+
+  it('refuses to publish another empty Rate Schedule version', async () => {
+    prisma.termsVersion.findFirst.mockResolvedValue(
+      version({
+        id: 'empty-rate-version',
+        documentType: TermsDocumentType.RATE_SCHEDULE,
+      }),
+    );
+    prisma.rateScheduleEntry.findMany.mockResolvedValue([]);
+
+    await expect(
+      service.publishRateScheduleVersion({
+        source: 'MARKETPLACE',
+        isFirstOrder: false,
+        newRatePct: 6,
+        previousRatePct: 5,
+        effectiveFrom: new Date('2026-09-23T12:00:00.000Z'),
+        createdBy: 'admin-1',
+      }),
+    ).rejects.toThrow('current Rate Schedule has no entries');
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
