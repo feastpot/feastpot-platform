@@ -10,7 +10,6 @@ import {
   HttpStatus,
   Injectable,
   InternalServerErrorException,
-  OnModuleInit,
 } from '@nestjs/common';
 
 import { parseMenuText, ParsedMenuCandidate } from './menu-import.parser';
@@ -57,12 +56,8 @@ class Semaphore {
 const OCR_SLOTS = new Semaphore(2, 8);
 
 @Injectable()
-export class MenuImportOcrService implements OnModuleInit {
+export class MenuImportOcrService {
   private toolsReady?: Promise<void>;
-
-  onModuleInit() {
-    this.toolsReady = this.assertTools();
-  }
 
   async extract(file: {
     buffer: Buffer;
