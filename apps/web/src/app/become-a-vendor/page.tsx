@@ -5,7 +5,6 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { RateRow } from '@feastpot/ui';
-import { RateCard } from '@feastpot/ui';
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { useTrackEvent } from '@/hooks/use-track-event';
 import { getOrCreateAnonId } from '@/lib/analytics/anon-id';
@@ -95,6 +94,10 @@ const emptyDraft: Draft = {
 const pct = (value: number) => (value % 1 === 0 ? String(value) : value.toFixed(1));
 const liveRate = (rates: RateRow[], key: string) =>
   rates.find((rate) => rate.key === key && rate.status === 'LIVE')?.rateValue;
+const disclosedRate = (rates: RateRow[], key: string) =>
+  rates.find(
+    (rate) => rate.key === key && (rate.status === 'LIVE' || rate.status === 'CUSTOMER_SIDE'),
+  )?.rateValue;
 const occasionOptions = OCCASION_SLUGS.map((slug) => ({
   slug,
   label: OCCASIONS[slug].h1.split(',')[0] ?? slug,
@@ -618,7 +621,15 @@ function NextButton({ onClick, label = 'Next' }: { onClick: () => void; label?: 
   );
 }
 
-function ApplicationFlow({ track }: { track: ReturnType<typeof useTrackEvent> }) {
+function ApplicationFlow({
+  track,
+  rates,
+  ratesError,
+}: {
+  track: ReturnType<typeof useTrackEvent>;
+  rates: RateRow[];
+  ratesError: string;
+}) {
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [token, setToken] = useState('');
   const [screen, setScreen] = useState<PhaseTwoScreen>('phase_2_business_name');
@@ -908,31 +919,45 @@ function ApplicationFlow({ track }: { track: ReturnType<typeof useTrackEvent> })
   );
   return (
     <section ref={applyRef} className="border-t border-[#eadfce] bg-white px-5 py-12">
-      <div className="mx-auto max-w-xl">
-        {!token ? (
-          <>
-            <p className="mb-5 text-xs font-black uppercase tracking-[.2em] text-[#b84f32]">
-              Phase 1 of 2
-            </p>
-            {phaseOne}
-          </>
-        ) : (
-          <PhaseTwo
-            draft={draft}
-            update={(patch, destination, immediate) => {
-              void save(patch, destination || draft.currentStep, Boolean(immediate));
-            }}
-            saveStatus={saveStatus}
-            error={error}
-            localImage={localImage}
-            upload={upload}
-            onSubmit={submit}
-            busy={busy}
-            screen={screen}
-            setScreen={setScreen}
-            onFieldFocus={noteField}
-          />
-        )}
+      <div className="mx-auto max-w-4xl">
+        <h2
+          data-testid="application-rate-disclosure"
+          tabIndex={-1}
+          className="font-display text-3xl font-black outline-none"
+        >
+          Current rates before you apply
+        </h2>
+        <p className="mt-2 text-sm text-[#6c665d]">
+          These are the live rates that apply today. You will see them again before accepting the
+          Vendor Terms.
+        </p>
+        <RateIntroduction rates={rates} error={ratesError} />
+        <div className="mx-auto mt-10 max-w-xl">
+          {!token ? (
+            <>
+              <p className="mb-5 text-xs font-black uppercase tracking-[.2em] text-[#b84f32]">
+                Phase 1 of 2
+              </p>
+              {phaseOne}
+            </>
+          ) : (
+            <PhaseTwo
+              draft={draft}
+              update={(patch, destination, immediate) => {
+                void save(patch, destination || draft.currentStep, Boolean(immediate));
+              }}
+              saveStatus={saveStatus}
+              error={error}
+              localImage={localImage}
+              upload={upload}
+              onSubmit={submit}
+              busy={busy}
+              screen={screen}
+              setScreen={setScreen}
+              onFieldFocus={noteField}
+            />
+          )}
+        </div>
       </div>
     </section>
   );
@@ -945,6 +970,8 @@ export default function BecomeAVendorPage() {
   const [open, setOpen] = useState(false);
   const startedRef = useRef(false);
   const landedRef = useRef(false);
+  const referredRate = liveRate(rates, 'referred_commission');
+  const referredRateLabel = referredRate == null ? null : `${pct(referredRate)}%`;
   const calculatorReady =
     !ratesError &&
     [
@@ -952,7 +979,7 @@ export default function BecomeAVendorPage() {
       'standard_commission',
       'repeat_commission',
       'customer_service_fee',
-    ].every((key) => liveRate(rates, key) != null);
+    ].every((key) => disclosedRate(rates, key) != null);
   useEffect(() => {
     if (!landedRef.current) {
       landedRef.current = true;
@@ -980,7 +1007,8 @@ export default function BecomeAVendorPage() {
       track('application_phase_1_started');
     }
     setTimeout(
-      () => document.querySelector<HTMLElement>('[data-testid="input-firstName"]')?.focus(),
+      () =>
+        document.querySelector<HTMLElement>('[data-testid="application-rate-disclosure"]')?.focus(),
       100,
     );
   };
@@ -1017,8 +1045,20 @@ export default function BecomeAVendorPage() {
             <span className="text-[#b84f32]">a storefront.</span>
           </h1>
           <p className="mt-5 max-w-xl text-lg leading-relaxed text-[#6c665d]">
-            Keep your customers, lose the admin. Feastpot handles card payments, order books and
-            weekly payouts while you cook the food people already love.
+            You built your following. Feastpot gives you card payments, deposits, an order book and
+            allergen labels for your own customers
+            {referredRateLabel ? ` at ${referredRateLabel} commission` : ''}. We only earn when we
+            bring you a new customer.
+          </p>
+          <p className="mt-3 max-w-xl text-sm font-semibold">
+            No upfront fee · No monthly fee
+            {referredRateLabel ? ` · ${referredRateLabel} on your own orders` : ''} · Weekly Stripe
+            payouts · No exclusivity
+          </p>
+          <p className="mt-5 max-w-xl font-semibold text-[#4f493f]">
+            <Link href="/legal/vendor-terms" className="underline underline-offset-4">
+              Read the full Vendor Terms of Agreement before applying.
+            </Link>
           </p>
           <button
             type="button"
@@ -1043,12 +1083,6 @@ export default function BecomeAVendorPage() {
         <div className="mx-auto max-w-6xl">
           <h2 className="font-display text-3xl font-black">The simple version</h2>
           <RateIntroduction rates={rates} error={ratesError} />
-          <RateCard
-            rates={rates}
-            loading={!rates.length && !ratesError}
-            error={ratesError || undefined}
-            className="mt-7"
-          />
           {calculatorReady ? (
             <EarningsCalculator rates={rates} />
           ) : (
@@ -1059,7 +1093,7 @@ export default function BecomeAVendorPage() {
         </div>
       </section>
       {open ? (
-        <ApplicationFlow track={track} />
+        <ApplicationFlow track={track} rates={rates} ratesError={ratesError} />
       ) : (
         <section className="mx-auto max-w-6xl px-5 py-16">
           <h2 className="font-display text-3xl font-black">

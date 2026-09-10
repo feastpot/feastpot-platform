@@ -111,8 +111,9 @@ export default function VendorTermsPage() {
               your local authority, it is free and mandatory);
             </li>
             <li>
-              Have a minimum Food Hygiene Rating Scheme (FHRS) rating of 3/5 (Feastpot recommends a
-              minimum of 4/5 for listing on the platform);
+              Either be registered and awaiting your first food hygiene inspection, or have a
+              published Food Hygiene Rating Scheme (FHRS) rating of at least 3/5 (Feastpot
+              recommends 4/5);
             </li>
             <li>Hold valid public liability insurance (minimum &pound;1&nbsp;million cover);</li>
             <li>Comply with the Food Information Regulations 2014 (allergen labelling);</li>
