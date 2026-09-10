@@ -213,7 +213,7 @@ function Slider({ id, label, min, max, step, value, onChange, formatValue }: Sli
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-cream-deep accent-brand"
+        className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-[#b84f32] accent-[#b84f32]"
         aria-valuetext={formatValue(value)}
       />
       <div className="mt-1 flex justify-between text-[11px] text-charcoal-mid">
