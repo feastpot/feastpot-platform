@@ -101,6 +101,12 @@ export const PREFERENCE_DEFINITIONS: readonly PreferenceDefinition[] = [
   def('order_eta_overdue', 'Running late alerts', 'email', { default: true }),
   def('order_eta_overdue', 'Running late alerts', 'sms', { default: true }),
   def('order_eta_overdue', 'Running late alerts', 'push', { default: true }),
+  // Recovery is optional email; SMS additionally requires explicit consent,
+  // a verified number and no suppression (enforced by VendorRecoveryService).
+  def('vendor_onboarding_recovery', 'Vendor onboarding recovery', 'email', { default: true }),
+  // Positive application consent makes this eligible by default; an explicit
+  // preference row with enabled=false still wins in filterEnabledChannels.
+  def('vendor_onboarding_recovery', 'Vendor onboarding recovery', 'sms', { default: true }),
 ];
 
 /** Fast lookup by `${key}:${channel}`. */

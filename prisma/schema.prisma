@@ -65,6 +65,27 @@ enum VendorOnboardingStepState {
   rejected
 }
 
+enum VendorRequiredItemState {
+  supplied
+  deferred
+  outstanding
+}
+
+enum RecoveryNudgeStage {
+  sms_2h
+  email_24h
+  email_3d_help
+  email_7d_final
+  admin_chase
+}
+
+enum VendorRecoveryChaseStatus {
+  queued
+  delivered
+  skipped
+  failed
+}
+
 /// REGISTERED_AWAITING_INSPECTION means the local-authority registration is
 /// confirmed and the first FHRS inspection has not happened yet. It does not
 /// block publication. Once a rating exists, a rating below 3 does.
@@ -516,11 +537,13 @@ model User {
   createdDiscountCodes          DiscountCode[]                 @relation("CreatedDiscountCodes")
   reviewedVendorApplications    VendorApplication[]            @relation("VendorApplicationReviewer")
   vendorApplicationInfoRequests VendorApplicationInfoRequest[]
+  vendorRecoveryChases          VendorRecoveryChase[]
   mfaRecoveryCodes              MfaRecoveryCode[]
   verifiedTrustSignals          VendorTrustSignal[]            @relation("TrustSignalVerifier")
   cateringBookings              CateringBooking[]              @relation("CateringBookingCustomer")
   feastPassSubscription         FeastPassSubscription?
   feastPassSavings              FeastPassSaving[]
+  analyticsEvents               AnalyticsEvent[]
 
   @@index([role])
   @@index([status])
@@ -689,6 +712,9 @@ model VendorApplication {
   orderTypes               String[]                @default([]) @map("order_types")
   /// Anonymous two-phase application state. Drafts are hidden from the admin
   /// queue until submittedAt is set. Only a SHA-256 resume-token hash is stored.
+  /// Stable, bounded anonymous cohort key captured when phase 1 starts. This is
+  /// not an identity relationship and is removed with the application.
+  anonVisitorId            String?                 @map("anon_visitor_id") @db.VarChar(128)
   resumeTokenHash          String?                 @unique @map("resume_token_hash") @db.VarChar(64)
   resumeExpiresAt          DateTime?               @map("resume_expires_at") @db.Timestamptz
   submissionClaimToken     String?                 @map("submission_claim_token") @db.VarChar(64)
@@ -714,10 +740,12 @@ model VendorApplication {
   reviewedBy          User?                          @relation("VendorApplicationReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
   vendor              Vendor?                        @relation("VendorApplicationVendor", fields: [vendorId], references: [id], onDelete: SetNull)
   informationRequests VendorApplicationInfoRequest[]
+  analyticsEvents     AnalyticsEvent[]
 
   @@index([status, createdAt])
   @@index([isTestData, status, createdAt])
   @@index([email])
+  @@index([anonVisitorId, createdAt])
   @@index([submittedAt, status, createdAt])
   @@map("vendor_applications")
 }
@@ -739,6 +767,80 @@ model VendorApplicationInfoRequest {
   @@index([applicationId, createdAt(sort: Desc)])
   @@index([actorId])
   @@map("vendor_application_info_requests")
+}
+
+/// Post-approval required-item decisions are additive to the existing
+/// onboarding gates: deferring an item never makes a publication gate pass.
+model VendorRequiredOnboardingItem {
+  id         String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vendorId   String                   @map("vendor_id") @db.Uuid
+  name       VendorOnboardingStepName
+  state      VendorRequiredItemState  @default(outstanding)
+  suppliedAt DateTime?                @map("supplied_at") @db.Timestamptz
+  deferredAt DateTime?                @map("deferred_at") @db.Timestamptz
+  updatedAt  DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  vendor     Vendor                   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  @@unique([vendorId, name])
+  @@index([vendorId, state])
+  @@map("vendor_required_onboarding_items")
+}
+
+model VendorRecoverySchedule {
+  id              String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vendorId        String                   @map("vendor_id") @db.Uuid
+  targetedItem    VendorOnboardingStepName @map("targeted_item")
+  lastCompletedAt DateTime?                @map("last_completed_at") @db.Timestamptz
+  cancelledAt     DateTime?                @map("cancelled_at") @db.Timestamptz
+  createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime                 @default(now()) @updatedAt @map("updated_at") @db.Timestamptz
+  vendor          Vendor                   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  stages          VendorRecoveryStage[]
+
+  @@index([vendorId, cancelledAt])
+  @@map("vendor_recovery_schedules")
+}
+
+model VendorRecoveryStage {
+  id             String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scheduleId     String                 @map("schedule_id") @db.Uuid
+  stage          RecoveryNudgeStage
+  dueAt          DateTime               @map("due_at") @db.Timestamptz
+  sentAt         DateTime?              @map("sent_at") @db.Timestamptz
+  queuedAt       DateTime?              @map("queued_at") @db.Timestamptz
+  notificationId String?                @map("notification_id") @db.Uuid
+  skippedAt      DateTime?              @map("skipped_at") @db.Timestamptz
+  channel        NotificationChannel
+  schedule       VendorRecoverySchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+
+  @@unique([scheduleId, stage])
+  @@index([dueAt, sentAt])
+  @@map("vendor_recovery_stages")
+}
+
+/// Immutable operator chases for an approved vendor. This is intentionally
+/// independent of VendorApplicationInfoRequest (which has a pre-approval
+/// application actor relation).
+model VendorRecoveryChase {
+  id          String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  vendorId    String                    @map("vendor_id") @db.Uuid
+  actorId     String                    @map("actor_id") @db.Uuid
+  item        VendorOnboardingStepName
+  channel     NotificationChannel
+  message     String                    @db.VarChar(1000)
+  status      VendorRecoveryChaseStatus @default(queued)
+  queuedAt    DateTime?                 @map("queued_at") @db.Timestamptz
+  deliveredAt DateTime?                 @map("delivered_at") @db.Timestamptz
+  skippedAt   DateTime?                 @map("skipped_at") @db.Timestamptz
+  failedAt    DateTime?                 @map("failed_at") @db.Timestamptz
+  outcome     String?                   @db.VarChar(500)
+  createdAt   DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+  vendor      Vendor                    @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+  actor       User                      @relation(fields: [actorId], references: [id], onDelete: Restrict)
+
+  @@index([vendorId, createdAt(sort: Desc)])
+  @@index([vendorId, item, createdAt(sort: Desc)])
+  @@map("vendor_recovery_chases")
 }
 
 enum VendorApplicationStatus {
@@ -953,7 +1055,10 @@ model Vendor {
   referredByVendorId             String?   @map("referred_by_vendor_id") @db.Uuid
   foundingReferralBonusGrantedAt DateTime? @map("founding_referral_bonus_granted_at") @db.Timestamptz
 
-  user                         User                          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                         User                           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  requiredOnboardingItems      VendorRequiredOnboardingItem[]
+  recoverySchedules            VendorRecoverySchedule[]
+  recoveryChases               VendorRecoveryChase[]
   menus                        Menu[]
   menuItems                    MenuItem[]
   menuItemAllergenRemediations MenuItemAllergenRemediation[]
@@ -964,10 +1069,10 @@ model Vendor {
   payouts                      Payout[]
   reviews                      Review[]
   eventQuotes                  EventQuote[]
-  selectedForEnquiries         EventEnquiry[]                @relation("EventEnquirySelectedVendor")
+  selectedForEnquiries         EventEnquiry[]                 @relation("EventEnquirySelectedVendor")
   discountCodes                DiscountCode[]
   amendments                   OrderAmendment[]
-  application                  VendorApplication?            @relation("VendorApplicationVendor")
+  application                  VendorApplication?             @relation("VendorApplicationVendor")
   members                      VendorMember[]
   trustSignals                 VendorTrustSignal[]
   capacity                     VendorCapacity[]
@@ -2427,10 +2532,17 @@ model AnalyticsEvent {
   anonVisitorId String?  @map("anon_visitor_id") @db.VarChar(128)
   /// Set for authenticated vendor events (share_link_click, order_attribution_source).
   vendorId      String?  @map("vendor_id") @db.Uuid
+  applicationId String?  @map("application_id") @db.Uuid
+  userId        String?  @map("user_id") @db.Uuid
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  application VendorApplication? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  user        User?              @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([eventName, createdAt(sort: Desc)])
   @@index([vendorId, createdAt(sort: Desc)])
+  @@index([applicationId, createdAt(sort: Desc)])
+  @@index([userId, createdAt(sort: Desc)])
   @@map("analytics_events")
 }
 

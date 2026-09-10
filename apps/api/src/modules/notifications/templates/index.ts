@@ -871,6 +871,52 @@ export const TEMPLATES: Record<TemplateNotificationEventName, NotificationTempla
     channels: ['email'],
   },
 
+  vendor_onboarding_recovery: {
+    subject: (d) => {
+      const stage = str(d.recoveryStage);
+      return stage === 'email_7d_final'
+        ? 'Final reminder: finish your Feastpot onboarding'
+        : stage === 'email_3d_help'
+          ? 'Need a hand finishing your Feastpot onboarding?'
+          : `Finish your Feastpot onboarding: ${str(d.requiredItem, 'one item')} still needed`;
+    },
+    render: (d) => {
+      const stage = str(d.recoveryStage);
+      const help =
+        stage === 'email_3d_help'
+          ? p(
+              'If you are unsure what to provide, reply to this email and our support team will help you.',
+            )
+          : stage === 'email_7d_final'
+            ? amberCallout(
+                'This is our final automatic reminder. Your account is not ready to go live until this item is complete.',
+              )
+            : '';
+      return baseLayout(
+        'A quick onboarding reminder',
+        h2(stage === 'email_3d_help' ? 'We can help' : 'One item is still needed') +
+          p(
+            `Please provide your ${esc(d.requiredItem, 'required onboarding item')} so your account can complete its review.`,
+          ) +
+          help +
+          brandButton(
+            'Continue onboarding',
+            str(d.portalUrl, 'https://vendor.feastpot.co.uk/onboarding'),
+            'green',
+          ) +
+          p(
+            `Need help? Email ${esc(d.supportEmail, 'support@feastpot.co.uk')} and our team will help.`,
+          ),
+        'Complete your vendor onboarding',
+      );
+    },
+    sms: (d) =>
+      `Feastpot: your ${str(d.requiredItem, 'onboarding item')} is still needed. Continue securely: ${str(d.portalUrl, 'https://vendor.feastpot.co.uk/onboarding')}`,
+    // Delivery is narrowed to one channel by notification.processor using
+    // recoveryStage/deliveryChannel; both are registered for preference checks.
+    channels: ['email', 'sms'],
+  },
+
   enquiry_expired: {
     subject: () => 'Your event enquiry has expired',
     render: (d) =>

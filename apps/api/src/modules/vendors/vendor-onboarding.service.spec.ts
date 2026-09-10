@@ -88,10 +88,23 @@ describe('VendorOnboardingService go-live gates', () => {
     service = new VendorOnboardingService(prisma, terms);
   });
 
-  async function expectBlocked(name: VendorOnboardingStepName) {
+  async function expectBlockedAndRecovered(
+    name: VendorOnboardingStepName,
+    removeItem: () => void,
+    restoreItem: () => void,
+  ) {
+    const definition = ONBOARDING_STEP_DEFINITIONS.find((step) => step.name === name);
+    expect(definition).toBeDefined();
+    removeItem();
     const readiness = await service.getReadiness(vendor.id);
     expect(readiness.canProfileGoLive).toBe(false);
-    expect(readiness.blockingPublication.map((step) => step.name)).toContain(name);
+    expect(readiness.blockingPublication).toEqual(
+      expect.arrayContaining([expect.objectContaining({ name, label: definition!.label })]),
+    );
+    restoreItem();
+    await expect(service.getReadiness(vendor.id)).resolves.toMatchObject({
+      canProfileGoLive: true,
+    });
   }
 
   it('derives canProfileGoLive and never includes it as a persisted step field', async () => {
@@ -104,58 +117,113 @@ describe('VendorOnboardingService go-live gates', () => {
   });
 
   it('blocks publication without food business registration', async () => {
-    vendor.verification.registrationNumber = '';
-    await expectBlocked(VendorOnboardingStepName.food_business_registration);
-  });
-
-  it('blocks publication without current GBP 5m public liability insurance', async () => {
-    vendor.verification.insuranceCoverPence = 100_000_000;
-    await expectBlocked(VendorOnboardingStepName.public_liability_insurance);
-  });
-
-  it('blocks publication without a verified food safety certificate', async () => {
-    vendor.documents = vendor.documents.filter((d) => d.type !== DocumentType.hygiene_cert);
-    await expectBlocked(VendorOnboardingStepName.food_safety_certificate);
-  });
-
-  it('blocks publication without photo ID verification', async () => {
-    vendor.verification.idVerifiedAt = null as unknown as Date;
-    vendor.documents = vendor.documents.filter((d) => d.type !== DocumentType.photo_id);
-    await expectBlocked(VendorOnboardingStepName.photo_id_verification);
-  });
-
-  it('blocks publication until Stripe charges and payouts are enabled', async () => {
-    vendor.stripePayoutsEnabled = false;
-    vendor.payoutsEnabled = false;
-    await expectBlocked(VendorOnboardingStepName.stripe_connect);
-  });
-
-  it('blocks publication and progress until current Vendor Terms are accepted', async () => {
-    termsAccepted = false;
-    const readiness = await service.getReadiness(vendor.id);
-    expect(readiness.canProgress).toBe(false);
-    expect(readiness.blockingPublication.map((step) => step.name)).toContain(
-      VendorOnboardingStepName.vendor_terms,
+    await expectBlockedAndRecovered(
+      VendorOnboardingStepName.food_business_registration,
+      () => {
+        vendor.verification.registrationNumber = '';
+      },
+      () => {
+        vendor.verification.registrationNumber = 'FBO-123';
+      },
     );
   });
 
-  it('blocks publication without a complete HMRC tax profile', async () => {
-    vendor.taxProfile.legalName = '';
-    await expectBlocked(VendorOnboardingStepName.tax_profile);
+  it('blocks publication without current GBP 5m public liability insurance', async () => {
+    await expectBlockedAndRecovered(
+      VendorOnboardingStepName.public_liability_insurance,
+      () => {
+        vendor.verification.insuranceCoverPence = 100_000_000;
+      },
+      () => {
+        vendor.verification.insuranceCoverPence = 500_000_000;
+      },
+    );
   });
 
-  it('blocks publication without a tax identifier or reconciled payout account', async () => {
-    vendor.taxProfile.taxIdentifier = null;
-    await expectBlocked(VendorOnboardingStepName.tax_profile);
+  it('blocks publication without a verified food safety certificate', async () => {
+    await expectBlockedAndRecovered(
+      VendorOnboardingStepName.food_safety_certificate,
+      () => {
+        vendor.documents = vendor.documents.filter((d) => d.type !== DocumentType.hygiene_cert);
+      },
+      () => {
+        vendor.documents.push({ type: DocumentType.hygiene_cert, status: DocumentStatus.verified });
+      },
+    );
+  });
 
-    vendor.taxProfile.taxIdentifier = 'QQ123456C';
-    vendor.taxProfile.financialAccountId = null;
-    await expectBlocked(VendorOnboardingStepName.tax_profile);
+  it('blocks publication without photo ID verification', async () => {
+    await expectBlockedAndRecovered(
+      VendorOnboardingStepName.photo_id_verification,
+      () => {
+        vendor.verification.idVerifiedAt = null as unknown as Date;
+        vendor.documents = vendor.documents.filter((d) => d.type !== DocumentType.photo_id);
+      },
+      () => {
+        vendor.verification.idVerifiedAt = new Date('2026-01-01T00:00:00Z');
+      },
+    );
+  });
+
+  it('blocks publication when Stripe onboarding is incomplete', async () => {
+    await expectBlockedAndRecovered(
+      VendorOnboardingStepName.stripe_connect,
+      () => {
+        vendor.stripeAccountId = '';
+      },
+      () => {
+        vendor.stripeAccountId = 'acct_ready';
+      },
+    );
+  });
+
+  it('blocks publication when Stripe payouts are disabled', async () => {
+    await expectBlockedAndRecovered(
+      VendorOnboardingStepName.stripe_connect,
+      () => {
+        vendor.payoutsEnabled = false;
+      },
+      () => {
+        vendor.payoutsEnabled = true;
+      },
+    );
+  });
+
+  it('blocks publication and progress until current Vendor Terms are accepted', async () => {
+    await expectBlockedAndRecovered(
+      VendorOnboardingStepName.vendor_terms,
+      () => {
+        termsAccepted = false;
+      },
+      () => {
+        termsAccepted = true;
+      },
+    );
+    expect(await service.getReadiness(vendor.id)).toMatchObject({ canProgress: true });
+  });
+
+  it('blocks publication without a complete HMRC tax profile', async () => {
+    await expectBlockedAndRecovered(
+      VendorOnboardingStepName.tax_profile,
+      () => {
+        vendor.taxProfile.legalName = '';
+      },
+      () => {
+        vendor.taxProfile.legalName = 'Vendor Owner';
+      },
+    );
   });
 
   it('blocks publication without an approved available allergen-declared item', async () => {
-    vendor.menuItems[0]!.allergens = [];
-    await expectBlocked(VendorOnboardingStepName.allergen_declared_menu_item);
+    await expectBlockedAndRecovered(
+      VendorOnboardingStepName.allergen_declared_menu_item,
+      () => {
+        vendor.menuItems[0]!.allergens = [];
+      },
+      () => {
+        vendor.menuItems[0]!.allergens = ['milk'];
+      },
+    );
   });
 
   it('allows a registered vendor awaiting their first FHRS inspection', async () => {
@@ -167,8 +235,15 @@ describe('VendorOnboardingService go-live gates', () => {
   });
 
   it('blocks a vendor whose existing FHRS rating is below 3', async () => {
-    vendor.fsaHygieneRating = 2;
-    await expectBlocked(VendorOnboardingStepName.fhrs_eligibility);
+    await expectBlockedAndRecovered(
+      VendorOnboardingStepName.fhrs_eligibility,
+      () => {
+        vendor.fsaHygieneRating = 2;
+      },
+      () => {
+        vendor.fsaHygieneRating = 5;
+      },
+    );
   });
 
   it('gives every hard gate a traceable source citation', () => {

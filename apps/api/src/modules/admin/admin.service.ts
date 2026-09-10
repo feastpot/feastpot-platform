@@ -1,4 +1,5 @@
 import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import {
   BadRequestException,
   ConflictException,
@@ -17,6 +18,9 @@ import {
   Prisma,
   UserRole,
   VendorApplicationStatus,
+  VendorOnboardingStepName,
+  RecoveryNudgeStage,
+  NotificationChannel,
   VendorStatus,
 } from '@prisma/client';
 
@@ -25,6 +29,9 @@ import { csvCell } from '../../common/csv';
 import { PrismaService } from '../../prisma/prisma.service';
 import type { QueueSnapshot } from '../../queues/queue-snapshot.service';
 import { StripeService } from '../../stripe/stripe.service';
+import { AnalyticsService } from '../analytics/analytics.service';
+import { NotificationEvent } from '../notifications/notification-events';
+import { NotificationsService } from '../notifications/notifications.service';
 import { EmailProvider } from '../notifications/providers/email.provider';
 import { vendorApplicationInfoRequestedTemplate } from '../notifications/templates/vendor-application-info-requested.template';
 import { vendorApplicationRejectedTemplate } from '../notifications/templates/vendor-application-rejected.template';
@@ -38,6 +45,7 @@ import {
   RequestVendorApplicationInformationDto,
 } from './dto/request-vendor-application-information.dto';
 import { UpdateVendorApplicationDto } from './dto/update-vendor-application.dto';
+import { VendorRecoveryChaseDto } from './dto/vendor-recovery-chase.dto';
 
 /**
  * Statuses an application can move OUT of. Once it's in approved/rejected,
@@ -112,6 +120,8 @@ export class AdminService {
     private readonly supabase: SupabaseService,
     private readonly email: EmailProvider,
     private readonly config: ConfigService,
+    private readonly analytics: AnalyticsService,
+    private readonly notifications?: NotificationsService,
   ) {}
 
   // ---------------------------------------------------------------- dashboard
@@ -703,6 +713,134 @@ export class AdminService {
           : undefined,
       })),
     };
+  }
+
+  /** Post-approval recovery queue; deliberately does not use application actors. */
+  async listVendorRecoveryQueue() {
+    const now = new Date();
+    const rows = await this.prisma.vendorRecoverySchedule.findMany({
+      where: {
+        cancelledAt: null,
+        stages: { some: { stage: RecoveryNudgeStage.admin_chase, dueAt: { lte: now } } },
+      },
+      include: {
+        vendor: { select: { id: true, businessName: true, user: { select: { email: true } } } },
+        stages: { orderBy: { dueAt: 'asc' } },
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+    const nowMs = now.getTime();
+    return rows.map((row) => ({
+      vendorId: row.vendor.id,
+      businessName: row.vendor.businessName,
+      email: row.vendor.user.email,
+      vendorPortalUrl: `https://vendor.feastpot.co.uk/onboarding?item=${encodeURIComponent(row.targetedItem)}`,
+      missingItem: row.targetedItem,
+      ageHours: Math.max(0, Math.floor((nowMs - row.createdAt.getTime()) / 3_600_000)),
+      chaseHistory: row.stages.map((stage) => ({
+        stage: stage.stage,
+        channel: stage.channel,
+        dueAt: stage.dueAt.toISOString(),
+        sentAt: stage.sentAt?.toISOString() ?? null,
+      })),
+    }));
+  }
+
+  async chaseVendorRecovery(vendorId: string, actorId: string, dto: VendorRecoveryChaseDto) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id: vendorId },
+      select: {
+        id: true,
+        userId: true,
+        user: {
+          select: {
+            phone: true,
+            phoneVerified: true,
+            notificationPreferences: {
+              where: { key: 'vendor_onboarding_recovery', channel: 'sms' },
+              select: { enabled: true },
+            },
+          },
+        },
+        application: { select: { marketingConsent: true } },
+      },
+    });
+    if (!vendor) throw new NotFoundException('Vendor not found');
+    if (dto.channel === NotificationChannel.sms) {
+      const smsPreference = vendor.user.notificationPreferences[0];
+      if (
+        !vendor.user.phone ||
+        !vendor.user.phoneVerified ||
+        vendor.application?.marketingConsent !== true ||
+        smsPreference?.enabled === false
+      ) {
+        throw new BadRequestException(
+          'SMS chase requires verified phone, positive consent and SMS preference',
+        );
+      }
+    }
+    const since = new Date(Date.now() - 7 * 86_400_000);
+    const recent = await this.prisma.vendorRecoveryChase.findFirst({
+      where: { vendorId, item: dto.item, status: 'delivered', createdAt: { gte: since } },
+    });
+    if (recent) throw new ConflictException('This item was chased within the last 7 days');
+    const chase = await this.prisma.vendorRecoveryChase.create({
+      data: {
+        vendorId,
+        actorId,
+        item: dto.item,
+        channel: dto.channel,
+        message: dto.message?.trim() || 'Please complete this required onboarding item.',
+      },
+    });
+    await this.prisma.auditLog.create({
+      data: {
+        actorId,
+        entityType: 'vendor_recovery_chase',
+        entityId: chase.id,
+        action: 'vendor_recovery.chase',
+        metadata: { vendorId, item: dto.item, channel: dto.channel },
+      },
+    });
+    if (!this.notifications) throw new InternalServerErrorException('Notifications unavailable');
+    await this.notifications.enqueue(
+      NotificationEvent.vendor_onboarding_recovery,
+      {
+        userId: vendor.userId,
+        requiredItem: dto.item,
+        recoveryStage: 'admin_chase',
+        recoveryChaseId: chase.id,
+        deliveryChannel: dto.channel,
+        portalUrl: `https://vendor.feastpot.co.uk/onboarding?item=${encodeURIComponent(dto.item)}`,
+        supportEmail: PLATFORM_FACTS.support.email,
+      },
+      { jobId: `vendor-recovery-chase:${chase.id}` },
+    );
+    await this.prisma.vendorRecoveryChase.update({
+      where: { id: chase.id },
+      data: { queuedAt: new Date() },
+    });
+    return chase;
+  }
+
+  async bulkChaseVendorRecovery(
+    actorId: string,
+    requests: Array<{ vendorId: string; dto: VendorRecoveryChaseDto }>,
+  ) {
+    if (requests.length > 100) throw new BadRequestException('Maximum 100 recovery chases');
+    const results: Array<{ vendorId: string; ok: boolean; result?: unknown; error?: string }> = [];
+    for (const request of requests) {
+      try {
+        results.push({
+          vendorId: request.vendorId,
+          ok: true,
+          result: await this.chaseVendorRecovery(request.vendorId, actorId, request.dto),
+        });
+      } catch (error) {
+        results.push({ vendorId: request.vendorId, ok: false, error: (error as Error).message });
+      }
+    }
+    return results;
   }
 
   async commandSearch(q: string | undefined, role: UserRole) {
@@ -1484,28 +1622,39 @@ export class AdminService {
         },
       },
     });
-    return rows.map((r) => ({
-      id: r.id,
-      fullName: r.fullName,
-      kitchenName: r.kitchenName,
-      email: r.email,
-      phone: r.phone,
-      postcode: r.postcode,
-      cuisineType: r.cuisineType,
-      cuisineTypes: r.cuisineTypes,
-      kitchenType: r.kitchenType,
-      hasFsaRegistration: r.hasFsaRegistration,
-      hygieneRegNumber: r.hygieneRegNumber,
-      instagram: r.instagram,
-      status: r.status,
-      reviewedAt: r.reviewedAt,
-      reviewedBy: r.reviewedBy,
-      adminNotes: r.adminNotes,
-      rejectionReason: r.rejectionReason,
-      vendor: r.vendor,
-      lastChasedAt: r.informationRequests[0]?.createdAt ?? null,
-      createdAt: r.createdAt,
-    }));
+    return rows.map((r) => {
+      const missingItems = this.missingApplicationInformation(r);
+      return {
+        id: r.id,
+        fullName: r.fullName,
+        kitchenName: r.kitchenName,
+        email: r.email,
+        phone: r.phone,
+        postcode: r.postcode,
+        cuisineType: r.cuisineType,
+        cuisineTypes: r.cuisineTypes,
+        kitchenType: r.kitchenType,
+        hasFsaRegistration: r.hasFsaRegistration,
+        hygieneRegNumber: r.hygieneRegNumber,
+        instagram: r.instagram,
+        status: r.status,
+        reviewedAt: r.reviewedAt,
+        reviewedBy: r.reviewedBy,
+        adminNotes: r.adminNotes,
+        rejectionReason: r.rejectionReason,
+        vendor: r.vendor,
+        lastChasedAt: r.informationRequests[0]?.createdAt ?? null,
+        missingItems,
+        missingItemLinks: missingItems.map((item) => ({
+          item,
+          href: `/vendor/onboarding?item=${encodeURIComponent(item)}`,
+        })),
+        ageingDays: r.submittedAt
+          ? Math.max(0, Math.floor((Date.now() - r.submittedAt.getTime()) / 86_400_000))
+          : 0,
+        createdAt: r.createdAt,
+      };
+    });
   }
 
   async getVendorApplication(id: string) {
@@ -2154,6 +2303,40 @@ export class AdminService {
           },
         });
 
+        // Seed the post-approval recovery projection and clock at approval,
+        // never when a vendor later opens the readiness page.
+        const recoveryStart = newVendor.approvedAt ?? newVendor.createdAt;
+        await tx.vendorRequiredOnboardingItem.createMany({
+          data: Object.values(VendorOnboardingStepName).map((name) => ({
+            vendorId: newVendor.id,
+            name,
+            state: 'outstanding' as const,
+          })),
+          skipDuplicates: true,
+        });
+        const schedule = await tx.vendorRecoverySchedule.create({
+          data: {
+            vendorId: newVendor.id,
+            targetedItem: VendorOnboardingStepName.food_business_registration,
+          },
+        });
+        await tx.vendorRecoveryStage.createMany({
+          data: (
+            [
+              [RecoveryNudgeStage.sms_2h, 2, NotificationChannel.sms],
+              [RecoveryNudgeStage.email_24h, 24, NotificationChannel.email],
+              [RecoveryNudgeStage.email_3d_help, 72, NotificationChannel.email],
+              [RecoveryNudgeStage.email_7d_final, 168, NotificationChannel.email],
+              [RecoveryNudgeStage.admin_chase, 168, NotificationChannel.email],
+            ] as const
+          ).map(([stage, hours, channel]) => ({
+            scheduleId: schedule.id,
+            stage,
+            channel,
+            dueAt: new Date(recoveryStart.getTime() + Number(hours) * 3600000),
+          })),
+        });
+
         await tx.vendorApplication.update({
           where: { id: app.id },
           data: { vendorId: newVendor.id },
@@ -2175,6 +2358,12 @@ export class AdminService {
               },
             } as Prisma.JsonObject,
           },
+        });
+
+        void this.analytics.trackServer('application_approved', {
+          applicationId: app.id,
+          vendorId: newVendor.id,
+          userId: supabaseUserId,
         });
 
         return newVendor.id;
@@ -2200,7 +2389,9 @@ export class AdminService {
         .auth.admin.generateLink({
           type: 'magiclink',
           email: normalisedEmail,
-          options: { redirectTo: `${vendorPortalUrl}/onboarding` },
+          options: {
+            redirectTo: `${vendorPortalUrl}/onboarding?item=${VendorOnboardingStepName.food_business_registration}`,
+          },
         });
       // Note: Supabase magic-link expiry is controlled by the project's
       // auth config (Dashboard → Authentication → Email Templates). The
@@ -2276,7 +2467,9 @@ export class AdminService {
       .auth.admin.generateLink({
         type: 'magiclink',
         email: normalisedEmail,
-        options: { redirectTo: `${vendorPortalUrl}/onboarding` },
+        options: {
+          redirectTo: `${vendorPortalUrl}/onboarding?item=${VendorOnboardingStepName.food_business_registration}`,
+        },
       });
     const magicLinkUrl = linkData?.properties?.action_link;
     if (linkErr || !magicLinkUrl) {

@@ -13,6 +13,8 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { TermsService } from '../terms/terms.service';
 import { isTaxProfileComplete } from '../vendor-tax-profile/vendor-tax-profile.service';
 
+import { VendorRecoveryService } from './vendor-recovery.service';
+
 const MIN_INSURANCE_COVER_PENCE = 500_000_000;
 
 type StepDefinition = {
@@ -152,6 +154,7 @@ export class VendorOnboardingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly terms: TermsService,
+    private readonly recovery?: VendorRecoveryService,
   ) {}
 
   async getReadiness(vendorId: string): Promise<VendorOnboardingReadiness> {
@@ -365,6 +368,23 @@ export class VendorOnboardingService {
         }),
       ),
     );
+    // Required items are only a projection of these canonical states. Viewing
+    // readiness must never start or reset a recovery clock.
+    if (this.recovery) {
+      for (const step of steps) {
+        await this.recovery.syncItem(vendorId, step.name, step.complete);
+      }
+      const firstOutstanding = steps.find((step) => step.blocksPublication && !step.complete);
+      if (firstOutstanding) {
+        const schedule = await this.prisma.vendorRecoverySchedule.findFirst({
+          where: { vendorId, cancelledAt: null },
+          orderBy: { createdAt: 'desc' },
+        });
+        if (schedule && schedule.targetedItem !== firstOutstanding.name) {
+          await this.recovery.schedule(vendorId, firstOutstanding.name);
+        }
+      }
+    }
 
     const blockingProgress = steps.filter((step) => step.blocksProgress && !step.complete);
     const blockingPublication = steps.filter((step) => step.blocksPublication && !step.complete);

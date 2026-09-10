@@ -38,6 +38,7 @@ export const NOTIFICATION_EVENTS = {
   notify_vendor: { templateBacked: true },
   vendor_onboarding_complete: { templateBacked: true, productionProducer: false },
   vendor_approved: { templateBacked: true },
+  vendor_onboarding_recovery: { templateBacked: true },
   enquiry_expired: { templateBacked: true },
   review_request: { templateBacked: true },
   dispute_appeal_submitted: { templateBacked: true },

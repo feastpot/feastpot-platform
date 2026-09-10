@@ -13,7 +13,7 @@ import { TEMPLATES } from './templates';
 
 describe('notification event registry contract', () => {
   it('has one explicit registered handler for every accepted name', () => {
-    expect(NOTIFICATION_EVENT_NAMES).toHaveLength(56);
+    expect(NOTIFICATION_EVENT_NAMES).toHaveLength(57);
     const processorSource = readFileSync(resolve(__dirname, 'notification.processor.ts'), 'utf8');
     expect(processorSource).toContain('for (const eventName of NOTIFICATION_EVENT_NAMES)');
     expect(processorSource).toContain('Process({ name: eventName, concurrency: 30 })');

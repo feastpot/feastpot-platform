@@ -45,6 +45,7 @@ import { CursorPaginationDto } from './dto/pagination.dto';
 import { RegisterVendorInterestDto } from './dto/register-vendor-interest.dto';
 import { SearchVendorsDto } from './dto/search-vendors.dto';
 import { UpdateAvailabilityDto } from './dto/update-availability.dto';
+import { UpdateRequiredOnboardingItemDto } from './dto/update-required-onboarding-item.dto';
 import { UpdateVendorComplianceDto } from './dto/update-vendor-compliance.dto';
 import { UpdateVendorStatusDto } from './dto/update-vendor-status.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
@@ -66,6 +67,7 @@ import {
   getVendorTrustSignals,
   getVerifiedTrustSignalsForVendors,
 } from './vendor-capacity';
+import { VendorRecoveryService } from './vendor-recovery.service';
 import { VendorsService } from './vendors.service';
 
 function requireUser(user: AuthUser | null): AuthUser {
@@ -101,6 +103,7 @@ export class VendorsController {
     private readonly vendors: VendorsService,
     private readonly storage: SupabaseStorageService,
     private readonly prisma: PrismaService,
+    private readonly recovery: VendorRecoveryService,
   ) {}
 
   @Public()
@@ -123,8 +126,12 @@ export class VendorsController {
     summary:
       'Public become-a-vendor application capture. Persists a VendorApplication row and emails the admin + the applicant.',
   })
-  registerInterest(@Body() dto: RegisterVendorInterestDto, @Headers('x-fp-ref') fpRef?: string) {
-    return this.vendors.registerInterest(dto, fpRef);
+  registerInterest(
+    @Body() dto: RegisterVendorInterestDto,
+    @Headers('x-fp-ref') fpRef?: string,
+    @Headers('x-fp-anon-id') anonVisitorId?: string,
+  ) {
+    return this.vendors.registerInterest(dto, fpRef, anonVisitorId);
   }
 
   @Public()
@@ -133,8 +140,9 @@ export class VendorsController {
   createApplicationDraft(
     @Body() dto: CreateVendorApplicationDraftDto,
     @Headers('x-fp-ref') fpRef?: string,
+    @Headers('x-fp-anon-id') anonVisitorId?: string,
   ) {
-    return this.vendors.createApplicationDraft(dto, fpRef);
+    return this.vendors.createApplicationDraft(dto, fpRef, anonVisitorId);
   }
 
   @Public()
@@ -299,6 +307,23 @@ export class VendorsController {
   })
   getMyOnboardingProgress(@CurrentUser() user: AuthUser | null) {
     return this.vendors.getOnboardingProgress(requireUser(user).id);
+  }
+
+  @Get('me/required-onboarding-items')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  listRequiredItems(@CurrentUser() user: AuthUser | null) {
+    return this.recovery.list(requireUser(user).id);
+  }
+
+  @Put('me/required-onboarding-items')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  updateRequiredItem(
+    @CurrentUser() user: AuthUser | null,
+    @Body() dto: UpdateRequiredOnboardingItemDto,
+  ) {
+    return this.recovery.setItem(requireUser(user).id, dto.name, dto.state);
   }
 
   @Get(':id/onboarding-readiness')

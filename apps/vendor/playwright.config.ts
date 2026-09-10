@@ -234,7 +234,7 @@ export default defineConfig({
     {
       name: 'vendor-state-matrix-mobile',
       testMatch: /vendor-state-matrix\.spec\.ts/,
-      grep: /V4 routes do not overflow/,
+      grep: /V4 routes do not overflow|keeps onboarding controls reachable/,
       use: {
         ...devices['iPhone 12'],
         browserName: 'chromium',
@@ -273,7 +273,6 @@ export default defineConfig({
       use: {
         ...devices['Desktop Chrome'],
       },
-      dependencies: ['vendor-state-matrix-setup'],
     },
     {
       name: 'vendor-state-matrix-teardown',

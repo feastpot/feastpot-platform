@@ -23,9 +23,9 @@ Stateful E2E suites that share one external API and database must run in a decla
 
 Factory-backed browser tests must budget enough time for provisioning and cleanup outside the normal UI assertion timeout. Do not rely solely on a test-local `finally` for cleanup after a Playwright timeout.
 
-**Why:** A test that serially provisioned several checkout scenarios hit the default 30-second timeout. Playwright interrupted its local cleanup and left namespaced users and a vendor behind even though the test had a `finally` block.
+**Why:** A test that serially provisioned several checkout scenarios hit the default 30-second timeout. Playwright interrupted its local cleanup and left namespaced users and a vendor behind even though the test had a `finally` block. An interrupted Auth-first setup also left a Supabase Auth identity without its database user, so database-oriented teardown could not recover that namespace.
 
-**How to apply:** Give multi-scenario provisioning tests an explicit timeout based on measured setup/teardown time, and retain a namespace-scoped teardown command that can run independently after cancellation or runner timeout.
+**How to apply:** Give multi-scenario provisioning tests an explicit timeout based on measured setup/teardown time, and retain a namespace-scoped teardown command that can run independently after cancellation or runner timeout. If setup was interrupted between Auth and database creation, use a fresh namespace for the retry unless provider-aware cleanup has confirmed removal of the orphaned Auth identity.
 
 Derived fixture keys must retain namespace uniqueness even when database length limits require truncation. Include a stable hash of the full namespace rather than relying on a readable prefix alone.
 
