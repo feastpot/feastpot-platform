@@ -8,7 +8,7 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
-import { AcceptanceMethod, NoticeChannel, TermsDocumentType } from '@prisma/client';
+import { AcceptanceMethod, NoticeChannel, RateStatus, TermsDocumentType } from '@prisma/client';
 import type { Queue } from 'bull';
 
 import { PrismaService } from '../../prisma/prisma.service';
@@ -25,6 +25,17 @@ export const DEEMED_ACCEPTANCE_CRON_JOB = TERMS_NOTICE_JOBS.deemed_acceptance_sw
 
 /** Minimum notice period in days (P2B Regulation, UK retained). */
 const MIN_NOTICE_DAYS = 15;
+
+type RateScheduleEntryDraft = {
+  key: string;
+  label: string;
+  rateDisplay: string;
+  rateValue: number | null;
+  basis: string;
+  vatNote: string;
+  status: RateStatus;
+  sortOrder: number;
+};
 
 export function buildVendorTermsAcceptanceLabel(version: string): string {
   return `I have read and agree to the Feastpot Vendor Terms of Agreement version ${version}, including the Rate Schedule.`;
@@ -63,7 +74,10 @@ export class TermsService {
    * 5. VENDOR_TERMS requires solicitorSignOff ("Reviewed and approved by
    *    [solicitor] on [date]"). Rejected without it.
    */
-  async publishVersion(dto: PublishTermsVersionDto) {
+  async publishVersion(
+    dto: PublishTermsVersionDto,
+    rateScheduleEntries: RateScheduleEntryDraft[] = [],
+  ) {
     const now = new Date();
 
     // Rule 1: Compute content hash; reject if contentMdx is empty.
@@ -125,7 +139,7 @@ export class TermsService {
         });
       }
 
-      return tx.termsVersion.create({
+      const createdVersion = await tx.termsVersion.create({
         data: {
           documentType: dto.documentType,
           version: dto.version,
@@ -139,6 +153,17 @@ export class TermsService {
           solicitorSignOff: dto.solicitorSignOff,
         },
       });
+
+      if (rateScheduleEntries.length > 0) {
+        await tx.rateScheduleEntry.createMany({
+          data: rateScheduleEntries.map((entry) => ({
+            versionId: createdVersion.id,
+            ...entry,
+          })),
+        });
+      }
+
+      return createdVersion;
     });
 
     this.logger.log(
@@ -981,6 +1006,53 @@ export class TermsService {
       solicitorSignOff: undefined,
     };
 
-    return this.publishVersion(dto);
+    const currentVersion = await this.getCurrentVersion(TermsDocumentType.RATE_SCHEDULE);
+    if (!currentVersion) {
+      throw new BadRequestException(
+        'Cannot publish a rate change before the canonical Rate Schedule has been seeded.',
+      );
+    }
+
+    const currentEntries = await this.prisma.rateScheduleEntry.findMany({
+      where: { versionId: currentVersion.id },
+      orderBy: { sortOrder: 'asc' },
+    });
+    if (currentEntries.length === 0) {
+      throw new BadRequestException(
+        'Cannot publish a rate change because the current Rate Schedule has no entries.',
+      );
+    }
+
+    const changedRateKey =
+      source === 'VENDOR_REFERRED'
+        ? 'referred_commission'
+        : source === 'MARKETPLACE' && isFirstOrder === true
+          ? 'standard_commission'
+          : source === 'MARKETPLACE' && isFirstOrder === false
+            ? 'repeat_commission'
+            : null;
+    if (!changedRateKey) {
+      throw new BadRequestException(
+        `No Rate Schedule entry mapping exists for source=${source} isFirstOrder=${String(isFirstOrder)}.`,
+      );
+    }
+
+    const nextEntries: RateScheduleEntryDraft[] = currentEntries.map((entry) => ({
+      key: entry.key,
+      label: entry.label,
+      rateDisplay: entry.key === changedRateKey ? `${newRatePct}%` : entry.rateDisplay,
+      rateValue:
+        entry.key === changedRateKey
+          ? newRatePct
+          : entry.rateValue != null
+            ? Number(entry.rateValue)
+            : null,
+      basis: entry.basis,
+      vatNote: entry.vatNote,
+      status: entry.status,
+      sortOrder: entry.sortOrder,
+    }));
+
+    return this.publishVersion(dto, nextEntries);
   }
 }
