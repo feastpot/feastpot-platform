@@ -83,3 +83,4 @@
 - [Menu import safety](menu-import-safety.md) - OCR may suggest menu text, never allergens; originals stay private, imports stay draft/held, and native OCR must be tightly resource-bounded.
 - [Stripe Connect data boundary](stripe-connect-data-boundary.md) - Stripe redacts full tax/bank identifiers after collection; Open Banking also needs a Dashboard setting.
 - [Onboarding recovery and funnel](onboarding-recovery-funnel.md) - recovery campaigns are immutable and delivery-confirmed; anonymous funnel events resolve to applications within 24 hours.
+- [Rate Schedule version entries](rate-schedule-version-entries.md) - every effective Rate Schedule version must receive a complete entry snapshot atomically; repair empty current versions, never reactivate old ones.
