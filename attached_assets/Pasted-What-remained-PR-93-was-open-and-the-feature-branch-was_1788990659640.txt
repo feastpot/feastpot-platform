@@ -1,0 +1,9 @@
+What remained:
+
+PR #93 was open and the feature branch was pushed.
+13 checks were passing.
+The customer checkout E2E check was still running.
+The cross-surface consistency check still had one failure.
+Because main is protected, the PR could not be squash-merged until that failure passed.
+Local main still needed updating after the merge.
+No production migration or deployment was being performed.

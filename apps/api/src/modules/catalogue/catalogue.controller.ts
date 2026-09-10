@@ -15,11 +15,12 @@ import {
   Post,
   Query,
   UploadedFile,
+  UploadedFiles,
   UseGuards,
   UseInterceptors,
   Req,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileInterceptor, FilesInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiBody, ApiConsumes, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 
@@ -31,6 +32,14 @@ import type { AuthedRequest } from '../../auth/types';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import { CreateMenuDto } from './dto/create-menu.dto';
 import { ListMenuItemsDto } from './dto/list-menu-items.dto';
+import {
+  AddMenuImportItemDto,
+  AllergenConfirmationDto,
+  BulkAllergenConfirmationDto,
+  CopyAllergenConfirmationDto,
+  EditMenuImportItemDto,
+  ApplyMenuImportDto,
+} from './dto/menu-import.dto';
 import { ReorderMenuItemsDto } from './dto/reorder-menu-items.dto';
 import { ReorderMenusDto } from './dto/reorder-menus.dto';
 import { ToggleAvailabilityDto } from './dto/toggle-availability.dto';
@@ -38,6 +47,7 @@ import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import { UpdateMenuDto } from './dto/update-menu.dto';
 import { TermsAcceptanceGuard } from './guards/terms-acceptance.guard';
 import { VendorOwnershipGuard } from './guards/vendor-ownership.guard';
+import { MenuImportService } from './menu-import.service';
 import { MenuItemsService } from './menu-items.service';
 import { MenusService } from './menus.service';
 
@@ -48,7 +58,129 @@ export class CatalogueController {
   constructor(
     private readonly menus: MenusService,
     private readonly items: MenuItemsService,
+    private readonly imports: MenuImportService,
   ) {}
+
+  @Post('menu-imports')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @UseGuards(VendorOwnershipGuard)
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(
+    FilesInterceptor('files', 4, { limits: { fileSize: 10 * 1024 * 1024, files: 4 } }),
+  )
+  uploadMenuImport(
+    @Param('vendorId', new ParseUUIDPipe()) vendorId: string,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    return this.imports.create(vendorId, files ?? []);
+  }
+
+  @Get('menu-imports')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @UseGuards(VendorOwnershipGuard)
+  listMenuImports(@Param('vendorId', new ParseUUIDPipe()) vendorId: string) {
+    return this.imports.list(vendorId);
+  }
+
+  @Get('menu-imports/:importId')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @UseGuards(VendorOwnershipGuard)
+  getMenuImport(
+    @Param('vendorId', new ParseUUIDPipe()) vendorId: string,
+    @Param('importId', new ParseUUIDPipe()) id: string,
+  ) {
+    return this.imports.get(vendorId, id);
+  }
+
+  @Patch('menu-imports/:importId/items/:itemId')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @UseGuards(VendorOwnershipGuard)
+  editMenuImportItem(
+    @Param('vendorId', new ParseUUIDPipe()) v: string,
+    @Param('importId', new ParseUUIDPipe()) i: string,
+    @Param('itemId', new ParseUUIDPipe()) c: string,
+    @Body() dto: EditMenuImportItemDto,
+  ) {
+    return this.imports.edit(v, i, c, dto);
+  }
+
+  @Post('menu-imports/:importId/items')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @UseGuards(VendorOwnershipGuard)
+  addMenuImportItem(
+    @Param('vendorId', new ParseUUIDPipe()) v: string,
+    @Param('importId', new ParseUUIDPipe()) i: string,
+    @Body() dto: AddMenuImportItemDto,
+  ) {
+    return this.imports.add(v, i, dto);
+  }
+
+  @Post('menu-imports/:importId/items/:itemId/reject')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @UseGuards(VendorOwnershipGuard)
+  rejectMenuImportItem(
+    @Param('vendorId', new ParseUUIDPipe()) v: string,
+    @Param('importId', new ParseUUIDPipe()) i: string,
+    @Param('itemId', new ParseUUIDPipe()) c: string,
+  ) {
+    return this.imports.reject(v, i, c);
+  }
+
+  @Post('menu-imports/:importId/items/:itemId/allergens')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @UseGuards(VendorOwnershipGuard)
+  confirmMenuImportItemAllergens(
+    @Param('vendorId', new ParseUUIDPipe()) v: string,
+    @Param('importId', new ParseUUIDPipe()) i: string,
+    @Param('itemId', new ParseUUIDPipe()) c: string,
+    @Body() dto: AllergenConfirmationDto,
+  ) {
+    return this.imports.confirm(v, i, c, dto);
+  }
+
+  @Post('menu-imports/:importId/allergens/bulk')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @UseGuards(VendorOwnershipGuard)
+  bulkConfirmMenuImportAllergens(
+    @Param('vendorId', new ParseUUIDPipe()) v: string,
+    @Param('importId', new ParseUUIDPipe()) i: string,
+    @Body() dto: BulkAllergenConfirmationDto,
+  ) {
+    return this.imports.bulkConfirm(v, i, dto);
+  }
+
+  @Post('menu-imports/:importId/items/:itemId/allergens/copy')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @UseGuards(VendorOwnershipGuard)
+  copyMenuImportAllergens(
+    @Param('vendorId', new ParseUUIDPipe()) v: string,
+    @Param('importId', new ParseUUIDPipe()) i: string,
+    @Param('itemId', new ParseUUIDPipe()) c: string,
+    @Body() dto: CopyAllergenConfirmationDto,
+  ) {
+    return this.imports.copyConfirm(v, i, c, dto);
+  }
+
+  @Post('menu-imports/:importId/apply')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  @UseGuards(VendorOwnershipGuard)
+  applyMenuImport(
+    @Param('vendorId', new ParseUUIDPipe()) v: string,
+    @Param('importId', new ParseUUIDPipe()) i: string,
+    @Body() dto: ApplyMenuImportDto,
+  ) {
+    return this.imports.apply(v, i, dto.menuId);
+  }
 
   // ---------- Menus ----------
 

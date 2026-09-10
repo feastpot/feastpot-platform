@@ -1,0 +1,74 @@
+TASK: Let a vendor upload a menu photo and have Feastpot
+build the draft menu.
+
+WHY THIS MATTERS MOST
+The target vendor keeps their menu in a WhatsApp broadcast or
+an Instagram screenshot. Asking them to retype it into a
+structured form is the largest single piece of work in
+onboarding and a likely abandonment point. Removing it is
+worth more than any other change here.
+
+THE FLOW
+  Vendor uploads one or more photos, screenshots or a PDF.
+  Accept anything: camera capture, gallery, WhatsApp
+  screenshot, a photo of a paper menu.
+  Feastpot extracts candidate dishes: name, description if
+  present, price if present.
+  Vendor reviews a clean list, edits inline, removes anything
+  wrong, adds anything missed.
+  Everything is created as DRAFT, never published.
+
+THE ABSOLUTE CONSTRAINT, DO NOT COMPROMISE
+NEVER infer, guess or auto-populate allergen data from a
+photo, a dish name or a description. Not from "peanut soup",
+not from anything. Allergen declarations are a legal
+obligation of the vendor as food business operator, and a
+wrong inference is a safety incident.
+
+Every extracted dish arrives with allergens EMPTY and cannot
+publish until the vendor either declares allergens or ticks
+free-from-all-14, per the existing gate. The allergen step is
+the one part of menu creation the vendor must genuinely do.
+
+MAKE THE ALLERGEN STEP FAST, NOT SKIPPABLE
+This is where the conversion work belongs:
+  present dishes in a single scrollable list, not one page
+    per dish
+  the 14 allergens as large tap targets
+  "apply to all dishes" for a common base (many African and
+    Caribbean dishes share stock, oil or seasoning bases)
+  "copy allergens from a previous dish"
+  a progress indicator: "12 of 18 dishes confirmed"
+  save continuously so it can be done across several sittings
+Frame it honestly and positively: "We have built your menu.
+Now tell us what is in each dish so customers with allergies
+can order safely."
+
+PRICE AND PORTION HANDLING
+If a price is unclear or absent, leave it blank and flag it
+rather than guessing. Wrong prices are a commercial and
+consumer-law problem. Same for portion sizes.
+
+FALLBACKS
+  Extraction fails or the photo is unreadable: say so
+    plainly, offer manual entry, do not lose the upload.
+  Vendor has no menu at all: offer a starter template by
+    cuisine they can edit, prefilled with dish NAMES only and
+    no allergens.
+  Very large menus: cap the first pass at a sensible number
+    and let them add more later. A vendor does not need 40
+    dishes live to start trading.
+
+WHAT THE VENDOR SEES
+Present this as the platform doing work for them, because it
+is. "Send us your menu however you have it. We will type it
+up." That is a genuinely differentiated onboarding promise
+and worth saying on /become-a-vendor too.
+
+ACCEPTANCE CRITERIA
+- A WhatsApp screenshot produces an editable draft menu.
+- No dish is ever created with inferred allergens.
+- No draft can publish without allergen confirmation.
+- Bulk allergen application works across selected dishes.
+- Extraction failure degrades to manual entry without losing
+  the upload.

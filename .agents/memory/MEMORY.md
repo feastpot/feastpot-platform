@@ -80,3 +80,4 @@
 - [Menu moderation pilot](menu-moderation-pilot.md) — manual approval is the launch posture; bind decisions to submission revisions and keep allergen gates at publication and checkout.
 - [Vendor onboarding readiness](vendor-onboarding-readiness.md) - go-live is derived from fresh evidence; awaiting first FHRS inspection may publish, but an existing rating below 3 blocks.
 - [Two-phase vendor application](two-phase-vendor-application.md) - anonymous drafts stay private from Admin; exact-step resume uses hashed tokens; menu images publish only on claimed submission.
+- [Menu import safety](menu-import-safety.md) - OCR may suggest menu text, never allergens; originals stay private, imports stay draft/held, and native OCR must be tightly resource-bounded.

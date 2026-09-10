@@ -34,6 +34,7 @@ import {
   GripVertical,
   Pencil,
   Plus,
+  FileUp,
   Search,
   Trash2,
   UtensilsCrossed,
@@ -153,9 +154,17 @@ export function MenuListClient({ vendorId }: { vendorId: string }) {
             Group your dishes into menus customers can browse.
           </p>
         </div>
-        <Button onClick={() => setCreateOpen(true)} className="gap-2 bg-teal hover:bg-teal-dark">
-          <Plus className="h-4 w-4" /> Add menu
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/menu/import"
+            className="inline-flex min-h-10 items-center gap-2 rounded-md border border-teal px-4 py-2 text-sm font-semibold text-teal hover:bg-teal-light"
+          >
+            <FileUp className="h-4 w-4" /> Import menu
+          </Link>
+          <Button onClick={() => setCreateOpen(true)} className="gap-2 bg-teal hover:bg-teal-dark">
+            <Plus className="h-4 w-4" /> Add menu
+          </Button>
+        </div>
       </header>
 
       <MenuStatCards menus={menus ?? []} />
