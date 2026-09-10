@@ -363,6 +363,7 @@ export class VendorRepository {
       FROM vendors v
       WHERE v.status::text = ${dto.status ?? VendorStatus.live}
         AND v.is_seed_data = false
+        AND EXISTS (SELECT 1 FROM users owner WHERE owner.id = v.user_id AND owner.is_test_data = false)
         AND v.approved_at IS NOT NULL
         AND v.suspended_at IS NULL
         -- Food-business registration is the publication gate. A vendor awaiting
@@ -432,7 +433,17 @@ export class VendorRepository {
   }
 
   findBySlug(slug: string) {
-    return this.prisma.vendor.findUnique({ where: { slug } });
+    return this.prisma.vendor.findFirst({
+      where: { slug, isSeedData: false, user: { isTestData: false } },
+    });
+  }
+
+  async findPublicById(id: string) {
+    const visible = await this.prisma.vendor.findFirst({
+      where: { id, isSeedData: false, user: { isTestData: false } },
+      select: { id: true },
+    });
+    return visible ? this.findById(id) : null;
   }
 
   findSlugRedirect(oldSlug: string) {

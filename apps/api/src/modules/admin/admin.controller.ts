@@ -70,6 +70,7 @@ import {
   RequestVendorApplicationInformationDto,
 } from './dto/request-vendor-application-information.dto';
 import { UpdateVendorApplicationDto } from './dto/update-vendor-application.dto';
+import { CreateTestVendorPersonasDto } from './dto/create-test-vendor-personas.dto';
 import {
   BulkVendorRecoveryChaseDto,
   VendorRecoveryChaseDto,
@@ -124,6 +125,16 @@ export class AdminController {
     private readonly queueSnapshots: QueueSnapshotService,
     private readonly config: ConfigService,
   ) {}
+
+  @Post('test-personas/vendors')
+  @Roles(UserRole.admin)
+  @ApiOperation({ summary: 'Create the four admin-only production test vendor personas' })
+  createTestVendorPersonas(
+    @Body() dto: CreateTestVendorPersonasDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.admin.createTestVendorPersonas(dto.confirmation, user.id);
+  }
 
   /**
    * FR-SRCH-001: top customer searches over the last 30 days.
