@@ -29,4 +29,14 @@ export const COMMISSION_RATES = {
     label: 'Customer service fee',
     basis: 'Order subtotal, charged to the customer and not deducted from vendor payout',
   },
+  externalEstimates: {
+    stripeUkCards: {
+      percent: 1.5,
+      fixedPence: 20,
+    },
+    aggregatorCommissionRange: {
+      lowPercent: 25,
+      highPercent: 30,
+    },
+  },
 } as const;

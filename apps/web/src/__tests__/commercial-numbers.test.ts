@@ -85,7 +85,10 @@ describe('Commercial-numbers consistency', () => {
       const calculator = readSrc('become-a-vendor/earnings-calculator.tsx');
       expect(becomePage).toContain('<EarningsCalculator rates={rates} />');
       expect(calculator).toContain('RATE_KEYS.marketplaceFirst');
-      expect(calculator).toContain("rate.status === 'LIVE'");
+      expect(calculator).toContain(
+        "activeStatus = key === RATE_KEYS.customerServiceFee ? 'CUSTOMER_SIDE' : 'LIVE'",
+      );
+      expect(calculator).toContain('rate.status === activeStatus');
     });
 
     it('web, vendor, admin, and Annex A read the public Rate Schedule', () => {
