@@ -1,6 +1,5 @@
-import type Stripe from 'stripe';
-
 import { TaxEntityType } from '@prisma/client';
+import type Stripe from 'stripe';
 
 import { isTaxProfileComplete, mapStripeAccount } from './vendor-tax-profile.service';
 
