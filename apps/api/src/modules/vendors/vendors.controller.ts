@@ -51,7 +51,8 @@ import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { UpsertCapacityDto } from './dto/upsert-capacity.dto';
 import { UpsertDeliveryConfigDto } from './dto/upsert-delivery-config.dto';
 import {
-  StripeConnectLinkResponseDto,
+  StripeConnectSessionDto,
+  StripeConnectSessionResponseDto,
   VendorAnalyticsResponseDto,
 } from './dto/vendor-analytics.dto';
 import {
@@ -435,17 +436,18 @@ export class VendorsController {
     return this.vendors.removeMyCapacity(requireUser(user).id, capacityId);
   }
 
-  @Post('me/stripe-connect-link')
+  @Post('me/stripe-connect-session')
   @ApiBearerAuth()
   @Roles(UserRole.vendor, UserRole.admin)
   @ApiOperation({
     summary:
-      'Create-or-reuse a Stripe Connect Express account for the authed vendor and return a one-shot onboarding URL',
+      'Create-or-reuse a Stripe Connect Express account and return an in-app onboarding session',
   })
-  createStripeConnectLink(
+  createStripeConnectSession(
     @CurrentUser() user: AuthUser | null,
-  ): Promise<StripeConnectLinkResponseDto> {
-    return this.vendors.createStripeConnectLink(requireUser(user).id);
+    @Body() dto: StripeConnectSessionDto,
+  ): Promise<StripeConnectSessionResponseDto> {
+    return this.vendors.createStripeConnectSession(requireUser(user).id, dto);
   }
 
   // Diagnostic-only endpoint. MUST be declared before @Get(':idOrSlug') so

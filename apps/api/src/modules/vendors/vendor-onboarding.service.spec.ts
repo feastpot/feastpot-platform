@@ -47,7 +47,9 @@ function readyVendor() {
       postcode: 'SE1 1AA',
       dateOfBirth: new Date('1990-01-01T00:00:00Z'),
       companyNumber: null,
-      taxIdentifier: null,
+      taxIdentifier: 'QQ123456C',
+      financialAccountId: 'GB:040004:****1234',
+      accountHolderName: 'Vendor Owner',
       verificationStatus: VerificationStatus.PENDING,
     },
     documents: [
@@ -139,6 +141,15 @@ describe('VendorOnboardingService go-live gates', () => {
 
   it('blocks publication without a complete HMRC tax profile', async () => {
     vendor.taxProfile.legalName = '';
+    await expectBlocked(VendorOnboardingStepName.tax_profile);
+  });
+
+  it('blocks publication without a tax identifier or reconciled payout account', async () => {
+    vendor.taxProfile.taxIdentifier = null;
+    await expectBlocked(VendorOnboardingStepName.tax_profile);
+
+    vendor.taxProfile.taxIdentifier = 'QQ123456C';
+    vendor.taxProfile.financialAccountId = null;
     await expectBlocked(VendorOnboardingStepName.tax_profile);
   });
 

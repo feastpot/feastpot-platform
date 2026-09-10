@@ -2,13 +2,14 @@
 
 import { Badge, Button, Card, CardContent } from '@feastpot/ui';
 import { brandColors } from '@feastpot/ui/brand';
-import { Check, ExternalLink, Upload } from 'lucide-react';
+import { Check, Upload } from 'lucide-react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useCallback } from 'react';
 
 import { DocumentRow, REQUIRED_DOCS } from '@/components/compliance/compliance-docs';
 import { useToast } from '@/components/ui/toaster';
-import { useCreateStripeConnectLink } from '@/hooks/use-stripe-connect';
+import { StripeAccountOnboarding } from '@/components/onboarding/stripe-account-onboarding';
 import { useOnboardingProgress } from '@/hooks/use-onboarding-progress';
 import { useTermsAcceptanceStatus } from '@/hooks/use-terms-acceptance';
 import { useUploadDocument, useVendorDocuments } from '@/hooks/use-vendor-documents';
@@ -45,7 +46,8 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
   const progress = useOnboardingProgress();
   const termsStatus = useTermsAcceptanceStatus();
   const upload = useUploadDocument(vendor.id);
-  const stripe = useCreateStripeConnectLink();
+  const router = useRouter();
+  const refreshProgress = useCallback(() => router.refresh(), [router]);
   const { toast } = useToast();
 
   // Newest-first: keep the first occurrence per type so re-uploads surface
@@ -187,36 +189,18 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
         title="Set up payouts (Stripe)"
         done={stripeReady}
         body={
-          <>
+          <div className="space-y-3">
             <p className="text-sm text-muted-foreground">
               {stripeReady
                 ? 'Your Stripe account is connected and ready for payouts.'
-                : 'Stripe will collect your bank details, ID, and tax info. The window opens in a new tab.'}
+                : 'Complete this securely inside Feastpot. You can save your progress and come back later.'}
             </p>
-            <Button
-              className="mt-3 gap-2"
-              variant={stripeReady ? 'outline' : 'default'}
-              disabled={stripe.isPending}
-              onClick={() =>
-                stripe.mutate(undefined, {
-                  onSuccess: ({ url }) => window.open(url, '_blank', 'noopener'),
-                  onError: (err) =>
-                    toast({
-                      title: 'Could not open Stripe',
-                      description: err instanceof Error ? err.message : '',
-                      variant: 'destructive',
-                    }),
-                })
-              }
-            >
-              <ExternalLink className="h-4 w-4" />
-              {stripe.isPending
-                ? 'Opening…'
-                : stripeReady
-                  ? 'Update Stripe details'
-                  : 'Connect with Stripe'}
-            </Button>
-          </>
+            <StripeAccountOnboarding
+              existingAccountId={vendor.stripeAccountId}
+              payoutsEnabled={vendor.payoutsEnabled}
+              onProgressChanged={refreshProgress}
+            />
+          </div>
         }
       />
 

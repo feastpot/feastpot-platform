@@ -171,33 +171,38 @@ export class StripeService {
    * country + GBP and request the standard transfers + card_payments
    * capabilities so this account can receive marketplace transfers.
    */
-  createConnectAccount(args: { email: string; vendorId: string }): Promise<Stripe.Account> {
-    return this.stripe.accounts.create({
-      type: 'express',
-      country: 'GB',
-      email: args.email,
-      capabilities: {
-        card_payments: { requested: true },
-        transfers: { requested: true },
+  createConnectAccount(args: {
+    email: string;
+    vendorId: string;
+    businessType: 'individual' | 'company';
+  }): Promise<Stripe.Account> {
+    return this.stripe.accounts.create(
+      {
+        type: 'express',
+        country: 'GB',
+        email: args.email,
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true },
+        },
+        business_type: args.businessType,
+        metadata: { vendorId: args.vendorId },
       },
-      business_type: 'company',
-      metadata: { vendorId: args.vendorId },
-    });
+      { idempotencyKey: `connect-account-${args.vendorId}` },
+    );
   }
 
   /**
    * Read the current state of a connected account. Used to sync
    * `payoutsEnabled`/`charges_enabled` after the vendor finishes onboarding.
    */
-  retrieveAccount(accountId: string): Promise<Stripe.Account> {
-    return this.stripe.accounts.retrieve(accountId);
+  retrieveAccount(accountId: string, expandExternalAccounts = false): Promise<Stripe.Account> {
+    return this.stripe.accounts.retrieve(
+      accountId,
+      expandExternalAccounts ? { expand: ['external_accounts'] } : undefined,
+    );
   }
 
-  /**
-   * Generate a one-shot onboarding URL for an Express account. Stripe handles
-   * KYC, tax, bank details collection. We always pass `account_onboarding` -
-   * for a returning vendor whose link expired, the same call is safe.
-   */
   /**
    * Retrieve a previously-created transfer so finance staff can reconcile it
    * against our local Payout row (pence-level diff).
@@ -206,16 +211,15 @@ export class StripeService {
     return this.stripe.transfers.retrieve(transferId);
   }
 
-  createOnboardingLink(args: {
-    accountId: string;
-    refreshUrl: string;
-    returnUrl: string;
-  }): Promise<Stripe.AccountLink> {
-    return this.stripe.accountLinks.create({
-      account: args.accountId,
-      refresh_url: args.refreshUrl,
-      return_url: args.returnUrl,
-      type: 'account_onboarding',
+  createAccountSession(accountId: string): Promise<Stripe.AccountSession> {
+    return this.stripe.accountSessions.create({
+      account: accountId,
+      components: {
+        account_onboarding: {
+          enabled: true,
+          features: { external_account_collection: true },
+        },
+      },
     });
   }
 

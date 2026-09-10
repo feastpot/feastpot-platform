@@ -88,22 +88,31 @@ test.describe.serial('vendor lifecycle', () => {
     await requireVendorSession(page);
     await expect(page.getByText(/Status:/)).toBeVisible({ timeout: 8_000 });
     await expect(page.getByText(/compliance team will approve/i)).toBeVisible();
-    await expect(page.getByRole('button', { name: /connect with stripe/i })).toBeVisible();
+    await expect(
+      page.getByText(/Are you cooking as yourself, or through a registered company/i),
+    ).toBeVisible();
     await expect(
       page.getByText(/Accept the Vendor Terms first to unlock menu setup/i),
     ).toBeVisible();
 
-    // Stripe remains deterministic: assert the contract URL, never visit
-    // Stripe. A successful link creation must open the returned hosted URL.
-    await page.route('**/v1/stripe/connect/link', (route) =>
+    // Stripe remains deterministic: the vendor portal receives a client secret
+    // and mounts Connect.js in place; it never opens a hosted redirect.
+    await page.route('**/v1/vendors/me/stripe-connect-session', (route) =>
       route.fulfill({
         contentType: 'application/json',
-        body: JSON.stringify({ url: 'https://connect.stripe.test/onboarding/lifecycle' }),
+        body: JSON.stringify({
+          accountId: 'acct_lifecycle',
+          clientSecret: 'cs_test_lifecycle',
+          businessType: 'SOLE_TRADER',
+          payoutsEnabled: false,
+        }),
       }),
     );
-    const popup = page.waitForEvent('popup');
-    await page.getByRole('button', { name: /connect with stripe/i }).click();
-    await expect((await popup).url()).toContain('connect.stripe.test/onboarding/lifecycle');
+    await expect(
+      page.getByText(/Are you cooking as yourself, or through a registered company/i),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'As yourself' })).toBeVisible();
+    await expect(page.getByText(/The window opens in a new tab/i)).toBeHidden();
 
     // Terms are click-wrap: it must be blocked before a real scroll and the
     // checkbox must be unticked. This is intentionally a UI check rather than
@@ -228,6 +237,7 @@ test.describe.serial('vendor lifecycle', () => {
     );
     await page.goto('/tax-information');
     await expect(page.getByText(/SI 2023\/817/)).toBeVisible({ timeout: 8_000 });
+    await expect(page.getByRole('button', { name: /Import from Stripe/i })).toHaveCount(0);
     await expect(page.getByText(/Date of birth.*required for sole traders/i)).toBeVisible();
     await page.getByRole('combobox').selectOption('LIMITED_COMPANY');
     await expect(page.getByText(/Companies House number.*required/i)).toBeVisible();

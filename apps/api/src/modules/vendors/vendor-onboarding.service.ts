@@ -192,6 +192,8 @@ export class VendorOnboardingService {
             dateOfBirth: true,
             companyNumber: true,
             taxIdentifier: true,
+            financialAccountId: true,
+            accountHolderName: true,
             verificationStatus: true,
           },
         },

@@ -9,6 +9,12 @@ describe('StripeService Connect charge model', () => {
       transfers: {
         create: jest.fn().mockResolvedValue({ id: 'tr_test' }),
       },
+      accounts: {
+        create: jest.fn().mockResolvedValue({ id: 'acct_test' }),
+      },
+      accountSessions: {
+        create: jest.fn().mockResolvedValue({ id: 'cas_test', client_secret: 'secret_test' }),
+      },
     };
 
     return {
@@ -63,5 +69,41 @@ describe('StripeService Connect charge model', () => {
       },
       { idempotencyKey: 'payout-transfer-payout-1' },
     );
+  });
+
+  it('creates the connected account with the vendor-selected business type', async () => {
+    const { service, stripe } = build();
+
+    await service.createConnectAccount({
+      email: 'cook@example.test',
+      vendorId: 'vendor-1',
+      businessType: 'individual',
+    });
+
+    expect(stripe.accounts.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'express',
+        country: 'GB',
+        email: 'cook@example.test',
+        business_type: 'individual',
+      }),
+      { idempotencyKey: 'connect-account-vendor-1' },
+    );
+  });
+
+  it('enables embedded onboarding and external account collection', async () => {
+    const { service, stripe } = build();
+
+    await service.createAccountSession('acct_vendor');
+
+    expect(stripe.accountSessions.create).toHaveBeenCalledWith({
+      account: 'acct_vendor',
+      components: {
+        account_onboarding: {
+          enabled: true,
+          features: { external_account_collection: true },
+        },
+      },
+    });
   });
 });
