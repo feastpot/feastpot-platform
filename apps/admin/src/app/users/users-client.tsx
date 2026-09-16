@@ -65,6 +65,11 @@ import { useDownloadCsv } from '@/hooks/use-download-csv';
 import { formatDate, formatPence } from '@/lib/format';
 
 const PAGE_LIMIT = 25;
+const PRODUCTION_TEST_VENDOR_CONFIRMATION = 'CREATE PRODUCTION TEST VENDORS';
+
+function normalizeConfirmation(value: string) {
+  return value.trim().replace(/\s+/g, ' ').toUpperCase();
+}
 
 const ROLE_OPTIONS: ReadonlyArray<{ value: AdminUserRole | 'all'; label: string }> = [
   { value: 'all', label: 'All roles' },
@@ -657,11 +662,6 @@ function CreateTestVendorsDialog({
       setPersonas(null);
       resetMutation();
     }
-    return () => {
-      setConfirmation('');
-      setPersonas(null);
-      resetMutation();
-    };
   }, [open, resetMutation]);
 
   function close() {
@@ -751,14 +751,15 @@ function CreateTestVendorsDialog({
             </div>
             <label className="block text-sm">
               <span className="mb-1 block text-muted-foreground">
-                Type <span className="font-mono">CREATE PRODUCTION TEST VENDORS</span> to confirm
+                Type <span className="font-mono">{PRODUCTION_TEST_VENDOR_CONFIRMATION}</span> to
+                confirm
               </span>
               <Input
                 value={confirmation}
                 onChange={(event) => setConfirmation(event.target.value)}
                 autoComplete="off"
                 disabled={mutation.isPending}
-                placeholder="CREATE PRODUCTION TEST VENDORS"
+                placeholder={PRODUCTION_TEST_VENDOR_CONFIRMATION}
               />
             </label>
             {mutation.error && (
@@ -770,7 +771,10 @@ function CreateTestVendorsDialog({
               </Button>
               <Button
                 variant="destructive"
-                disabled={confirmation !== 'CREATE PRODUCTION TEST VENDORS' || mutation.isPending}
+                disabled={
+                  normalizeConfirmation(confirmation) !== PRODUCTION_TEST_VENDOR_CONFIRMATION ||
+                  mutation.isPending
+                }
                 onClick={create}
               >
                 {mutation.isPending ? 'Creating…' : 'Create production test vendors'}
