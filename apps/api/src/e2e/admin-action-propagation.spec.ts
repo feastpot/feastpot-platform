@@ -11,11 +11,13 @@ import { getQueueToken } from '@nestjs/bull';
 import { INestApplication, ValidationPipe, VersioningType } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
-import { ModerationStatus, type OrderCommission } from '@prisma/client';
+import { ModerationStatus, type OrderCommission, UserRole } from '@prisma/client';
+import type { User } from '@supabase/supabase-js';
 import type { Job, Queue } from 'bull';
 import request from 'supertest';
 
 import { TestDataFactory, type TestIdentity } from '../../../../scripts/test-factory';
+import { SupabaseService } from '../auth/supabase.service';
 import { RoleThrottlerGuard } from '../common/guards/role-throttler.guard';
 import { EmailProvider } from '../modules/notifications/providers/email.provider';
 import { PushProvider } from '../modules/notifications/providers/push.provider';
@@ -70,6 +72,7 @@ const waitFor = async <T>(read: () => Promise<T | null>, label: string): Promise
     let vendorToken: string;
     let moderationVendorToken: string;
     let customerToken: string;
+    let issueSuiteToken: (identity: TestIdentity) => string;
     let publishedTermsId: string;
     let scheduledRateId: string;
     let scheduledRatePercent: number;
@@ -87,14 +90,21 @@ const waitFor = async <T>(read: () => Promise<T | null>, label: string): Promise
       liveVendor = await factory.create('V9');
       moderationVendor = await factory.create('V4');
       customer = await factory.create('C3');
-      [adminToken, complianceToken, vendorToken, moderationVendorToken, customerToken] =
-        await Promise.all([
-          factory.issueAccessToken(admin),
-          factory.issueAccessToken(compliance),
-          factory.issueAccessToken(liveVendor),
-          factory.issueAccessToken(moderationVendor),
-          factory.issueAccessToken(customer),
-        ]);
+      const identitiesByToken = new Map<string, TestIdentity>();
+      // Keep role and ownership contracts tied to the factory database, not an external auth hook.
+      issueSuiteToken = (identity: TestIdentity) => {
+        const payload = Buffer.from(
+          JSON.stringify({ role: identity.credentials.role, aal: 'aal1' }),
+        ).toString('base64url');
+        const token = `test.${payload}.${randomUUID()}`;
+        identitiesByToken.set(token, identity);
+        return token;
+      };
+      adminToken = issueSuiteToken(admin);
+      complianceToken = issueSuiteToken(compliance);
+      vendorToken = issueSuiteToken(liveVendor);
+      moderationVendorToken = issueSuiteToken(moderationVendor);
+      customerToken = issueSuiteToken(customer);
       const { AppModule } = await import('../app.module');
       const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
         .overrideProvider(RoleThrottlerGuard)
@@ -136,6 +146,17 @@ const waitFor = async <T>(read: () => Promise<T | null>, label: string): Promise
           },
         })
         .compile();
+      jest
+        .spyOn(moduleRef.get(SupabaseService), 'verifyToken')
+        .mockImplementation(async (token: string) => {
+          const identity = identitiesByToken.get(token);
+          if (!identity) throw new Error('Unknown Part B test token');
+          return {
+            id: identity.userId,
+            email: identity.credentials.email,
+            app_metadata: { role: identity.credentials.role },
+          } as User;
+        });
       termsNoticesQueue = moduleRef.get<Queue>(getQueueToken(TERMS_NOTICES_QUEUE));
       app = moduleRef.createNestApplication();
       app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
@@ -284,12 +305,14 @@ const waitFor = async <T>(read: () => Promise<T | null>, label: string): Promise
         where: { id: provisioned.vendorId! },
       });
       await factory.setTestPassword(approvedVendor.userId);
-      const token = await factory.issueAccessToken({
+      const token = issueSuiteToken({
         ...applicant,
+        userId: approvedVendor.userId,
         credentials: {
           ...applicant.credentials,
           email: seed.email,
           password: process.env.TEST_FACTORY_PASSWORD!,
+          role: UserRole.vendor,
         },
       });
       await request(app.getHttpServer())
@@ -479,7 +502,7 @@ const waitFor = async <T>(read: () => Promise<T | null>, label: string): Promise
         await app.get(VendorVerificationService).runVerificationScan();
         const renewalReceiver = await request(app.getHttpServer())
           .get(`/v1/vendors/${documentVendor.vendorId!}/verification`)
-          .set(auth(await factory.issueAccessToken(documentVendor)))
+          .set(auth(issueSuiteToken(documentVendor)))
           .expect(200);
         expect(renewalReceiver.body).toMatchObject({ overallState: 'RENEWAL_DUE' });
         await request(app.getHttpServer())
@@ -651,7 +674,7 @@ const waitFor = async <T>(read: () => Promise<T | null>, label: string): Promise
           where: { id: scheduledRateId },
           data: { effectiveFrom: new Date(Date.now() - 1_000) },
         });
-        const orderCustomerToken = await factory.issueAccessToken(orderCustomer);
+        const orderCustomerToken = issueSuiteToken(orderCustomer);
         const created = await request(app.getHttpServer())
           .post('/v1/orders')
           .set(auth(orderCustomerToken))
@@ -704,7 +727,7 @@ const waitFor = async <T>(read: () => Promise<T | null>, label: string): Promise
           orderCount: 1,
         },
       });
-      const vendorReceiverToken = await factory.issueAccessToken({
+      const vendorReceiverToken = issueSuiteToken({
         state: 'V5',
         credentials: {
           email: order.vendor.user.email,
@@ -859,7 +882,7 @@ const waitFor = async <T>(read: () => Promise<T | null>, label: string): Promise
         where: { id: customer.orderId! },
         include: { vendor: { include: { user: true } } },
       });
-      const disputeVendorToken = await factory.issueAccessToken({
+      const disputeVendorToken = issueSuiteToken({
         state: 'V5',
         credentials: {
           email: disputeOrder.vendor.user.email,
