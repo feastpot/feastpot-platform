@@ -1,7 +1,18 @@
 import type { PrismaService } from '../../prisma/prisma.service';
+
 import { VendorRepository } from './vendors.repository';
 
 describe('public vendor isolation', () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+
+  beforeEach(() => {
+    process.env.NODE_ENV = 'production';
+  });
+
+  afterAll(() => {
+    process.env.NODE_ENV = originalNodeEnv;
+  });
+
   it('applies seed and test-owner exclusions to slug lookup', async () => {
     const prisma: any = { vendor: { findFirst: jest.fn().mockResolvedValue(null) } };
     await new VendorRepository(prisma as PrismaService).findBySlug('fixture');
@@ -19,5 +30,14 @@ describe('public vendor isolation', () => {
         where: { id: 'id', isSeedData: false, user: { isTestData: false } },
       }),
     );
+  });
+
+  it('allows isolated test-environment fixtures through public lookup', async () => {
+    process.env.NODE_ENV = 'test';
+    const prisma: any = { vendor: { findFirst: jest.fn().mockResolvedValue(null) } };
+    await new VendorRepository(prisma as PrismaService).findBySlug('fixture');
+    expect(prisma.vendor.findFirst).toHaveBeenCalledWith({
+      where: { slug: 'fixture' },
+    });
   });
 });

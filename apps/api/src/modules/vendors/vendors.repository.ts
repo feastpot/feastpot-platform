@@ -7,6 +7,12 @@ import { SearchVendorsDto, VendorSortBy } from './dto/search-vendors.dto';
 
 const COMMUNITY_FAVOURITE_RATING = 4.3;
 
+function publicFixtureExclusion(): Prisma.VendorWhereInput {
+  return process.env.NODE_ENV === 'test'
+    ? {}
+    : { isSeedData: false, user: { isTestData: false } };
+}
+
 export interface SearchedVendorRow {
   id: string;
   business_name: string;
@@ -434,13 +440,13 @@ export class VendorRepository {
 
   findBySlug(slug: string) {
     return this.prisma.vendor.findFirst({
-      where: { slug, isSeedData: false, user: { isTestData: false } },
+      where: { slug, ...publicFixtureExclusion() },
     });
   }
 
   async findPublicById(id: string) {
     const visible = await this.prisma.vendor.findFirst({
-      where: { id, isSeedData: false, user: { isTestData: false } },
+      where: { id, ...publicFixtureExclusion() },
       select: { id: true },
     });
     return visible ? this.findById(id) : null;

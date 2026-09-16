@@ -1,3 +1,5 @@
+import { randomBytes } from 'node:crypto';
+
 import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import {
@@ -10,7 +12,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { randomBytes } from 'node:crypto';
 import {
   DisputeStatus,
   DocumentStatus,
@@ -3107,7 +3108,6 @@ export class AdminService {
                 }),
               ),
             );
-            let applicationId: string;
             const app = await tx.vendorApplication.create({
               data: {
                 fullName: 'Production Test Vendor',
@@ -3127,7 +3127,7 @@ export class AdminService {
                 isTestData: true,
               },
             });
-            applicationId = app.id;
+            const applicationId = app.id;
             await tx.termsAcceptance.create({
               data: {
                 vendorId: vendor.id,

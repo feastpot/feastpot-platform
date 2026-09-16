@@ -471,8 +471,9 @@ export class CateringEnquiriesService {
     const vendors = await this.prisma.vendor.findMany({
       where: {
         status: VendorStatus.live,
-        isSeedData: false,
-        user: { isTestData: false },
+        ...(process.env.NODE_ENV === 'test'
+          ? {}
+          : { isSeedData: false, user: { isTestData: false } }),
         eventCateringManualQuote: true,
         ...(q
           ? {

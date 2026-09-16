@@ -1,10 +1,12 @@
 import type { ConfigService } from '@nestjs/config';
+
 import type { SupabaseService } from '../../auth/supabase.service';
 import type { PrismaService } from '../../prisma/prisma.service';
 import type { StripeService } from '../../stripe/stripe.service';
 import type { EmailProvider } from '../notifications/providers/email.provider';
-import { AdminService } from './admin.service';
 import { isTaxProfileComplete } from '../vendor-tax-profile/vendor-tax-profile.service';
+
+import { AdminService } from './admin.service';
 
 const ids = ['u1', 'u2', 'u3', 'u4'];
 function harness() {

@@ -61,6 +61,7 @@ import {
   UpdateUserRoleDto,
 } from './dto/admin-user-actions.dto';
 import { BroadcastAudience, BroadcastPushDto } from './dto/broadcast-push.dto';
+import { CreateTestVendorPersonasDto } from './dto/create-test-vendor-personas.dto';
 import { ListAdminUsersDto } from './dto/list-admin-users.dto';
 import { ListAdminVendorsDto } from './dto/list-admin-vendors.dto';
 import { ListAuditLogDto } from './dto/list-audit-log.dto';
@@ -70,7 +71,6 @@ import {
   RequestVendorApplicationInformationDto,
 } from './dto/request-vendor-application-information.dto';
 import { UpdateVendorApplicationDto } from './dto/update-vendor-application.dto';
-import { CreateTestVendorPersonasDto } from './dto/create-test-vendor-personas.dto';
 import {
   BulkVendorRecoveryChaseDto,
   VendorRecoveryChaseDto,
