@@ -91,6 +91,7 @@ const waitFor = async <T>(read: () => Promise<T | null>, label: string): Promise
       moderationVendor = await factory.create('V4');
       customer = await factory.create('C3');
       const identitiesByToken = new Map<string, TestIdentity>();
+      // Keep role and ownership contracts tied to the factory database, not an external auth hook.
       issueSuiteToken = (identity: TestIdentity) => {
         const payload = Buffer.from(
           JSON.stringify({ role: identity.credentials.role, aal: 'aal1' }),
