@@ -565,7 +565,7 @@ export class VendorsController {
     // No visibility gate here - a suspended vendor's UUID still resolves so
     // admin tooling can inspect any record regardless of status.
     if (UUID_RE.test(idOrSlug)) {
-      return this.vendors.findById(idOrSlug);
+      return this.vendors.findPublicById(idOrSlug);
     }
 
     // Slug path: customer-facing. Slugs are stored lowercase; normalise on

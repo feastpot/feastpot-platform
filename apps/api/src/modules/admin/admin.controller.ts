@@ -61,6 +61,7 @@ import {
   UpdateUserRoleDto,
 } from './dto/admin-user-actions.dto';
 import { BroadcastAudience, BroadcastPushDto } from './dto/broadcast-push.dto';
+import { CreateTestVendorPersonasDto } from './dto/create-test-vendor-personas.dto';
 import { ListAdminUsersDto } from './dto/list-admin-users.dto';
 import { ListAdminVendorsDto } from './dto/list-admin-vendors.dto';
 import { ListAuditLogDto } from './dto/list-audit-log.dto';
@@ -124,6 +125,16 @@ export class AdminController {
     private readonly queueSnapshots: QueueSnapshotService,
     private readonly config: ConfigService,
   ) {}
+
+  @Post('test-personas/vendors')
+  @Roles(UserRole.admin)
+  @ApiOperation({ summary: 'Create the four admin-only production test vendor personas' })
+  createTestVendorPersonas(
+    @Body() dto: CreateTestVendorPersonasDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.admin.createTestVendorPersonas(dto.confirmation, user.id);
+  }
 
   /**
    * FR-SRCH-001: top customer searches over the last 30 days.

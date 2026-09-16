@@ -1559,6 +1559,13 @@ export class VendorsService {
     return vendor;
   }
 
+  async findPublicById(id: string) {
+    const vendor = await this.repo.findPublicById(id);
+    if (!vendor)
+      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
+    return vendor;
+  }
+
   /**
    * Slug → public profile lookup. Used by the customer PWA which addresses
    * vendors by `/vendors/<slug>` rather than UUID. Two-hop (`findBySlug`
