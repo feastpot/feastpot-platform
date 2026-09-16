@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Card, CardContent } from '@feastpot/ui';
 import { AlertTriangle, ChevronDown, Clock3, UsersRound } from 'lucide-react';
 import { useApi } from '@/hooks/use-api';
+import { formatRatio } from '@/lib/format-ratio';
 
 type FunnelRow = { eventName: string; count: number; dropOffFromPrevious: number | null };
 type RecoveryRow = { stage: string; sent: number; recovered: number; rate: number | null };
@@ -140,7 +141,10 @@ export function VendorAcquisitionClient({ canSeeStuckLeads }: { canSeeStuckLeads
           <CardContent className="p-4">
             <p className="text-xs text-muted-foreground">Application start rate</p>
             <p className="text-2xl font-bold tabular-nums">
-              {((lifecycle.data?.applicationStartRate ?? 0) * 100).toFixed(1)}%
+              {formatRatio(
+                lifecycle.data?.funnel[0]?.count ?? 0,
+                lifecycle.data?.monthlySessions ?? 0,
+              )}
             </p>
             <p className="text-xs text-muted-foreground">of monthly sessions</p>
           </CardContent>
