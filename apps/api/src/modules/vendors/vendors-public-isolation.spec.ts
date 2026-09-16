@@ -1,5 +1,6 @@
 import type { PrismaService } from '../../prisma/prisma.service';
 
+import type { SearchVendorsDto } from './dto/search-vendors.dto';
 import { VendorRepository } from './vendors.repository';
 
 describe('public vendor isolation', () => {
@@ -39,5 +40,22 @@ describe('public vendor isolation', () => {
     expect(prisma.vendor.findFirst).toHaveBeenCalledWith({
       where: { slug: 'fixture' },
     });
+  });
+
+  it('applies persisted fixture exclusions to public search outside tests', async () => {
+    const prisma: any = { $queryRaw: jest.fn().mockResolvedValue([]) };
+    await new VendorRepository(prisma as PrismaService).search({} as SearchVendorsDto, null);
+    const query = prisma.$queryRaw.mock.calls[0][0] as { strings: readonly string[] };
+    expect(query.strings.join(' ')).toContain('v.is_seed_data = false');
+    expect(query.strings.join(' ')).toContain('owner.is_test_data = false');
+  });
+
+  it('allows isolated test-environment fixtures through public search', async () => {
+    process.env.NODE_ENV = 'test';
+    const prisma: any = { $queryRaw: jest.fn().mockResolvedValue([]) };
+    await new VendorRepository(prisma as PrismaService).search({} as SearchVendorsDto, null);
+    const query = prisma.$queryRaw.mock.calls[0][0] as { strings: readonly string[] };
+    expect(query.strings.join(' ')).not.toContain('v.is_seed_data = false');
+    expect(query.strings.join(' ')).not.toContain('owner.is_test_data = false');
   });
 });
