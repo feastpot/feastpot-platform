@@ -9,7 +9,10 @@ export default async function SupplyPipelinePage() {
   const user = await requireStaff('/supply-pipeline', ['admin', 'compliance', 'support']);
   return (
     <StaffShell user={user}>
-      <SupplyPipelineClient canIncludeTestData={user.role === 'admin'} />
+      <SupplyPipelineClient
+        canIncludeTestData={user.role === 'admin'}
+        canRequestInformation={user.role === 'admin' || user.role === 'compliance'}
+      />
     </StaffShell>
   );
 }

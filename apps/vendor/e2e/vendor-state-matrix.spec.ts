@@ -276,3 +276,43 @@ test.describe('V4 mobile route safety', () => {
     await visitEveryRoute(context, 'V4', true);
   });
 });
+
+test.describe('V2 mobile onboarding route sequence', () => {
+  test.use({ storageState: matrixStorageStatePath('V2') });
+
+  test('keeps onboarding controls reachable without horizontal overflow at 375px', async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+    // This is the vendor UI half of the lifecycle. Application submission,
+    // approval, Stripe and document verification are API boundaries covered
+    // by vendor-lifecycle-evidence; Stripe and notifications are never real
+    // provider calls in this browser check.
+    for (const href of [
+      '/onboarding',
+      '/onboarding/terms',
+      '/account-and-compliance',
+      '/tax-information',
+      '/menu',
+    ]) {
+      await test.step(`mobile onboarding route ${href}`, async () => {
+        await page.goto(href, { waitUntil: 'domcontentloaded', timeout: 60_000 });
+        await expect(page.locator('body')).toBeVisible();
+        const dimensions = await page.evaluate(() => ({
+          clientWidth: document.documentElement.clientWidth,
+          scrollWidth: document.documentElement.scrollWidth,
+        }));
+        expect(dimensions.clientWidth).toBe(375);
+        expect(
+          dimensions.scrollWidth,
+          `${href} must not overflow horizontally`,
+        ).toBeLessThanOrEqual(dimensions.clientWidth);
+
+        const interactive = page.locator(
+          'button:visible, a:visible, input:visible, select:visible',
+        );
+        await expect(interactive.first(), `${href} must expose a reachable control`).toBeVisible();
+      });
+    }
+  });
+});

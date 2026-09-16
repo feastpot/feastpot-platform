@@ -87,6 +87,47 @@ describe('MenuImportService', () => {
     );
   });
 
+  it('never infers allergens from OCR text, including an allergen in the dish name', async () => {
+    prisma.menuImport.create = jest.fn().mockResolvedValue({ id: 'import-1' });
+    storage.uploadMenuImportSource = jest
+      .fn()
+      .mockResolvedValue({ path: 'vendors/v/menu-imports/i/menu.png' });
+    ocr.extract = jest.fn().mockResolvedValue([
+      {
+        name: 'Peanut soup',
+        description: 'A soup made with peanuts',
+        pricePence: 1500,
+      },
+    ]);
+    prisma.menuImport.update = jest.fn().mockResolvedValue({});
+    prisma.menuImport.findFirst = jest.fn().mockResolvedValue({ id: 'import-1', items: [] });
+
+    await service.create('vendor-1', [
+      {
+        originalname: 'peanut-soup.png',
+        mimetype: 'image/png',
+        size: 10,
+        buffer: Buffer.from('image'),
+      },
+    ]);
+
+    expect(prisma.menuImport.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          items: {
+            create: [
+              expect.objectContaining({
+                name: 'Peanut soup',
+                allergens: [],
+                allergensFreeFrom: false,
+              }),
+            ],
+          },
+        }),
+      }),
+    );
+  });
+
   it('bulk confirms only selected candidates owned by the import', async () => {
     prisma.menuImport.findFirst = jest.fn().mockResolvedValue({ id: 'import-1', items: [] });
     prisma.menuImportItem.updateMany = jest.fn().mockResolvedValue({ count: 1 });

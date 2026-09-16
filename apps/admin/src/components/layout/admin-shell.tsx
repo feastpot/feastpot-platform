@@ -96,6 +96,12 @@ export const NAV_GROUPS = [
     },
     { href: '/compliance', label: 'Compliance', icon: ShieldCheck, roles: R('/compliance') },
     {
+      href: '/vendor-acquisition',
+      label: 'Acquisition',
+      icon: BarChart3,
+      roles: R('/vendor-acquisition'),
+    },
+    {
       href: '/menus/queue',
       label: 'Menu moderation',
       icon: UtensilsCrossed,

@@ -45,13 +45,15 @@ import { CursorPaginationDto } from './dto/pagination.dto';
 import { RegisterVendorInterestDto } from './dto/register-vendor-interest.dto';
 import { SearchVendorsDto } from './dto/search-vendors.dto';
 import { UpdateAvailabilityDto } from './dto/update-availability.dto';
+import { UpdateRequiredOnboardingItemDto } from './dto/update-required-onboarding-item.dto';
 import { UpdateVendorComplianceDto } from './dto/update-vendor-compliance.dto';
 import { UpdateVendorStatusDto } from './dto/update-vendor-status.dto';
 import { UpdateVendorDto } from './dto/update-vendor.dto';
 import { UpsertCapacityDto } from './dto/upsert-capacity.dto';
 import { UpsertDeliveryConfigDto } from './dto/upsert-delivery-config.dto';
 import {
-  StripeConnectLinkResponseDto,
+  StripeConnectSessionDto,
+  StripeConnectSessionResponseDto,
   VendorAnalyticsResponseDto,
 } from './dto/vendor-analytics.dto';
 import {
@@ -65,6 +67,7 @@ import {
   getVendorTrustSignals,
   getVerifiedTrustSignalsForVendors,
 } from './vendor-capacity';
+import { VendorRecoveryService } from './vendor-recovery.service';
 import { VendorsService } from './vendors.service';
 
 function requireUser(user: AuthUser | null): AuthUser {
@@ -100,6 +103,7 @@ export class VendorsController {
     private readonly vendors: VendorsService,
     private readonly storage: SupabaseStorageService,
     private readonly prisma: PrismaService,
+    private readonly recovery: VendorRecoveryService,
   ) {}
 
   @Public()
@@ -122,8 +126,12 @@ export class VendorsController {
     summary:
       'Public become-a-vendor application capture. Persists a VendorApplication row and emails the admin + the applicant.',
   })
-  registerInterest(@Body() dto: RegisterVendorInterestDto, @Headers('x-fp-ref') fpRef?: string) {
-    return this.vendors.registerInterest(dto, fpRef);
+  registerInterest(
+    @Body() dto: RegisterVendorInterestDto,
+    @Headers('x-fp-ref') fpRef?: string,
+    @Headers('x-fp-anon-id') anonVisitorId?: string,
+  ) {
+    return this.vendors.registerInterest(dto, fpRef, anonVisitorId);
   }
 
   @Public()
@@ -132,8 +140,9 @@ export class VendorsController {
   createApplicationDraft(
     @Body() dto: CreateVendorApplicationDraftDto,
     @Headers('x-fp-ref') fpRef?: string,
+    @Headers('x-fp-anon-id') anonVisitorId?: string,
   ) {
-    return this.vendors.createApplicationDraft(dto, fpRef);
+    return this.vendors.createApplicationDraft(dto, fpRef, anonVisitorId);
   }
 
   @Public()
@@ -300,6 +309,23 @@ export class VendorsController {
     return this.vendors.getOnboardingProgress(requireUser(user).id);
   }
 
+  @Get('me/required-onboarding-items')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  listRequiredItems(@CurrentUser() user: AuthUser | null) {
+    return this.recovery.list(requireUser(user).id);
+  }
+
+  @Put('me/required-onboarding-items')
+  @ApiBearerAuth()
+  @Roles(UserRole.vendor, UserRole.admin)
+  updateRequiredItem(
+    @CurrentUser() user: AuthUser | null,
+    @Body() dto: UpdateRequiredOnboardingItemDto,
+  ) {
+    return this.recovery.setItem(requireUser(user).id, dto.name, dto.state);
+  }
+
   @Get(':id/onboarding-readiness')
   @ApiBearerAuth()
   @Roles(UserRole.admin, UserRole.compliance, UserRole.support)
@@ -435,17 +461,18 @@ export class VendorsController {
     return this.vendors.removeMyCapacity(requireUser(user).id, capacityId);
   }
 
-  @Post('me/stripe-connect-link')
+  @Post('me/stripe-connect-session')
   @ApiBearerAuth()
   @Roles(UserRole.vendor, UserRole.admin)
   @ApiOperation({
     summary:
-      'Create-or-reuse a Stripe Connect Express account for the authed vendor and return a one-shot onboarding URL',
+      'Create-or-reuse a Stripe Connect Express account and return an in-app onboarding session',
   })
-  createStripeConnectLink(
+  createStripeConnectSession(
     @CurrentUser() user: AuthUser | null,
-  ): Promise<StripeConnectLinkResponseDto> {
-    return this.vendors.createStripeConnectLink(requireUser(user).id);
+    @Body() dto: StripeConnectSessionDto,
+  ): Promise<StripeConnectSessionResponseDto> {
+    return this.vendors.createStripeConnectSession(requireUser(user).id, dto);
   }
 
   // Diagnostic-only endpoint. MUST be declared before @Get(':idOrSlug') so
@@ -538,7 +565,7 @@ export class VendorsController {
     // No visibility gate here - a suspended vendor's UUID still resolves so
     // admin tooling can inspect any record regardless of status.
     if (UUID_RE.test(idOrSlug)) {
-      return this.vendors.findById(idOrSlug);
+      return this.vendors.findPublicById(idOrSlug);
     }
 
     // Slug path: customer-facing. Slugs are stored lowercase; normalise on

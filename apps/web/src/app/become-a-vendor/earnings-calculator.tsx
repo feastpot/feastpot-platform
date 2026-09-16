@@ -13,8 +13,8 @@ import { useTrackEvent } from '@/hooks/use-track-event';
 // EXTERNAL ESTIMATE only. 1.5 % + 20p per transaction is the publicly listed
 // UK Stripe card rate. This is NOT a Feastpot fee, rate or commitment.
 // Stripe sets this; Feastpot does not mark it up.
-const STRIPE_VARIABLE_RATE = 0.015;
-const STRIPE_FIXED_PENCE = 20;
+const STRIPE_VARIABLE_RATE = COMMISSION_RATES.externalEstimates.stripeUkCards.percent / 100;
+const STRIPE_FIXED_PENCE = COMMISSION_RATES.externalEstimates.stripeUkCards.fixedPence;
 
 const RATE_KEYS = {
   vendorReferred: 'referred_commission',
@@ -25,8 +25,9 @@ const RATE_KEYS = {
 
 // ── External market estimate: major aggregator commission band ───────────────
 // NOT a Feastpot figure. Used only in the prose comparison lines.
-const AGGREGATOR_LOW_PCT = 25;
-const AGGREGATOR_HIGH_PCT = 30;
+const AGGREGATOR_LOW_PCT = COMMISSION_RATES.externalEstimates.aggregatorCommissionRange.lowPercent;
+const AGGREGATOR_HIGH_PCT =
+  COMMISSION_RATES.externalEstimates.aggregatorCommissionRange.highPercent;
 
 // ── Preset worked examples ───────────────────────────────────────────────────
 
@@ -94,7 +95,10 @@ interface CardData {
 }
 
 function currentRateValue(rates: RateRow[], key: string, fallback: number): number {
-  return rates.find((rate) => rate.key === key && rate.status === 'LIVE')?.rateValue ?? fallback;
+  const activeStatus = key === RATE_KEYS.customerServiceFee ? 'CUSTOMER_SIDE' : 'LIVE';
+  return (
+    rates.find((rate) => rate.key === key && rate.status === activeStatus)?.rateValue ?? fallback
+  );
 }
 
 function buildCards(
@@ -209,7 +213,7 @@ function Slider({ id, label, min, max, step, value, onChange, formatValue }: Sli
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-cream-deep accent-brand"
+        className="h-1.5 w-full cursor-pointer appearance-none rounded-full bg-brand-light [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-brand-dark [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-brand-dark"
         aria-valuetext={formatValue(value)}
       />
       <div className="mt-1 flex justify-between text-[11px] text-charcoal-mid">

@@ -28,7 +28,7 @@ import { installComplianceMocks, makeEnforcementAction } from './helpers/complia
 const VENDOR_REQUIREMENTS = [
   'UK business or sole trader registration',
   'Food Business Registration with your local authority',
-  'FHRS rating of at least 3 out of 5 (4 recommended)',
+  'Awaiting first inspection is accepted; any published FHRS rating must be at least 3 out of 5 (4 recommended)',
   'Public liability insurance, minimum GBP 1 million',
   'Level 2 food safety certificate or equivalent',
   'Valid photo ID',

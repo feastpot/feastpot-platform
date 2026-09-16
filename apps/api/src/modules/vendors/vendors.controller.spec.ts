@@ -16,6 +16,7 @@ import request from 'supertest';
 import { PrismaService } from '../../prisma/prisma.service';
 import { SupabaseStorageService } from '../catalogue/supabase-storage.service';
 
+import { VendorRecoveryService } from './vendor-recovery.service';
 import { VendorsController } from './vendors.controller';
 import { VendorsService } from './vendors.service';
 
@@ -84,6 +85,7 @@ describe('VendorsController (HTTP) - debug endpoint + route ordering', () => {
           },
         },
         { provide: SupabaseStorageService, useValue: {} },
+        { provide: VendorRecoveryService, useValue: {} },
         // Injected for the capacity data-layer merge on GET :id/availability;
         // not exercised by these tests.
         { provide: PrismaService, useValue: {} },
@@ -230,6 +232,7 @@ describe('VendorsController.myQrCode - auth-scoped QR generation', () => {
           },
         },
         { provide: SupabaseStorageService, useValue: {} },
+        { provide: VendorRecoveryService, useValue: {} },
         {
           provide: PrismaService,
           useValue: {

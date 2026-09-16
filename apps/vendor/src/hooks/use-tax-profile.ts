@@ -22,6 +22,8 @@ export interface VendorTaxProfile {
   dateOfBirth: string | null;
   companyNumber: string | null;
   taxIdentifier: string | null;
+  taxIdentifierProvided: boolean;
+  taxIdentifierMasked: string | null;
   taxIdCountry: string;
   vatNumber: string | null;
   financialAccountId: string | null;

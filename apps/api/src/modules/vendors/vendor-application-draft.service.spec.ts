@@ -163,6 +163,48 @@ describe('VendorsService two-phase application drafts', () => {
     });
   });
 
+  it.each([
+    'phase_1',
+    'phase_2_business_name',
+    'phase_2_cuisines',
+    'phase_2_menu',
+    'phase_2_allergens',
+    'phase_2_occasions',
+    'phase_2_documents',
+  ])('resumes an abandoned application at the exact %s step', async (currentStep) => {
+    const { resumeToken } = await createDraft();
+    await service.updateApplicationDraft(resumeToken, { currentStep });
+
+    await expect(service.getApplicationDraft(resumeToken)).resolves.toMatchObject({ currentStep });
+  });
+
+  it('stops recovery at submission and rejects writes through an old resume link', async () => {
+    const { resumeToken } = await createDraft();
+    await service.updateApplicationDraft(resumeToken, {
+      kitchenName: 'Ada Kitchen',
+      cuisineTypes: ['Nigerian'],
+      occasionSlugs: ['wedding-and-events'],
+      menuBuildFromPhoto: true,
+      currentStep: 'phase_2_occasions',
+    });
+    await service.attachApplicationDraftMenuPhoto(
+      resumeToken,
+      'vendor-applications/app-1/menu/menu.jpg',
+      'https://storage.example/menu.jpg',
+    );
+    await service.submitApplicationDraft(resumeToken);
+
+    await expect(
+      service.updateApplicationDraft(resumeToken, { currentStep: 'phase_2_documents' }),
+    ).rejects.toMatchObject({
+      response: expect.objectContaining({ code: 'APPLICATION_ALREADY_SUBMITTED' }),
+    });
+    await expect(service.getApplicationDraft(resumeToken)).resolves.toMatchObject({
+      currentStep: 'submitted',
+      submittedAt: expect.any(Date),
+    });
+  });
+
   it('keeps incomplete drafts out of submission and promotes a complete draft', async () => {
     const { resumeToken } = await createDraft();
     await expect(service.submitApplicationDraft(resumeToken)).rejects.toBeInstanceOf(

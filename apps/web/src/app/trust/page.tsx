@@ -21,9 +21,9 @@ const CHECKS = [
       'Every vendor must hold a valid registration with their local authority before they can sell. We record the registration number and display it publicly on their profile.',
   },
   {
-    label: 'FHRS hygiene rating, minimum 3 out of 5',
+    label: 'Food hygiene status shown clearly',
     detail:
-      'We require a Food Standards Agency hygiene rating of at least 3 out of 5. A rating of 4 or 5 is recommended. Vendors can apply and set up their full profile, menu and pricing before their rating exists, so they lose no time. Their profile only goes live once they reach a rating of 3 or above.',
+      'Vendors registered with their local authority may trade while awaiting their first inspection, and their profile shows that status clearly. Once a Food Standards Agency hygiene rating exists, a rating below 3 out of 5 blocks the vendor from trading on Feastpot. A rating of 4 or 5 is recommended.',
   },
   {
     label: 'Public liability insurance, minimum £1 million',

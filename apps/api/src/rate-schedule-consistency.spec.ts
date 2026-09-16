@@ -59,12 +59,24 @@ const RATE_SURFACES: RateSurface[] = [
   {
     name: 'public /become-a-vendor',
     file: 'apps/web/src/app/become-a-vendor/page.tsx',
-    required: ["apiRequest<RateRow[]>('/terms/rate-schedule')", "'standard_commission'"],
+    required: [
+      "apiRequest<RateRow[]>('/terms/rate-schedule')",
+      "liveRate(rates, 'referred_commission')",
+      '${referredRateLabel} commission',
+      '<RateIntroduction rates={rates} error={ratesError} />',
+      '<EarningsCalculator rates={rates} />',
+      '<ApplicationFlow track={track} rates={rates} ratesError={ratesError} />',
+    ],
   },
   {
     name: 'earnings projection calculator',
     file: 'apps/web/src/app/become-a-vendor/earnings-calculator.tsx',
-    required: ['RATE_KEYS.marketplaceFirst', "rate.status === 'LIVE'", 'COMMISSION_RATES'],
+    required: [
+      'RATE_KEYS.marketplaceFirst',
+      "activeStatus = key === RATE_KEYS.customerServiceFee ? 'CUSTOMER_SIDE' : 'LIVE'",
+      'COMMISSION_RATES.externalEstimates.stripeUkCards',
+      'COMMISSION_RATES.externalEstimates.aggregatorCommissionRange',
+    ],
   },
   { name: '/help FAQ', file: 'apps/web/src/app/help/page.tsx', required: ['PLATFORM_FACTS'] },
   {
@@ -140,6 +152,30 @@ describe('rate-surface manifest wiring', () => {
       expect(() => assertRateSurfaceWiring(REPO_ROOT, [surface])).not.toThrow();
     },
   );
+
+  it('shows the live rate introduction on the marketing page and again before application fields', () => {
+    const content = readFile('apps/web/src/app/become-a-vendor/page.tsx');
+    const rateIntroductions =
+      content.match(/<RateIntroduction rates=\{rates\} error=\{ratesError\} \/>/g) ?? [];
+    const applicationFlow = content.slice(
+      content.indexOf('function ApplicationFlow'),
+      content.indexOf('export default function BecomeAVendorPage'),
+    );
+    const marketingPage = content.slice(
+      content.indexOf('export default function BecomeAVendorPage'),
+    );
+
+    expect(rateIntroductions).toHaveLength(2);
+    expect(
+      marketingPage.indexOf('<RateIntroduction rates={rates} error={ratesError} />'),
+    ).toBeLessThan(marketingPage.indexOf('<EarningsCalculator rates={rates} />'));
+    expect(
+      applicationFlow.indexOf('<RateIntroduction rates={rates} error={ratesError} />'),
+    ).toBeLessThan(applicationFlow.indexOf('{phaseOne}'));
+    expect(marketingPage).toContain(
+      '<ApplicationFlow track={track} rates={rates} ratesError={ratesError} />',
+    );
+  });
 
   it('reports the deliberately drifted surface and source file without editing the repository', () => {
     const tempRoot = mkdtempSync(join(tmpdir(), 'feastpot-rate-surface-'));

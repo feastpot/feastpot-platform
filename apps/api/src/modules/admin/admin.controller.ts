@@ -61,6 +61,7 @@ import {
   UpdateUserRoleDto,
 } from './dto/admin-user-actions.dto';
 import { BroadcastAudience, BroadcastPushDto } from './dto/broadcast-push.dto';
+import { CreateTestVendorPersonasDto } from './dto/create-test-vendor-personas.dto';
 import { ListAdminUsersDto } from './dto/list-admin-users.dto';
 import { ListAdminVendorsDto } from './dto/list-admin-vendors.dto';
 import { ListAuditLogDto } from './dto/list-audit-log.dto';
@@ -70,6 +71,10 @@ import {
   RequestVendorApplicationInformationDto,
 } from './dto/request-vendor-application-information.dto';
 import { UpdateVendorApplicationDto } from './dto/update-vendor-application.dto';
+import {
+  BulkVendorRecoveryChaseDto,
+  VendorRecoveryChaseDto,
+} from './dto/vendor-recovery-chase.dto';
 
 interface SearchAnalyticsRow {
   query: string;
@@ -120,6 +125,16 @@ export class AdminController {
     private readonly queueSnapshots: QueueSnapshotService,
     private readonly config: ConfigService,
   ) {}
+
+  @Post('test-personas/vendors')
+  @Roles(UserRole.admin)
+  @ApiOperation({ summary: 'Create the four admin-only production test vendor personas' })
+  createTestVendorPersonas(
+    @Body() dto: CreateTestVendorPersonasDto,
+    @CurrentUser() user: AuthUser,
+  ) {
+    return this.admin.createTestVendorPersonas(dto.confirmation, user.id);
+  }
 
   /**
    * FR-SRCH-001: top customer searches over the last 30 days.
@@ -219,6 +234,29 @@ export class AdminController {
   })
   async workQueue(@CurrentUser() user: AuthUser) {
     return this.admin.getWorkQueue(user.role, await this.queueSnapshots.snapshots());
+  }
+
+  @Get('vendor-recovery')
+  @Roles(UserRole.admin, UserRole.compliance, UserRole.support)
+  @ApiOperation({ summary: 'Post-approval vendor onboarding recovery queue' })
+  vendorRecoveryQueue() {
+    return this.admin.listVendorRecoveryQueue();
+  }
+
+  @Post('vendor-recovery/:vendorId/chase')
+  @Roles(UserRole.admin, UserRole.compliance, UserRole.support)
+  chaseVendorRecovery(
+    @Param('vendorId', new ParseUUIDPipe()) vendorId: string,
+    @Req() req: AuthedRequest,
+    @Body() dto: VendorRecoveryChaseDto,
+  ) {
+    return this.admin.chaseVendorRecovery(vendorId, req.user!.id, dto);
+  }
+
+  @Post('vendor-recovery/bulk-chase')
+  @Roles(UserRole.admin, UserRole.compliance, UserRole.support)
+  bulkChaseVendorRecovery(@Req() req: AuthedRequest, @Body() dto: BulkVendorRecoveryChaseDto) {
+    return this.admin.bulkChaseVendorRecovery(req.user!.id, dto.requests);
   }
 
   @Get('command-search')

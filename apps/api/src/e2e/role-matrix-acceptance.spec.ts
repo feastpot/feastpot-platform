@@ -191,7 +191,7 @@ d('S6 role-matrix acceptance (real factory JWTs)', () => {
     ),
   )(
     'rejects forbidden $1 staff role at admin $0.method $0.path',
-    async ([{ method, path }, role]) => {
+    async ({ method, path }, role) => {
       const token =
         role === 'support' ? supportToken : role === 'finance' ? financeToken : complianceToken;
       const response = await call(app, method, concretePath(path), token);

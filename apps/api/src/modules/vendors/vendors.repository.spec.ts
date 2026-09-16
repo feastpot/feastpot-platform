@@ -3,7 +3,14 @@ import type { PrismaService } from '../../prisma/prisma.service';
 import { VendorRepository } from './vendors.repository';
 
 describe('VendorRepository public search provenance', () => {
-  it('always excludes persisted seed vendors from the raw public-search query', async () => {
+  const originalNodeEnv = process.env.NODE_ENV;
+
+  afterAll(() => {
+    process.env.NODE_ENV = originalNodeEnv;
+  });
+
+  it('excludes persisted seed vendors from the production public-search query', async () => {
+    process.env.NODE_ENV = 'production';
     const queryRaw = jest.fn().mockResolvedValue([]);
     const repository = new VendorRepository({ $queryRaw: queryRaw } as unknown as PrismaService);
 

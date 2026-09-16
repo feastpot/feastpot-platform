@@ -8,10 +8,9 @@ import {
   Download,
   ExternalLink,
   Info,
-  RefreshCw,
 } from 'lucide-react';
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import {
   useMyReports,
@@ -99,8 +98,9 @@ export function TaxInformationClient() {
         <div className="flex items-start gap-2">
           <Info className="mt-0.5 h-4 w-4 shrink-0 text-teal" aria-hidden />
           <p className="text-mid">
-            Your consent to this collection was given when you accepted the Feastpot vendor terms
-            (clause 7.2). If you have questions about how we handle your tax data, contact{' '}
+            Feastpot collects this information to meet its statutory UK platform-reporting
+            obligations, as explained in the vendor terms (clause 7.2). If you have questions about
+            how we handle your tax data, contact{' '}
             <a
               href={`mailto:${PLATFORM_FACTS.contact.complianceEmail}`}
               className="underline hover:text-teal"
@@ -181,6 +181,9 @@ function VerificationBanner({ profile }: { profile: VendorTaxProfile | null | un
 function TaxProfileSection({ profile }: { profile: VendorTaxProfile | null | undefined }) {
   const [editing, setEditing] = useState(!profile);
   const prefill = usePrefillFromStripe();
+  const prefillRef = useRef(prefill.mutate);
+  prefillRef.current = prefill.mutate;
+  const reconciled = useRef(false);
   const upsert = useUpsertTaxProfile();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
@@ -207,6 +210,35 @@ function TaxProfileSection({ profile }: { profile: VendorTaxProfile | null | und
       setForm((prev) => ({ ...prev, [k]: e.target.value }));
 
   const statusBadge = profile ? STATUS_BADGE[profile.verificationStatus] : null;
+
+  useEffect(() => {
+    if (reconciled.current) return;
+    reconciled.current = true;
+    prefillRef.current(undefined, {
+      onSuccess: (p) => {
+        setForm((previous) => ({
+          ...previous,
+          entityType: p.entityType,
+          legalName: previous.legalName || p.legalName,
+          tradingName: previous.tradingName || p.tradingName || '',
+          addressLine1: previous.addressLine1 || p.addressLine1,
+          addressLine2: previous.addressLine2 || p.addressLine2 || '',
+          city: previous.city || p.city,
+          postcode: previous.postcode || p.postcode,
+          country: previous.country || p.country,
+          dateOfBirth: previous.dateOfBirth || p.dateOfBirth?.slice(0, 10) || '',
+          companyNumber: previous.companyNumber || p.companyNumber || '',
+          taxIdentifier: previous.taxIdentifier || p.taxIdentifier || '',
+          taxIdCountry: previous.taxIdCountry || p.taxIdCountry,
+          vatNumber: previous.vatNumber || p.vatNumber || '',
+        }));
+      },
+      onError: (err) => {
+        const message = err instanceof Error ? err.message : 'Could not reconcile Stripe details';
+        if (!message.includes('Complete Stripe onboarding first')) setError(message);
+      },
+    });
+  }, []);
 
   if (!editing && profile) {
     return (
@@ -249,7 +281,7 @@ function TaxProfileSection({ profile }: { profile: VendorTaxProfile | null | und
               ? ['Date of birth', new Date(profile.dateOfBirth).toLocaleDateString('en-GB')]
               : null,
             profile.companyNumber ? ['Company number', profile.companyNumber] : null,
-            ['Tax identifier (UTR/NI)', profile.taxIdentifier ?? 'Not provided'],
+            ['Tax identifier (UTR/NI)', profile.taxIdentifierMasked ?? 'Not provided'],
             profile.vatNumber ? ['VAT number', profile.vatNumber] : null,
           ]
             .filter((x): x is [string, string] => x !== null)
@@ -262,6 +294,7 @@ function TaxProfileSection({ profile }: { profile: VendorTaxProfile | null | und
               </div>
             ))}
         </dl>
+        <PayoutReuse profile={profile} />
         <p className="mt-4 text-[11px] text-mid">
           Last updated: {new Date(profile.updatedAt).toLocaleDateString('en-GB')}
         </p>
@@ -275,46 +308,13 @@ function TaxProfileSection({ profile }: { profile: VendorTaxProfile | null | und
         <h2 className="text-sm font-bold text-dark">
           {profile ? 'Edit your details' : 'Enter your tax details'}
         </h2>
-        <button
-          type="button"
-          onClick={() => {
-            prefill.mutate(undefined, {
-              onSuccess: (p) => {
-                setForm({
-                  entityType: p.entityType,
-                  legalName: p.legalName,
-                  tradingName: p.tradingName ?? '',
-                  addressLine1: p.addressLine1,
-                  addressLine2: p.addressLine2 ?? '',
-                  city: p.city,
-                  postcode: p.postcode,
-                  country: p.country,
-                  dateOfBirth: p.dateOfBirth?.slice(0, 10) ?? '',
-                  companyNumber: p.companyNumber ?? '',
-                  taxIdentifier: p.taxIdentifier ?? '',
-                  taxIdCountry: p.taxIdCountry,
-                  vatNumber: p.vatNumber ?? '',
-                });
-              },
-              onError: (err) =>
-                setError(err instanceof Error ? err.message : 'Could not import from Stripe'),
-            });
-          }}
-          disabled={prefill.isPending}
-          className="flex items-center gap-1.5 rounded-md border border-border bg-surface px-3 py-1.5 text-xs font-semibold text-dark hover:bg-border disabled:opacity-50"
-        >
-          <RefreshCw
-            className={`h-3.5 w-3.5 ${prefill.isPending ? 'animate-spin' : ''}`}
-            aria-hidden
-          />
-          Import from Stripe
-        </button>
       </div>
 
       <p className="mt-1 text-xs text-mid">
-        Click &quot;Import from Stripe&quot; to pre-fill fields from your Stripe account. Only
-        missing fields will be updated.
+        Stripe details have been checked and any shareable fields filled in. Review them and add
+        anything missing before confirming.
       </p>
+      <PayoutReuse profile={profile} />
 
       <form
         className="mt-4 space-y-4"
@@ -458,17 +458,25 @@ function TaxProfileSection({ profile }: { profile: VendorTaxProfile | null | und
         )}
 
         <div>
-          <label className="label-xs">Unique Taxpayer Reference (UTR) or NI number</label>
+          <label className="label-xs">Unique Taxpayer Reference (UTR) or NI number *</label>
           <input
             type="text"
             value={form.taxIdentifier}
             onChange={field('taxIdentifier')}
+            required={!profile?.taxIdentifierProvided}
             className="fp-input mt-1 w-full"
-            placeholder="10-digit UTR or NI number"
+            placeholder={
+              profile?.taxIdentifierProvided
+                ? `${profile.taxIdentifierMasked} saved - leave blank to keep it`
+                : '10-digit UTR or NI number'
+            }
             maxLength={20}
           />
           <p className="mt-1 text-[11px] text-mid">
-            Your UTR is on any HMRC correspondence. Find it at{' '}
+            Stripe cannot share your full UTR or NI number with Feastpot. Feastpot therefore
+            collects it directly for statutory UK platform reporting. The API never returns the full
+            saved value to the portal, and customers never see it. Your UTR is on any HMRC
+            correspondence. Find it at{' '}
             <a
               href="https://www.gov.uk/find-utr-number"
               target="_blank"
@@ -527,6 +535,24 @@ function TaxProfileSection({ profile }: { profile: VendorTaxProfile | null | und
         </div>
       </form>
     </section>
+  );
+}
+
+function PayoutReuse({ profile }: { profile: VendorTaxProfile | null | undefined }) {
+  if (!profile?.financialAccountId && !profile?.accountHolderName) return null;
+  const raw = profile.financialAccountId ?? '';
+  const masked = raw.length > 4 ? `•••• ${raw.slice(-4)}` : raw || 'Connected Stripe account';
+  return (
+    <div className="mt-5 rounded-lg border border-border bg-surface p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-mid">Payout account</p>
+      <p className="mt-1 text-sm font-medium text-dark">
+        {profile.accountHolderName || 'Stripe account'} · {masked}
+      </p>
+      <p className="mt-1 text-[11px] text-mid">
+        Reused from your Stripe setup. Bank details are managed securely by Stripe and are not
+        duplicated or editable here.
+      </p>
+    </div>
   );
 }
 

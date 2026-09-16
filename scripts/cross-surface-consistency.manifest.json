@@ -90,7 +90,8 @@
       "apps/admin/src/app/legal/legal-client.tsx",
       "apps/admin/src/app/legal/notices/notices-client.tsx",
       "apps/admin/src/app/orders/orders-client.tsx",
-      "apps/admin/src/app/payouts/payouts-client.tsx"
+      "apps/admin/src/app/payouts/payouts-client.tsx",
+      "apps/admin/src/app/vendor-acquisition/vendor-acquisition-client.tsx"
     ],
     "percentageDisplayExclusions": [
       {

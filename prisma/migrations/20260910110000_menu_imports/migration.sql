@@ -9,9 +9,9 @@ CREATE TABLE "menu_imports" (
   "error_code" VARCHAR(80),
   "error_message" TEXT,
   "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  "updated_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" TIMESTAMPTZ NOT NULL,
   CONSTRAINT "menu_imports_pkey" PRIMARY KEY ("id"),
-  CONSTRAINT "menu_imports_vendor_id_fkey" FOREIGN KEY ("vendor_id") REFERENCES "vendors"("id") ON DELETE CASCADE
+  CONSTRAINT "menu_imports_vendor_id_fkey" FOREIGN KEY ("vendor_id") REFERENCES "vendors"("id") ON DELETE CASCADE ON UPDATE CASCADE
 );
 CREATE INDEX "menu_imports_vendor_id_created_at_idx" ON "menu_imports" ("vendor_id", "created_at" DESC);
 CREATE INDEX "menu_imports_vendor_id_status_idx" ON "menu_imports" ("vendor_id", "status");
@@ -30,10 +30,10 @@ CREATE TABLE "menu_import_items" (
   "allergen_confirmed_at" TIMESTAMPTZ,
   "status" "MenuImportItemStatus" NOT NULL DEFAULT 'candidate',
   "created_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  "updated_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" TIMESTAMPTZ NOT NULL,
   CONSTRAINT "menu_import_items_pkey" PRIMARY KEY ("id"),
-  CONSTRAINT "menu_import_items_import_id_fkey" FOREIGN KEY ("import_id") REFERENCES "menu_imports"("id") ON DELETE CASCADE,
-  CONSTRAINT "menu_import_items_menu_item_id_fkey" FOREIGN KEY ("menu_item_id") REFERENCES "menu_items"("id") ON DELETE SET NULL
+  CONSTRAINT "menu_import_items_import_id_fkey" FOREIGN KEY ("import_id") REFERENCES "menu_imports"("id") ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT "menu_import_items_menu_item_id_fkey" FOREIGN KEY ("menu_item_id") REFERENCES "menu_items"("id") ON DELETE SET NULL ON UPDATE CASCADE
 );
 CREATE INDEX "menu_import_items_import_id_status_idx" ON "menu_import_items" ("import_id", "status");
 

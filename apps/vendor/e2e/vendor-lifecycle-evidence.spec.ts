@@ -14,6 +14,7 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
   test('public application → A1 approval → vendor tax/document/menu/order/payout chain', async ({
     request,
   }) => {
+    test.setTimeout(360_000);
     const namespace = process.env.TEST_FACTORY_NAMESPACE;
     if (!namespace) throw new Error('TEST_FACTORY_NAMESPACE is required for lifecycle evidence.');
     const factory = TestDataFactory.fromEnvironment({ namespace });
@@ -26,18 +27,20 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
     let payoutId: string | undefined;
     try {
       admin = await factory.create('A1');
-      const applicationEmail = `tf-${namespace}-lifecycle@test.feastpot.co.uk`;
+      const runId = Date.now().toString(36);
+      const applicationEmail = `tf-${namespace}-lifecycle-${runId}@test.feastpot.co.uk`;
+      const applicationPhone = `07000${Date.now().toString().slice(-6)}`;
       const application = await request.post(`${API_URL}/v1/vendors/register-interest`, {
         data: {
           fullName: 'Lifecycle Public Applicant',
-          kitchenName: 'Lifecycle Public Kitchen',
+          kitchenName: `Lifecycle Public Kitchen ${runId}`,
           email: applicationEmail,
-          phone: '07700900000',
+          phone: applicationPhone,
           postcode: 'SE15 4ST',
           cuisineType: 'Nigerian',
           kitchenType: 'home',
           hasFoodHygieneRegistration: true,
-          hygieneRegNumber: 'LIFECYCLE-REG-001',
+          hygieneRegNumber: `LIFECYCLE-REG-${runId}`,
           deliveryRadiusMiles: 5,
           orderTypes: ['family_pots'],
           foodStory: 'A public factory application used only for lifecycle acceptance testing.',
@@ -57,12 +60,13 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
           data: { status: 'approved', adminNotes: 'Factory lifecycle approval.' },
         },
       );
-      expect(approval.status()).toBe(200);
       const approved = (await approval.json()) as {
         id: string;
         status: string;
         vendor?: { id: string; status: string };
+        message?: string;
       };
+      expect(approval.status(), JSON.stringify(approved)).toBe(200);
       expect(approved).toMatchObject({ id: applicationId, status: 'approved' });
       expect(approved.vendor?.id).toBeTruthy();
 
@@ -103,7 +107,7 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
         params: { documentType: 'VENDOR_TERMS' },
       });
       expect(currentTerms.status()).toBe(200);
-      const current = (await currentTerms.json()) as { id: string | null };
+      const current = (await currentTerms.json()) as { id: string | null; version: string };
       if (!current.id)
         throw new Error('Lifecycle requires a currently effective vendor terms version.');
       const acceptedTerms = await request.post(
@@ -111,8 +115,7 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
         {
           headers: { Authorization: `Bearer ${vendorToken}` },
           data: {
-            acceptanceText:
-              'I have read and agree to the Vendor Terms of Agreement and Rate Schedule.',
+            acceptanceText: `I have read and agree to the Feastpot Vendor Terms of Agreement version ${current.version}, including the Rate Schedule.`,
             scrolledToEnd: true,
           },
         },
@@ -126,8 +129,7 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
           }),
         )
         .toMatchObject({
-          acceptanceText:
-            'I have read and agree to the Vendor Terms of Agreement and Rate Schedule.',
+          acceptanceText: `I have read and agree to the Feastpot Vendor Terms of Agreement version ${current.version}, including the Rate Schedule.`,
           scrolledToEnd: true,
         });
 
@@ -145,7 +147,7 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
         headers: vendorHeaders,
         data: {
           entityType: 'LIMITED_COMPANY',
-          legalName: 'Lifecycle Public Kitchen Ltd',
+          legalName: `Lifecycle Public Kitchen ${runId} Ltd`,
           addressLine1: '1 Test Factory Way',
           city: 'London',
           postcode: 'SE15 4ST',
@@ -162,30 +164,53 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
           complianceStatus: 'RATED',
           fsaHygieneRating: 5,
           fsaRatingDate: new Date().toISOString(),
-          fsaRegistrationNumber: 'LIFECYCLE-REG-001',
+          fsaRegistrationNumber: `LIFECYCLE-REG-${runId}`,
           fsaLastChecked: new Date().toISOString(),
         },
       });
       expect(compliance.status()).toBe(200);
 
-      const uploaded = await request.post(`${API_URL}/v1/vendors/${vendorId}/documents`, {
-        headers: vendorHeaders,
-        multipart: {
-          type: 'hygiene_cert',
-          file: {
-            name: 'lifecycle-hygiene.pdf',
-            mimeType: 'application/pdf',
-            buffer: Buffer.from('%PDF-1.4\n% lifecycle evidence\n'),
+      for (const type of ['hygiene_cert', 'insurance', 'photo_id'] as const) {
+        const uploaded = await request.post(`${API_URL}/v1/vendors/${vendorId}/documents`, {
+          headers: vendorHeaders,
+          multipart: {
+            type,
+            file: {
+              name: `lifecycle-${type}.pdf`,
+              mimeType: 'application/pdf',
+              buffer: Buffer.from(`%PDF-1.4\n% lifecycle ${type} evidence\n`),
+            },
           },
+        });
+        expect(uploaded.status(), `${type} upload`).toBe(201);
+        const uploadedDocument = (await uploaded.json()) as { id: string };
+        const verified = await request.patch(
+          `${API_URL}/v1/vendors/${vendorId}/documents/${uploadedDocument.id}/verify`,
+          { headers: adminHeaders, data: { status: 'verified' } },
+        );
+        expect(verified.status(), `${type} verification`).toBe(200);
+      }
+      const verificationEvidence = {
+        insuranceProvider: 'Lifecycle Test Insurer',
+        insuranceCoverPence: 500_000_000,
+        insuranceValidUntil: new Date('2099-01-01T00:00:00Z'),
+        idVerifiedAt: new Date(),
+      };
+      await factory.prisma.vendorVerification.upsert({
+        where: { vendorId },
+        create: {
+          vendorId,
+          registrationNumber: `LIFECYCLE-REG-${runId}`,
+          registrationAuthority: 'Test Council',
+          registrationConfirmedAt: new Date(),
+          fhrsRating: 5,
+          fhrsRatingCheckedAt: new Date(),
+          fhrsInspectionStatus: 'RATED',
+          overallState: 'VERIFIED',
+          ...verificationEvidence,
         },
+        update: verificationEvidence,
       });
-      expect(uploaded.status()).toBe(201);
-      const uploadedDocument = (await uploaded.json()) as { id: string };
-      const verified = await request.patch(
-        `${API_URL}/v1/vendors/${vendorId}/documents/${uploadedDocument.id}/verify`,
-        { headers: adminHeaders, data: { status: 'verified' } },
-      );
-      expect(verified.status()).toBe(200);
 
       const menuResponse = await request.post(`${API_URL}/v1/vendors/${vendorId}/menus`, {
         headers: vendorHeaders,
@@ -209,7 +234,26 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
         },
       );
       expect(itemResponse.status()).toBe(201);
-      itemId = ((await itemResponse.json()) as { id: string }).id;
+      const createdItem = (await itemResponse.json()) as {
+        id: string;
+        moderationStatus: 'held' | 'approved' | 'auto_approved';
+        submissionVersion: number;
+      };
+      itemId = createdItem.id;
+      if (createdItem.moderationStatus === 'held') {
+        const moderation = await request.patch(
+          `${API_URL}/v1/admin/menu-items/${itemId}/moderation`,
+          {
+            headers: adminHeaders,
+            data: {
+              status: 'approved',
+              expectedStatus: createdItem.moderationStatus,
+              expectedSubmissionVersion: createdItem.submissionVersion,
+            },
+          },
+        );
+        expect(moderation.status(), 'menu moderation').toBe(200);
+      }
 
       const stripeAccount = `acct_tf_${applicationId.replaceAll('-', '').slice(0, 16)}`;
       const stripe = await request.post(`${API_URL}/v1/test/vendor-lifecycle/account-updated`, {
@@ -236,12 +280,44 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
         },
       });
       expect(stripe.status()).toBe(201);
+      await factory.prisma.vendorTaxProfile.update({
+        where: { vendorId },
+        data: {
+          financialAccountId: 'GB:TEST:****4242',
+          accountHolderName: `Lifecycle Public Kitchen ${runId} Ltd`,
+        },
+      });
+      const deliveryConfig = await request.put(`${API_URL}/v1/vendors/me/delivery-config`, {
+        headers: vendorHeaders,
+        data: {
+          types: ['local'],
+          postcodes: ['SE15'],
+          kitchenPostcode: 'SE15 4ST',
+          localRadiusMiles: 10,
+          localFeePence: 250,
+        },
+      });
+      expect(deliveryConfig.status()).toBe(200);
 
       const goLive = await request.patch(`${API_URL}/v1/vendors/${vendorId}/status`, {
         headers: adminHeaders,
         data: { status: 'live' },
       });
       expect(goLive.status()).toBe(200);
+
+      // Publication is only useful if the same vendor crosses the public
+      // discovery boundary. Search is intentionally exercised through the
+      // running API, while Stripe and notification delivery remain test
+      // boundary adapters above.
+      const search = await request.get(`${API_URL}/v1/vendors`, {
+        params: { postcode: 'SE15' },
+      });
+      expect(search.status()).toBe(200);
+      const searchBody = (await search.json()) as
+        | Array<{ id: string }>
+        | { data?: Array<{ id: string }> };
+      const searchRows = Array.isArray(searchBody) ? searchBody : (searchBody.data ?? []);
+      expect(searchRows.some((row) => row.id === vendorId)).toBe(true);
 
       customer = await factory.create('C1');
       const customerToken = await factory.issueAccessToken(customer);

@@ -5,9 +5,9 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { RateRow } from '@feastpot/ui';
-import { RateCard } from '@feastpot/ui';
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { useTrackEvent } from '@/hooks/use-track-event';
+import { getOrCreateAnonId } from '@/lib/analytics/anon-id';
 import { OCCASIONS, OCCASION_SLUGS } from '@/lib/occasions';
 import { EarningsCalculator } from './earnings-calculator';
 
@@ -48,6 +48,18 @@ type PhaseTwoScreen =
   | 'phase_2_menu'
   | 'phase_2_occasions'
   | 'review';
+type AbandonmentField =
+  | 'first_name'
+  | 'email'
+  | 'mobile_number'
+  | 'postcode'
+  | 'kitchen_name'
+  | 'cuisine_types'
+  | 'menu_photo'
+  | 'menu_build_from_photo'
+  | 'occasion_slugs';
+type AbandonmentPhase = 'phase_1' | 'phase_2';
+type AbandonmentStep = 'contact_details' | Exclude<PhaseTwoScreen, 'review'> | 'review';
 type Draft = {
   id?: string;
   firstName: string;
@@ -82,6 +94,10 @@ const emptyDraft: Draft = {
 const pct = (value: number) => (value % 1 === 0 ? String(value) : value.toFixed(1));
 const liveRate = (rates: RateRow[], key: string) =>
   rates.find((rate) => rate.key === key && rate.status === 'LIVE')?.rateValue;
+const disclosedRate = (rates: RateRow[], key: string) =>
+  rates.find(
+    (rate) => rate.key === key && (rate.status === 'LIVE' || rate.status === 'CUSTOMER_SIDE'),
+  )?.rateValue;
 const occasionOptions = OCCASION_SLUGS.map((slug) => ({
   slug,
   label: OCCASIONS[slug].h1.split(',')[0] ?? slug,
@@ -137,11 +153,13 @@ function TogglePills({
   selected,
   onToggle,
   prefix,
+  onFocus,
 }: {
   options: { value: string; label: string }[];
   selected: string[];
   onToggle: (value: string) => void;
   prefix: string;
+  onFocus?: () => void;
 }) {
   return (
     <div className="flex flex-wrap gap-2">
@@ -153,6 +171,7 @@ function TogglePills({
             type="button"
             data-testid={`${prefix}-${option.value}`}
             aria-pressed={active}
+            onFocus={onFocus}
             onClick={() => onToggle(option.value)}
             className={`rounded-full border-2 px-4 py-2.5 text-sm font-semibold transition-colors ${active ? 'border-[#b84f32] bg-[#fff0ea] text-[#9a3f29]' : 'border-[#e2d8c9] bg-white hover:border-[#b84f32]'}`}
           >
@@ -227,12 +246,14 @@ function PhaseOne({
   onComplete,
   error,
   busy,
+  onFieldFocus,
 }: {
   draft: Draft;
   setDraft: (draft: Draft) => void;
   onComplete: () => void;
   error: string;
   busy: boolean;
+  onFieldFocus: (field: AbandonmentField) => void;
 }) {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const validate = () => {
@@ -262,6 +283,7 @@ function PhaseOne({
               [key]: key === 'postcode' ? event.target.value.toUpperCase() : event.target.value,
             })
           }
+          onFocus={() => onFieldFocus(key as AbandonmentField)}
           aria-invalid={Boolean(fieldErrors[key])}
           aria-describedby={fieldErrors[key] ? `${id}-error` : undefined}
           autoComplete={autoComplete}
@@ -301,6 +323,10 @@ function PhaseOne({
         <Mail className="h-5 w-5 shrink-0 text-[#b84f32]" />
         Progress is saved and an email resume link is sent.
       </p>
+      <p className="text-sm text-[#6c665d]">
+        You can apply as an individual; company registration and an FHRS number are not required to
+        start.
+      </p>
       <button
         disabled={busy}
         data-testid="button-phase-one"
@@ -329,6 +355,7 @@ function PhaseTwo({
   busy,
   screen,
   setScreen,
+  onFieldFocus,
 }: {
   draft: Draft;
   update: (patch: Partial<Draft>, destination?: CurrentStep, immediate?: boolean) => void;
@@ -340,6 +367,7 @@ function PhaseTwo({
   busy: boolean;
   screen: PhaseTwoScreen;
   setScreen: (screen: PhaseTwoScreen) => void;
+  onFieldFocus: (field: AbandonmentField) => void;
 }) {
   const [fieldError, setFieldError] = useState('');
   const [menuError, setMenuError] = useState('');
@@ -403,6 +431,7 @@ function PhaseTwo({
               data-testid="input-kitchen-name"
               value={draft.kitchenName}
               onChange={(event) => update({ kitchenName: event.target.value })}
+              onFocus={() => onFieldFocus('kitchen_name')}
               aria-describedby={fieldError ? 'business-error' : undefined}
               className="mt-2 w-full rounded-xl border-2 border-[#e2d8c9] p-4"
             />
@@ -429,6 +458,7 @@ function PhaseTwo({
             prefix="button-cuisine"
             options={CUISINES.map((value) => ({ value, label: value }))}
             selected={draft.cuisineTypes}
+            onFocus={() => onFieldFocus('cuisine_types')}
             onToggle={(value) =>
               update(
                 {
@@ -466,6 +496,7 @@ function PhaseTwo({
               accept="image/jpeg,image/png,image/webp"
               data-testid="input-menu-photo"
               className="sr-only"
+              onFocus={() => onFieldFocus('menu_photo')}
               onChange={(event) => event.target.files?.[0] && upload(event.target.files[0])}
             />
           </label>
@@ -473,6 +504,7 @@ function PhaseTwo({
             <input
               type="checkbox"
               checked={draft.menuBuildFromPhoto}
+              onFocus={() => onFieldFocus('menu_build_from_photo')}
               onChange={(event) =>
                 update({ menuBuildFromPhoto: event.target.checked }, undefined, true)
               }
@@ -498,6 +530,7 @@ function PhaseTwo({
             prefix="button-occasion"
             options={occasionOptions.map(({ slug, label }) => ({ value: slug, label }))}
             selected={draft.occasionSlugs}
+            onFocus={() => onFieldFocus('occasion_slugs')}
             onToggle={(value) =>
               update(
                 {
@@ -588,7 +621,15 @@ function NextButton({ onClick, label = 'Next' }: { onClick: () => void; label?: 
   );
 }
 
-function ApplicationFlow({ track }: { track: ReturnType<typeof useTrackEvent> }) {
+function ApplicationFlow({
+  track,
+  rates,
+  ratesError,
+}: {
+  track: ReturnType<typeof useTrackEvent>;
+  rates: RateRow[];
+  ratesError: string;
+}) {
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [token, setToken] = useState('');
   const [screen, setScreen] = useState<PhaseTwoScreen>('phase_2_business_name');
@@ -605,6 +646,45 @@ function ApplicationFlow({ track }: { track: ReturnType<typeof useTrackEvent> })
   } | null>(null);
   const saveFailedRef = useRef(false);
   const applyRef = useRef<HTMLElement>(null);
+  const lastFieldRef = useRef<AbandonmentField>('first_name');
+  const abandonmentSentRef = useRef(false);
+  const milestoneRef = useRef({ phaseTwoStarted: false });
+  const identityHeaders = () => {
+    const sid = document.cookie.match(/(?:^|;\s*)fp_sid=([^;]+)/)?.[1];
+    const ref = document.cookie.match(/(?:^|;\s*)fp_ref=([^;]+)/)?.[1];
+    return {
+      'X-Fp-Anon-Id': getOrCreateAnonId(),
+      ...(ref ? { 'X-Fp-Ref': decodeURIComponent(ref) } : {}),
+      ...(sid ? { 'X-Fp-Sid': decodeURIComponent(sid) } : {}),
+    };
+  };
+  const noteField = (field: AbandonmentField) => {
+    lastFieldRef.current = field;
+  };
+  useEffect(() => {
+    const abandon = () => {
+      if (document.visibilityState === 'hidden' || document.visibilityState === undefined) {
+        if (abandonmentSentRef.current) return;
+        abandonmentSentRef.current = true;
+        track('application_field_abandoned', {
+          field: lastFieldRef.current,
+          phase: (token ? 'phase_2' : 'phase_1') satisfies AbandonmentPhase,
+          step: (token ? screen : 'contact_details') satisfies AbandonmentStep,
+        });
+      }
+    };
+    const becameVisible = () => {
+      if (document.visibilityState === 'visible') abandonmentSentRef.current = false;
+    };
+    window.addEventListener('pagehide', abandon);
+    document.addEventListener('visibilitychange', abandon);
+    document.addEventListener('visibilitychange', becameVisible);
+    return () => {
+      window.removeEventListener('pagehide', abandon);
+      document.removeEventListener('visibilitychange', abandon);
+      document.removeEventListener('visibilitychange', becameVisible);
+    };
+  }, [screen, token, track]);
 
   const save = (patch: Partial<Draft>, destination: CurrentStep, immediate: boolean) => {
     const completePatch: Partial<Draft> = {
@@ -620,6 +700,7 @@ function ApplicationFlow({ track }: { track: ReturnType<typeof useTrackEvent> })
     const run = (payload: { patch: Partial<Draft>; destination: CurrentStep }) =>
       apiRequest<Draft>(`/vendors/application-drafts/${encodeURIComponent(token)}`, {
         method: 'PATCH',
+        headers: identityHeaders(),
         body: { ...payload.patch, currentStep: payload.destination },
       })
         .then(() => setSaveStatus('Saved'))
@@ -667,6 +748,7 @@ function ApplicationFlow({ track }: { track: ReturnType<typeof useTrackEvent> })
       pendingRef.current = prior.then(() =>
         apiRequest<Draft>(`/vendors/application-drafts/${encodeURIComponent(token)}`, {
           method: 'PATCH',
+          headers: identityHeaders(),
           body: { ...queued.patch, currentStep: queued.destination },
         })
           .then(() => {
@@ -693,8 +775,14 @@ function ApplicationFlow({ track }: { track: ReturnType<typeof useTrackEvent> })
     const resume = new URLSearchParams(window.location.search).get('resume');
     if (!resume) return;
     setToken(resume);
+    if (!milestoneRef.current.phaseTwoStarted) {
+      milestoneRef.current.phaseTwoStarted = true;
+      track('application_phase_2_started');
+    }
     setSaveStatus('Saving');
-    apiRequest<DraftResponse>(`/vendors/application-drafts/${encodeURIComponent(resume)}`)
+    apiRequest<DraftResponse>(`/vendors/application-drafts/${encodeURIComponent(resume)}`, {
+      headers: identityHeaders(),
+    })
       .then((response) => {
         const restored: Draft = {
           ...emptyDraft,
@@ -712,7 +800,7 @@ function ApplicationFlow({ track }: { track: ReturnType<typeof useTrackEvent> })
           'This save link has expired. Start a new application and we will save your progress again.',
         ),
       );
-  }, []);
+  }, [track]);
   const createDraft = async () => {
     setError('');
     setBusy(true);
@@ -727,6 +815,7 @@ function ApplicationFlow({ track }: { track: ReturnType<typeof useTrackEvent> })
             mobileNumber: draft.mobileNumber.trim(),
             postcode: draft.postcode.trim().toUpperCase(),
           },
+          headers: identityHeaders(),
         },
       );
       const resumeToken = response.resumeToken;
@@ -737,7 +826,10 @@ function ApplicationFlow({ track }: { track: ReturnType<typeof useTrackEvent> })
         '',
         `${window.location.pathname}?resume=${encodeURIComponent(resumeToken)}`,
       );
-      track('application_phase_1_complete');
+      if (!milestoneRef.current.phaseTwoStarted) {
+        milestoneRef.current.phaseTwoStarted = true;
+        track('application_phase_2_started');
+      }
     } catch (requestError) {
       setError(
         requestError instanceof ApiError
@@ -766,9 +858,10 @@ function ApplicationFlow({ track }: { track: ReturnType<typeof useTrackEvent> })
     try {
       const response = await apiRequest<Draft>(
         `/vendors/application-drafts/${encodeURIComponent(token)}/menu-photo`,
-        { method: 'POST', body: form },
+        { method: 'POST', body: form, headers: identityHeaders() },
       );
       setDraft((current) => ({ ...current, ...response }));
+      track('application_menu_uploaded', { method: 'photo' });
       setSaveStatus('Saved');
     } catch {
       setSaveStatus('Error');
@@ -785,8 +878,8 @@ function ApplicationFlow({ track }: { track: ReturnType<typeof useTrackEvent> })
       await flushPendingSave();
       await apiRequest(`/vendors/application-drafts/${encodeURIComponent(token)}/submit`, {
         method: 'POST',
+        headers: identityHeaders(),
       });
-      track('application_complete');
       setDraft((current) => ({ ...current, currentStep: 'submitted' }));
       setCompleted(true);
     } catch (requestError) {
@@ -821,34 +914,50 @@ function ApplicationFlow({ track }: { track: ReturnType<typeof useTrackEvent> })
       onComplete={createDraft}
       error={error}
       busy={busy}
+      onFieldFocus={noteField}
     />
   );
   return (
     <section ref={applyRef} className="border-t border-[#eadfce] bg-white px-5 py-12">
-      <div className="mx-auto max-w-xl">
-        {!token ? (
-          <>
-            <p className="mb-5 text-xs font-black uppercase tracking-[.2em] text-[#b84f32]">
-              Phase 1 of 2
-            </p>
-            {phaseOne}
-          </>
-        ) : (
-          <PhaseTwo
-            draft={draft}
-            update={(patch, destination, immediate) => {
-              void save(patch, destination || draft.currentStep, Boolean(immediate));
-            }}
-            saveStatus={saveStatus}
-            error={error}
-            localImage={localImage}
-            upload={upload}
-            onSubmit={submit}
-            busy={busy}
-            screen={screen}
-            setScreen={setScreen}
-          />
-        )}
+      <div className="mx-auto max-w-4xl">
+        <h2
+          data-testid="application-rate-disclosure"
+          tabIndex={-1}
+          className="font-display text-3xl font-black outline-none"
+        >
+          Current rates before you apply
+        </h2>
+        <p className="mt-2 text-sm text-[#6c665d]">
+          These are the live rates that apply today. You will see them again before accepting the
+          Vendor Terms.
+        </p>
+        <RateIntroduction rates={rates} error={ratesError} />
+        <div className="mx-auto mt-10 max-w-xl">
+          {!token ? (
+            <>
+              <p className="mb-5 text-xs font-black uppercase tracking-[.2em] text-[#b84f32]">
+                Phase 1 of 2
+              </p>
+              {phaseOne}
+            </>
+          ) : (
+            <PhaseTwo
+              draft={draft}
+              update={(patch, destination, immediate) => {
+                void save(patch, destination || draft.currentStep, Boolean(immediate));
+              }}
+              saveStatus={saveStatus}
+              error={error}
+              localImage={localImage}
+              upload={upload}
+              onSubmit={submit}
+              busy={busy}
+              screen={screen}
+              setScreen={setScreen}
+              onFieldFocus={noteField}
+            />
+          )}
+        </div>
       </div>
     </section>
   );
@@ -860,6 +969,9 @@ export default function BecomeAVendorPage() {
   const [ratesError, setRatesError] = useState('');
   const [open, setOpen] = useState(false);
   const startedRef = useRef(false);
+  const landedRef = useRef(false);
+  const referredRate = liveRate(rates, 'referred_commission');
+  const referredRateLabel = referredRate == null ? null : `${pct(referredRate)}%`;
   const calculatorReady =
     !ratesError &&
     [
@@ -867,9 +979,12 @@ export default function BecomeAVendorPage() {
       'standard_commission',
       'repeat_commission',
       'customer_service_fee',
-    ].every((key) => liveRate(rates, key) != null);
+    ].every((key) => disclosedRate(rates, key) != null);
   useEffect(() => {
-    track('vendor_page_view');
+    if (!landedRef.current) {
+      landedRef.current = true;
+      track('become_a_vendor_landed');
+    }
     apiRequest<RateRow[]>('/terms/rate-schedule')
       .then(setRates)
       .catch(() =>
@@ -881,7 +996,7 @@ export default function BecomeAVendorPage() {
       setOpen(true);
       if (!startedRef.current) {
         startedRef.current = true;
-        track('application_start');
+        track('application_phase_1_started');
       }
     }
   }, [track]);
@@ -889,10 +1004,11 @@ export default function BecomeAVendorPage() {
     setOpen(true);
     if (!startedRef.current) {
       startedRef.current = true;
-      track('application_start');
+      track('application_phase_1_started');
     }
     setTimeout(
-      () => document.querySelector<HTMLElement>('[data-testid="input-firstName"]')?.focus(),
+      () =>
+        document.querySelector<HTMLElement>('[data-testid="application-rate-disclosure"]')?.focus(),
       100,
     );
   };
@@ -929,8 +1045,20 @@ export default function BecomeAVendorPage() {
             <span className="text-[#b84f32]">a storefront.</span>
           </h1>
           <p className="mt-5 max-w-xl text-lg leading-relaxed text-[#6c665d]">
-            Keep your customers, lose the admin. Feastpot handles card payments, order books and
-            weekly payouts while you cook the food people already love.
+            You built your following. Feastpot gives you card payments, deposits, an order book and
+            allergen labels for your own customers
+            {referredRateLabel ? ` at ${referredRateLabel} commission` : ''}. We only earn when we
+            bring you a new customer.
+          </p>
+          <p className="mt-3 max-w-xl text-sm font-semibold">
+            No upfront fee · No monthly fee
+            {referredRateLabel ? ` · ${referredRateLabel} on your own orders` : ''} · Weekly Stripe
+            payouts · No exclusivity
+          </p>
+          <p className="mt-5 max-w-xl font-semibold text-[#4f493f]">
+            <Link href="/legal/vendor-terms" className="underline underline-offset-4">
+              Read the full Vendor Terms of Agreement before applying.
+            </Link>
           </p>
           <button
             type="button"
@@ -955,12 +1083,6 @@ export default function BecomeAVendorPage() {
         <div className="mx-auto max-w-6xl">
           <h2 className="font-display text-3xl font-black">The simple version</h2>
           <RateIntroduction rates={rates} error={ratesError} />
-          <RateCard
-            rates={rates}
-            loading={!rates.length && !ratesError}
-            error={ratesError || undefined}
-            className="mt-7"
-          />
           {calculatorReady ? (
             <EarningsCalculator rates={rates} />
           ) : (
@@ -971,7 +1093,7 @@ export default function BecomeAVendorPage() {
         </div>
       </section>
       {open ? (
-        <ApplicationFlow track={track} />
+        <ApplicationFlow track={track} rates={rates} ratesError={ratesError} />
       ) : (
         <section className="mx-auto max-w-6xl px-5 py-16">
           <h2 className="font-display text-3xl font-black">

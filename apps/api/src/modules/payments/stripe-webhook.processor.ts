@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { OnQueueCompleted, OnQueueFailed, Process, Processor } from '@nestjs/bull';
-import { Logger } from '@nestjs/common';
+import { Logger, Optional } from '@nestjs/common';
 import { OrderStatus, PaymentStatus, PaymentType, PayoutStatus, Prisma } from '@prisma/client';
 import * as Sentry from '@sentry/nestjs';
 import type { Job } from 'bull';
@@ -11,6 +11,7 @@ import { FeastPassService } from '../../feastpass/feastpass.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { shouldReportQueueFailure } from '../../queues/queue-failure';
 import { StripeService } from '../../stripe/stripe.service';
+import { AnalyticsService } from '../analytics/analytics.service';
 import { LoyaltyService } from '../loyalty/loyalty.service';
 import {
   capacityTypeForItemCategories,
@@ -63,6 +64,7 @@ export class StripeWebhookProcessor {
     // StripeModule is @Global - used to list a charge's refunds when the
     // webhook payload arrives without the embedded refunds list.
     private readonly stripeService: StripeService,
+    @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
   // Concurrency=5 on each handler: Stripe bursts during busy periods (peak
@@ -190,7 +192,11 @@ export class StripeWebhookProcessor {
       this.logger.debug(`transfer.created ${transfer.id} has no payoutId metadata - ignoring`);
       return;
     }
-    await this.prisma.payout.updateMany({
+    const payout = await this.prisma.payout.findUnique({
+      where: { id: payoutId },
+      select: { vendorId: true, status: true, vendor: { select: { userId: true } } },
+    });
+    const updated = await this.prisma.payout.updateMany({
       where: { id: payoutId },
       data: {
         stripeTransferId: transfer.id,
@@ -198,6 +204,13 @@ export class StripeWebhookProcessor {
         transferredAt: new Date(),
       },
     });
+    if (updated.count === 1 && payout?.status !== PayoutStatus.transferred && payout?.vendorId) {
+      void this.analytics?.trackServer('first_payout', {
+        vendorId: payout.vendorId,
+        userId: payout.vendor.userId,
+        properties: { payout_state: 'transferred' },
+      });
+    }
   }
 
   @Process({ name: eventName('account.updated'), concurrency: 5 })
@@ -219,7 +232,9 @@ export class StripeWebhookProcessor {
         id: true,
         businessName: true,
         payoutsEnabled: true,
+        stripeChargesEnabled: true,
         stripePayoutsEnabled: true,
+        userId: true,
       },
     });
     if (!vendor) {
@@ -280,6 +295,20 @@ export class StripeWebhookProcessor {
       this.logger.error(text);
       await this.sendSlack(text);
       Sentry.captureMessage(`Stripe payouts capability lost for vendor ${vendor.id}`, 'error');
+    }
+    if (!vendor.stripeChargesEnabled && chargesEnabled) {
+      void this.analytics?.trackServer('stripe_connect_completed', {
+        vendorId: vendor.id,
+        userId: vendor.userId,
+        properties: { account_state: 'charges_enabled' },
+      });
+    }
+    if (!vendor.payoutsEnabled && payoutsEnabled) {
+      void this.analytics?.trackServer('payouts_enabled', {
+        vendorId: vendor.id,
+        userId: vendor.userId,
+        properties: { account_state: 'charges_and_payouts_enabled' },
+      });
     }
   }
 

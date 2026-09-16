@@ -22,7 +22,7 @@ const STORAGE_KEY = 'fp_anon';
 export function getOrCreateAnonId(): string {
   try {
     const existing = typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
-    if (existing) return existing;
+    if (existing && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(existing)) return existing;
     const id = crypto.randomUUID();
     localStorage.setItem(STORAGE_KEY, id);
     return id;

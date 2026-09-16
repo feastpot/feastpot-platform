@@ -596,6 +596,58 @@ deducted from your vendor payout. FeastPass members are exempt from this fee.
   });
   console.log(`[seed-terms] Inserted ${insertedEntries.count} new immutable schedule entries`);
 
+  // Repair the exact production failure where a newer effective RATE_SCHEDULE
+  // version was published without any entries. Do not reactivate v2.1: clone
+  // its immutable rows into the version the public endpoint actually selects.
+  const currentVersion = await prisma.termsVersion.findFirst({
+    where: {
+      documentType: TermsDocumentType.RATE_SCHEDULE,
+      effectiveAt: { lte: publishedAt },
+    },
+    orderBy: [{ effectiveAt: 'desc' }, { publishedAt: 'desc' }],
+    select: { id: true },
+  });
+  if (currentVersion && currentVersion.id !== rateScheduleVersion.id) {
+    const currentEntryCount = await prisma.rateScheduleEntry.count({
+      where: { versionId: currentVersion.id },
+    });
+    if (currentEntryCount === 0) {
+      const baseEntries = await prisma.rateScheduleEntry.findMany({
+        where: { versionId: rateScheduleVersion.id },
+        orderBy: { sortOrder: 'asc' },
+      });
+      const effectiveRates = await prisma.commissionRate.findMany({
+        where: {
+          rateKey: { not: null },
+          isAnomalous: false,
+          effectiveFrom: { lte: publishedAt },
+          OR: [{ effectiveTo: null }, { effectiveTo: { gt: publishedAt } }],
+        },
+        orderBy: { effectiveFrom: 'desc' },
+      });
+      const rateByKey = new Map<string, number>();
+      for (const rate of effectiveRates) {
+        if (rate.rateKey && !rateByKey.has(rate.rateKey)) {
+          rateByKey.set(rate.rateKey, Number(rate.ratePercent));
+        }
+      }
+      const repaired = await prisma.rateScheduleEntry.createMany({
+        data: baseEntries.map(({ id: _id, versionId: _versionId, ...entry }) => {
+          const activeRate = rateByKey.get(entry.key);
+          return {
+            ...entry,
+            versionId: currentVersion.id,
+            ...(activeRate == null ? {} : { rateValue: activeRate, rateDisplay: `${activeRate}%` }),
+          };
+        }),
+        skipDuplicates: true,
+      });
+      console.log(
+        `[seed-terms] Repaired ${repaired.count} entries on current schedule ${currentVersion.id}`,
+      );
+    }
+  }
+
   console.log('[seed-terms] Rate schedule seed done.');
 }
 

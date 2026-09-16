@@ -4,12 +4,21 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
-import { DocumentStatus, ModerationStatus, OrderStatus, UserRole } from '@prisma/client';
+import {
+  DocumentStatus,
+  DocumentType,
+  ModerationStatus,
+  OrderStatus,
+  UserRole,
+  VendorOnboardingStepName,
+} from '@prisma/client';
 
 import { SupabaseService } from '../../auth/supabase.service';
 import type { AuthUser } from '../../auth/types';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AnalyticsService } from '../analytics/analytics.service';
 import { DOCUMENTS_BUCKET } from '../catalogue/supabase-storage.service';
 import { InboxService } from '../inbox/inbox.service';
 import { NotificationEvent } from '../notifications/notification-events';
@@ -18,6 +27,7 @@ import {
   VENDOR_COMPLIANCE_ROLES,
   VendorMembersService,
 } from '../vendor-members/vendor-members.service';
+import { VendorRecoveryService } from '../vendors/vendor-recovery.service';
 
 import type { UploadDocumentDto } from './dto/upload-document.dto';
 import type { VerifyDocumentDto } from './dto/verify-document.dto';
@@ -42,6 +52,8 @@ export class ComplianceService {
     private readonly inbox: InboxService,
     // T010: server-side RBAC across vendor team members.
     private readonly members: VendorMembersService,
+    private readonly recovery: VendorRecoveryService,
+    @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
   // -------------------- vendor documents --------------------
@@ -88,7 +100,7 @@ export class ComplianceService {
       publicUrl = storage.getPublicUrl(path).data.publicUrl;
     }
 
-    return this.prisma.vendorDocument.create({
+    const document = await this.prisma.vendorDocument.create({
       data: {
         vendorId,
         type: dto.type,
@@ -98,6 +110,20 @@ export class ComplianceService {
         expiresAt: dto.expiresAt ?? null,
       },
     });
+    const stepByType: Partial<Record<DocumentType, VendorOnboardingStepName>> = {
+      [DocumentType.kitchen_reg]: VendorOnboardingStepName.food_business_registration,
+      [DocumentType.insurance]: VendorOnboardingStepName.public_liability_insurance,
+      [DocumentType.hygiene_cert]: VendorOnboardingStepName.food_safety_certificate,
+      [DocumentType.photo_id]: VendorOnboardingStepName.photo_id_verification,
+    };
+    const step = stepByType[document.type];
+    if (step) {
+      void this.analytics?.trackServer('document_supplied', {
+        vendorId,
+        properties: { step },
+      });
+    }
+    return document;
   }
 
   async verifyDocument(
@@ -127,7 +153,7 @@ export class ComplianceService {
         message: 'Document not found for this vendor',
       });
     }
-    return this.prisma.vendorDocument.update({
+    const updated = await this.prisma.vendorDocument.update({
       where: { id: documentId },
       data: {
         status: dto.status,
@@ -136,6 +162,16 @@ export class ComplianceService {
         reviewedAt: new Date(),
       },
     });
+    const stepByType: Partial<Record<DocumentType, VendorOnboardingStepName>> = {
+      [DocumentType.kitchen_reg]: VendorOnboardingStepName.food_business_registration,
+      [DocumentType.insurance]: VendorOnboardingStepName.public_liability_insurance,
+      [DocumentType.hygiene_cert]: VendorOnboardingStepName.food_safety_certificate,
+      [DocumentType.photo_id]: VendorOnboardingStepName.photo_id_verification,
+    };
+    const step = stepByType[updated.type];
+    if (step)
+      await this.recovery.syncItem(vendorId, step, updated.status === DocumentStatus.verified);
+    return updated;
   }
 
   // -------------------- cron jobs --------------------

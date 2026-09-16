@@ -8,12 +8,16 @@ import { IsIn, IsObject, IsOptional, IsString, IsUUID, MaxLength } from 'class-v
  * by OrdersService and must never be submitted by a client.
  */
 export const CLIENT_EVENT_NAMES = [
-  'vendor_page_view',
+  'become_a_vendor_landed',
   'calculator_interaction',
-  'application_start',
-  'application_complete',
-  'share_link_click',
-  'qr_scan',
+  'application_phase_1_started',
+  'application_phase_1_completed',
+  'application_phase_2_started',
+  'application_menu_uploaded',
+  'application_phase_2_submitted',
+  'application_field_abandoned',
+  'vendor_required_item_deferred',
+  'vendor_required_item_resumed',
 ] as const;
 
 export type ClientEventName = (typeof CLIENT_EVENT_NAMES)[number];
@@ -25,11 +29,8 @@ export class TrackEventDto {
   eventName!: ClientEventName;
 
   /**
-   * Non-PII key/value pairs describing the event.
-   * Validated as a plain object but contents are not further schema-checked
-   * here - each event's properties are documented in the client hook that
-   * fires it. PII must never appear here (enforced by code review, not
-   * runtime validation, because PII categories are unbounded).
+   * The service applies an event-specific allowlist. Do not widen this DTO
+   * into an arbitrary JSON bag: values in analytics are retained.
    */
   @ApiPropertyOptional({ type: Object })
   @IsOptional()

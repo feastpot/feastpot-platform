@@ -195,6 +195,32 @@ export function useCreateStaffUser(opts: MutateOpts = {}) {
   });
 }
 
+export interface ProductionTestVendorPersona {
+  key: string;
+  email: string;
+  password: string;
+  vendorId?: string;
+  applicationId: string;
+  summary: string;
+}
+
+export interface CreateProductionTestVendorsResult {
+  personas: ProductionTestVendorPersona[];
+}
+
+/** Creates explicitly marked production test vendor personas. Admin-only. */
+export function useCreateProductionTestVendors() {
+  const { request } = useApi();
+  return useMutation({
+    mutationFn: () =>
+      request<CreateProductionTestVendorsResult>('/admin/test-personas/vendors', {
+        method: 'POST',
+        body: { confirmation: 'CREATE PRODUCTION TEST VENDORS' },
+      }),
+    networkMode: 'always',
+  });
+}
+
 /**
  * PATCH /v1/admin/users/:userId/role - admin-only. Reason is required
  * (10–500 chars) and audited.

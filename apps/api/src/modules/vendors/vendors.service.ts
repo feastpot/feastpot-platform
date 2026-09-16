@@ -8,9 +8,16 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ModerationStatus, OrderStatus, UserRole, VendorStatus } from '@prisma/client';
+import {
+  ModerationStatus,
+  OrderStatus,
+  TaxEntityType,
+  UserRole,
+  VendorStatus,
+} from '@prisma/client';
 import type { VendorMemberRole } from '@prisma/client';
 import type { Queue } from 'bull';
 
@@ -21,6 +28,7 @@ import { normalisePostcode } from '../../common/postcode.util';
 import { PrismaService } from '../../prisma/prisma.service';
 import { NOTIFICATIONS_QUEUE } from '../../queues/queues.module';
 import { StripeService } from '../../stripe/stripe.service';
+import { AnalyticsService } from '../analytics/analytics.service';
 import { SupabaseStorageService } from '../catalogue/supabase-storage.service';
 import { NotificationEvent } from '../notifications/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -50,7 +58,8 @@ import { UpsertCapacityDto } from './dto/upsert-capacity.dto';
 import { UpsertDeliveryConfigDto } from './dto/upsert-delivery-config.dto';
 import {
   HourlyOrdersBucketDto,
-  StripeConnectLinkResponseDto,
+  StripeConnectSessionDto,
+  StripeConnectSessionResponseDto,
   TopDishDto,
   VendorAnalyticsResponseDto,
   WeeklyRevenueBucketDto,
@@ -310,6 +319,7 @@ export class VendorsService {
     // Notifications queue for durable retry of vendor-application emails.
     @InjectQueue(NOTIFICATIONS_QUEUE) private readonly queue: Queue,
     private readonly onboarding: VendorOnboardingService,
+    @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
   private applicationTokenHash(token: string): string {
@@ -329,7 +339,15 @@ export class VendorsService {
     return draft;
   }
 
-  async createApplicationDraft(dto: CreateVendorApplicationDraftDto, fpRef?: string) {
+  async createApplicationDraft(
+    dto: CreateVendorApplicationDraftDto,
+    fpRef?: string,
+    anonVisitorId?: string,
+  ) {
+    const safeAnonVisitorId =
+      anonVisitorId && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(anonVisitorId)
+        ? anonVisitorId
+        : null;
     const token = randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     const email = dto.email.trim().toLowerCase();
@@ -367,6 +385,7 @@ export class VendorsService {
         resumeExpiresAt: expiresAt,
         currentStep: 'phase_2_business_name',
         referrerVendorId,
+        anonVisitorId: safeAnonVisitorId,
       },
       select: {
         id: true,
@@ -375,8 +394,29 @@ export class VendorsService {
         phone: true,
         postcode: true,
         currentStep: true,
+        createdAt: true,
         updatedAt: true,
       },
+    });
+    // Join pre-draft landing/start events to this application while the
+    // anonymous cohort key is still available. This is an explicit analytics
+    // relation, not an identity graph, and cascades away with the application.
+    if (safeAnonVisitorId && this.prisma.analyticsEvent) {
+      await this.prisma.analyticsEvent.updateMany({
+        where: {
+          anonVisitorId: safeAnonVisitorId,
+          applicationId: null,
+          createdAt: {
+            gte: new Date(draft.createdAt.getTime() - 24 * 60 * 60 * 1000),
+            lte: new Date(draft.createdAt.getTime() + 24 * 60 * 60 * 1000),
+          },
+        },
+        data: { applicationId: draft.id },
+      });
+    }
+    void this.analytics?.trackServer('application_phase_1_completed', {
+      applicationId: draft.id,
+      anonVisitorId: safeAnonVisitorId ?? undefined,
     });
 
     const webBase =
@@ -550,6 +590,11 @@ export class VendorsService {
     const application = await this.prisma.vendorApplication.findUniqueOrThrow({
       where: { id: draft.id },
     });
+    void this.analytics?.trackServer('application_submitted', {
+      applicationId: application.id,
+      anonVisitorId: application.anonVisitorId ?? undefined,
+      properties: { phase: 'phase_2' },
+    });
 
     const adminEmail =
       this.config.get<string>('VENDOR_APPLICATIONS_ADMIN_EMAIL') ?? 'soul@feastpot.co.uk';
@@ -628,8 +673,12 @@ export class VendorsService {
    * dedupe by email here so an applicant who fat-fingers the kitchen name
    * can re-submit. The admin queue surfaces same-email duplicates naturally.
    */
-  async registerInterest(dto: RegisterVendorInterestDto, fpRef?: string) {
+  async registerInterest(dto: RegisterVendorInterestDto, fpRef?: string, anonVisitorId?: string) {
     const normalisedEmail = dto.email.trim().toLowerCase();
+    const safeAnonVisitorId =
+      anonVisitorId && /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(anonVisitorId)
+        ? anonVisitorId
+        : null;
 
     // Resolve the referring vendor from the fp_ref cookie forwarded by the
     // web app as the X-Fp-Ref header. The cookie format is
@@ -698,9 +747,23 @@ export class VendorsService {
         submittedAt: new Date(),
         // Referral attribution: written once, never overwritten.
         referrerVendorId,
+        anonVisitorId: safeAnonVisitorId,
       },
       select: { id: true, kitchenName: true, createdAt: true, status: true },
     });
+    if (safeAnonVisitorId && this.prisma.analyticsEvent) {
+      await this.prisma.analyticsEvent.updateMany({
+        where: {
+          anonVisitorId: safeAnonVisitorId,
+          applicationId: null,
+          createdAt: {
+            gte: new Date(application.createdAt.getTime() - 24 * 60 * 60 * 1000),
+            lte: new Date(application.createdAt.getTime() + 24 * 60 * 60 * 1000),
+          },
+        },
+        data: { applicationId: application.id },
+      });
+    }
 
     // Enqueue both emails as durable Bull jobs (3 attempts, exponential
     // backoff starting at 30 s). If Resend is down the job retries up to
@@ -1044,8 +1107,8 @@ export class VendorsService {
 
   /**
    * Lazy-create a Stripe Express account for this vendor (idempotent: if one
-   * already exists on the Vendor row, we just refresh the onboarding link).
-   * Returns the hosted onboarding URL.
+   * already exists on the Vendor row, we reuse it). Returns a short-lived
+   * client secret for Stripe's embedded account onboarding component.
    *
    * Failure modes:
    *   - STRIPE_SECRET_KEY missing → throws BadRequestException so the UI can
@@ -1053,7 +1116,10 @@ export class VendorsService {
    *   - Stripe API errors → bubbled as BadRequestException with the original
    *     message (no retry; the vendor can re-click the button).
    */
-  async createStripeConnectLink(userId: string): Promise<StripeConnectLinkResponseDto> {
+  async createStripeConnectSession(
+    userId: string,
+    dto: StripeConnectSessionDto,
+  ): Promise<StripeConnectSessionResponseDto> {
     const vendor = await this.resolveMyVendor(userId, VENDOR_PROFILE_WRITE_ROLES);
     if (!this.config.get<string>('STRIPE_SECRET_KEY')) {
       throw new BadRequestException({
@@ -1074,11 +1140,27 @@ export class VendorsService {
     }
 
     let accountId = vendor.stripeAccountId;
+    let account: Awaited<ReturnType<StripeService['retrieveAccount']>>;
     if (!accountId) {
+      const taxProfile = await this.prisma.vendorTaxProfile.findUnique({
+        where: { vendorId: vendor.id },
+        select: { entityType: true },
+      });
+      const entityType = dto.entityType ?? taxProfile?.entityType;
+      if (
+        entityType !== TaxEntityType.SOLE_TRADER &&
+        entityType !== TaxEntityType.LIMITED_COMPANY
+      ) {
+        throw new BadRequestException({
+          code: 'ENTITY_TYPE_REQUIRED',
+          message: 'Choose whether you are a sole trader or limited company',
+        });
+      }
       try {
-        const account = await this.stripe.createConnectAccount({
+        account = await this.stripe.createConnectAccount({
           email: user.email,
           vendorId: vendor.id,
+          businessType: entityType === TaxEntityType.SOLE_TRADER ? 'individual' : 'company',
         });
         accountId = account.id;
         await this.prisma.vendor.update({
@@ -1092,44 +1174,57 @@ export class VendorsService {
         });
       }
     } else {
-      // Pragmatic Stripe sync: every time the vendor opens the onboarding
-      // link we re-read the account state from Stripe and persist
-      // payoutsEnabled. This covers the "user finished onboarding and came
-      // back" path without needing the full account.updated webhook (which
-      // is still the right long-term solution but is out of scope here -
-      // tracked in the summary).
       try {
-        const account = await this.stripe.retrieveAccount(accountId);
-        const enabled = (account.payouts_enabled ?? false) && (account.charges_enabled ?? false);
-        if (enabled !== vendor.payoutsEnabled) {
-          await this.prisma.vendor.update({
-            where: { id: vendor.id },
-            data: { payoutsEnabled: enabled },
-          });
-          // Profile cache embeds payoutsEnabled; bust it so the vendor
-          // dashboard reflects onboarding completion immediately.
-          await this.cache.del(`vendors:profile:${vendor.id}`);
-        }
-      } catch {
-        // Non-fatal - surface the onboarding URL even if status sync fails.
+        account = await this.stripe.retrieveAccount(accountId);
+      } catch (e) {
+        throw new BadRequestException({
+          code: 'STRIPE_ACCOUNT_FETCH_FAILED',
+          message: 'Could not retrieve your Stripe account details - try again in a moment',
+        });
       }
     }
 
-    // Use the vendor portal URL the request came from. We can't rely on the
-    // Origin header here (this runs server-side); fall back to a configured
-    // env var, then a sensible localhost default for dev.
-    const portalBase = this.config.get<string>('VENDOR_PORTAL_URL') ?? 'http://localhost:3002';
-    try {
-      const link = await this.stripe.createOnboardingLink({
-        accountId,
-        refreshUrl: `${portalBase}/onboarding?stripe=refresh`,
-        returnUrl: `${portalBase}/onboarding?stripe=return`,
+    const businessType =
+      account.business_type === 'individual'
+        ? TaxEntityType.SOLE_TRADER
+        : account.business_type === 'company'
+          ? TaxEntityType.LIMITED_COMPANY
+          : dto.entityType;
+    if (!businessType) {
+      throw new BadRequestException({
+        code: 'ENTITY_TYPE_REQUIRED',
+        message: 'Choose whether you are a sole trader or limited company',
       });
-      return { url: link.url, accountId };
+    }
+    const chargesEnabled = account.charges_enabled ?? false;
+    const stripePayoutsEnabled = account.payouts_enabled ?? false;
+    const requirements = account.requirements;
+    const payoutsEnabled = chargesEnabled && stripePayoutsEnabled;
+    await this.prisma.vendor.update({
+      where: { id: vendor.id },
+      data: {
+        payoutsEnabled,
+        stripeChargesEnabled: chargesEnabled,
+        stripePayoutsEnabled,
+        stripeRequirementsCurrentlyDue: requirements?.currently_due ?? [],
+        stripeRequirementsEventuallyDue: requirements?.eventually_due ?? [],
+        stripeRequirementsPastDue: requirements?.past_due ?? [],
+        stripeRequirementsPendingVerification: requirements?.pending_verification ?? [],
+        stripeRequirementsDisabledReason: requirements?.disabled_reason ?? null,
+        stripeAccountUpdatedAt: new Date(),
+      },
+    });
+    await this.cache.del(`vendors:profile:${vendor.id}`);
+    try {
+      const session = await this.stripe.createAccountSession(accountId);
+      if (!session.client_secret) {
+        throw new Error('Stripe returned an Account Session without a client secret');
+      }
+      return { accountId, clientSecret: session.client_secret, businessType, payoutsEnabled };
     } catch (e) {
       throw new BadRequestException({
-        code: 'STRIPE_LINK_FAILED',
-        message: (e as Error).message,
+        code: 'STRIPE_SESSION_FAILED',
+        message: 'Could not start Stripe onboarding - try again in a moment',
       });
     }
   }
@@ -1464,6 +1559,13 @@ export class VendorsService {
     return vendor;
   }
 
+  async findPublicById(id: string) {
+    const vendor = await this.repo.findPublicById(id);
+    if (!vendor)
+      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
+    return vendor;
+  }
+
   /**
    * Slug → public profile lookup. Used by the customer PWA which addresses
    * vendors by `/vendors/<slug>` rather than UUID. Two-hop (`findBySlug`
@@ -1779,6 +1881,13 @@ export class VendorsService {
       notes: dto.notes,
       orderCapWeekly: dto.orderCapWeekly,
     });
+    if (dto.status === VendorStatus.live) {
+      void this.analytics?.trackServer('vendor_live', {
+        vendorId,
+        userId: vendor.userId,
+        properties: { previous_status: vendor.status },
+      });
+    }
 
     // Critical: a suspended/removed vendor must NOT remain visible in the
     // search cache for up to 5 min. Same for a vendor coming back online.

@@ -4,6 +4,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  Optional,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
@@ -18,6 +19,7 @@ import {
 import type { AuthUser } from '../../auth/types';
 import { RedisCacheService } from '../../common/cache/redis-cache.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { AnalyticsService } from '../analytics/analytics.service';
 import { InboxService } from '../inbox/inbox.service';
 import { NotificationEvent } from '../notifications/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -83,6 +85,7 @@ export class MenuItemsService {
     private readonly config: ConfigService,
     private readonly inbox: InboxService,
     private readonly notifications: NotificationsService,
+    @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
   static validateAllergens(allergens: string[] | undefined): string[] {
@@ -191,7 +194,6 @@ export class MenuItemsService {
       ),
     );
     await this.invalidateVendorCache(vendorId);
-
     return this.prisma.menuItem.findMany({
       where: { menuId },
       orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
@@ -321,6 +323,12 @@ export class MenuItemsService {
       },
     });
     await this.invalidateVendorCache(vendorId);
+    if (declared) {
+      void this.analytics?.trackServer('first_allergen_confirmed_item', {
+        vendorId,
+        properties: { declaration: dto.allergensFreeFrom ? 'free_from' : 'contains_allergen' },
+      });
+    }
     // Held items need a human - ping admins so the moderation queue doesn't
     // rely on polling. Fire-and-forget: notify failures never block creation.
     if (created.moderationStatus === ModerationStatus.held) {
@@ -923,6 +931,12 @@ export class MenuItemsService {
     }
     const [updated] = await this.prisma.$transaction(operations);
     await this.invalidateVendorCache(vendorId);
+    if (!hasAllergenDeclaration(existing) && declarationValid) {
+      void this.analytics?.trackServer('first_allergen_confirmed_item', {
+        vendorId,
+        properties: { declaration: effectiveAllergensFreeFrom ? 'free_from' : 'contains_allergen' },
+      });
+    }
     return updated;
   }
 

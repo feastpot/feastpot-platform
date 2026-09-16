@@ -45,7 +45,7 @@ export class AnalyticsController {
   record(@Body() dto: TrackEventDto): void {
     // Deliberately not awaited: the HTTP response returns immediately.
     // A DB failure is logged by AnalyticsService.track and never re-thrown.
-    void this.analytics.track({
+    void this.analytics.trackPublic({
       eventName: dto.eventName,
       properties: dto.properties,
       anonVisitorId: dto.anonVisitorId,
@@ -83,6 +83,18 @@ export class AnalyticsController {
   adminAttribution(@Query('days') days?: string) {
     const d = clampDays(days);
     return this.analytics.getAttributionBreakdown(d);
+  }
+
+  @Get('admin/lifecycle')
+  @Roles(UserRole.admin, UserRole.finance, UserRole.support)
+  adminLifecycle(@Query('days') days?: string) {
+    return this.analytics.getLifecycleAggregates(clampDays(days));
+  }
+
+  @Get('admin/stuck-leads')
+  @Roles(UserRole.admin, UserRole.support)
+  adminStuckLeads(@Query('days') days?: string) {
+    return this.analytics.getStuckLeads(clampDays(days));
   }
 }
 

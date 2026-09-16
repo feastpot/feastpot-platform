@@ -22,7 +22,7 @@ interface VendorMe {
 /**
  * Onboarding is reachable in two situations:
  *   1. The vendor is `pending` and the orders gate sent them here.
- *   2. The vendor returns from a Stripe Connect redirect (?stripe=return).
+ *   2. Stripe Connect onboarding is embedded directly in the portal.
  *
  * Either way we render the multi-step client and let it figure out the
  * appropriate step based on the current vendor profile.
