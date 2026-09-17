@@ -1,0 +1,63 @@
+TASK: Establish the true production state before anyone
+remediates anything. READ-ONLY. Change nothing.
+
+WHY THIS IS FIRST
+The 17 September audit reported 19 terms acceptances against
+277 vendors marked live, and treated it as a launch blocker.
+That query ran against the DEVELOPMENT database. On
+2 September, production held two vendors and zero live. A
+jump to 277 live vendors in a fortnight, with no marketing
+and no launch, is not plausible. This is very likely seed and
+test pollution. Confirm before acting.
+
+RUN AGAINST PRODUCTION, READ-ONLY
+
+1. Vendor counts
+   Total vendors. Vendors by status. Vendors marked live.
+   For every live vendor: id, trading name, owner email,
+   created date.
+   Classify each as plausibly real or plausibly test, using
+   email domain, creation pattern and seed markers. Do not
+   guess silently; show the basis for each classification.
+
+2. Terms acceptance
+   The currently effective vendor terms version id and its
+   effective date.
+   Count of acceptance records against it.
+   For every live vendor, whether an acceptance exists.
+   Report the ratio against REAL live vendors, not all rows.
+
+3. Notification queue, production not development
+   Current counts per queue: waiting, active, delayed, failed,
+   completed.
+   For failed notification jobs: the job names, the error
+   messages, and the oldest and newest failure timestamps.
+   The audit found failed=135 and waiting=254 in the local
+   API log. Determine whether production shows the same, and
+   whether those failures PREDATE or POSTDATE the notification
+   handler registry fix. This single question decides whether
+   LR-05 is an archaeology job or a live incident.
+
+4. Compliance and terms-notice queues
+   Same treatment. The audit found 12 failed compliance jobs
+   and 8 failed terms-notice jobs locally.
+
+5. Menu items
+   Count published items with no allergen declaration and no
+   free-from-all-14 confirmation. Expect zero; confirm.
+
+6. Orders, payments, payouts
+   Counts of each. Expect zero or near zero. Any unexpected
+   volume is itself a finding.
+
+COST CONTROL
+Read-only SQL and queue inspection only. No code changes, no
+migrations, no job replays, no deploys. Target 20 minutes.
+If you cannot reach production data, say so plainly and stop
+rather than substituting development figures.
+
+REPORT, THEN STOP
+State plainly: how many REAL live vendors exist in
+production, how many have accepted the current terms, and
+whether the notification failures are historic or current.
+Do not begin any fix.
