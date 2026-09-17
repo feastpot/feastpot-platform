@@ -1,0 +1,322 @@
+FEASTPOT LAUNCH READINESS AUDIT
+17 September 2026
+
+Purpose
+-------
+This audit assessed launch readiness for customers, vendors and staff at
+commit 9c03ecad89f258adad72cb9e768d75b53b03d4eb. It covered the
+repository build, type checks, lint, dependencies, tests, all application
+route inventories, customer browser rendering, targeted vendor and Admin
+tests, uploads, links, rates, money, food safety, terms, notifications and
+security.
+
+The audit used current source, local running services, real Chromium visits,
+read-only database queries and commands recorded in audit/00-inventory.md
+through audit/08-critical.md. It changed no product code, restarted no
+service, pushed nothing, ran no CI or deployment, and did not replay or
+discard queue jobs.
+
+Verdict
+-------
+Feastpot is not ready for real vendors, customers or staff.
+Notification delivery is already severely backed up.
+Catering quotes use the wrong commission source and can charge 8%, not 10%.
+The effective vendor terms have 19 acceptances for 277 live development
+vendors, and production acceptance coverage is unknown.
+The real customer purchase, empty-vendor journey and Admin operations are
+not currently provable with the repository's own browser suites.
+HEIC is unsupported and private-document safety was not demonstrated.
+Ten high dependency vulnerabilities include the upload-processing stack.
+All seven blockers below must be closed and re-audited before launch.
+
+Blockers - Must Fix Before Any Real User
+-----------------------------------------
+1. Notification delivery is already severely backed up.
+Why this matters: Customers, vendors and staff may not receive order,
+payment, compliance or legal notices. Some failures may be permanent.
+Evidence: The API log recorded notifications failed=135 and waiting=254.
+It also recorded 12 failed compliance jobs and 8 failed terms-notice jobs.
+The log said QUEUE_ALERT_SLACK_WEBHOOK_URL was not set.
+See audit/00-inventory.md:216-232.
+What to implement: Diagnose and clear the causes without discarding
+evidence, restore timely processing, configure a monitored alert channel,
+and prove a real order confirmation reaches its provider.
+
+2. Catering quotes use the marketplace-first 8% rate instead of 10%.
+Why this matters: Every new catering quote can record the wrong platform
+commission and vendor payout.
+Evidence:
+apps/api/src/modules/catering-bookings/catering-bookings.service.ts:148-165
+sets OrderSource.MARKETPLACE and isFirstOrder=true before calculation.
+The canonical catering rate is 10% at
+packages/config/src/commission-rates.ts:21-25.
+What to implement: Route catering calculations through the catering rate
+source, migrate or reconcile affected quotes, and add a test that fails if a
+catering quote receives any marketplace rate.
+
+3. Effective vendor terms acceptance is not reconciled for launch data.
+Why this matters: A vendor may trade without accepting the terms that govern
+fees, safety duties, suspension, complaints and payouts.
+Evidence: A read-only query selected effective vendor terms version
+part-b-1788799279281. It counted 19 distinct acceptances and 277 vendors
+marked live. See audit/08-critical.md under Food safety and legal.
+What to implement: Separate real and test vendors, verify the same counts in
+production, prevent unaccepted vendors from trading, and obtain current
+acceptance from every real live vendor before launch.
+
+4. The real customer purchase journey is not launch-verified.
+Why this matters: The platform cannot take orders safely if discovery,
+pricing, payment, confirmation, history or cancellation fails.
+Evidence: The customer Playwright run reported 37 failed, 8 skipped,
+31 did not run and 51 passed in 193.053 seconds. Failures included checkout
+financials, payment outcomes, the 375 px post-order journey and the real
+Stripe purchase smoke. See audit/03-customer.md.
+What to implement: Repair the shared test prerequisites and every genuine
+journey defect, then require one clean test-mode purchase from postcode
+search through provider payment, confirmation, history and cancellation.
+
+5. Zero-data Vendor and authenticated Admin operations are not certified.
+Why this matters: A new cook or staff member can encounter an unusable
+portal at the exact point support and operational control are most needed.
+Evidence: The Vendor suite authenticated V4, then deleted its shared session
+file and its dependent projects failed in milliseconds. The Admin setup was
+redirected to /unauthorized?reason=mfa-configuration. The Admin route map
+also omits /platform-facts. See audit/04-vendor.md and
+audit/05-admin.md.
+What to implement: Make both suites deterministic, align the MFA test
+configuration with production policy, add /platform-facts to the enforced
+role inventory, and produce clean route and role matrices for zero-data V4
+and all four staff roles.
+
+6. Upload handling is not safe or usable enough for launch.
+Why this matters: Normal iPhone photos fail, spoofed private documents can
+reach storage, old objects accumulate, and cross-account privacy has not been
+proven.
+Evidence: The bucket MIME lists exclude HEIC at
+apps/api/src/modules/catalogue/supabase-storage.service.ts:65-76.
+Compliance and dispute services upload declared bytes without magic checks
+at apps/api/src/modules/compliance/compliance.service.ts:75-100 and
+apps/api/src/modules/disputes/disputes.service.ts:841-875.
+No EXIF orientation handling was found. See audit/06-uploads.md.
+What to implement: Accept and safely normalise HEIC, validate real content
+before storage, reject empty and active content, normalise orientation,
+delete superseded objects, and prove signed-out and cross-vendor denial.
+
+7. The dependency tree contains ten high vulnerabilities.
+Why this matters: Multer and Sharp are on user-controlled upload paths.
+Their advisories include denial of service, file-size bypass and image
+processing weaknesses.
+Evidence: npm audit exited 1 with 13 vulnerabilities: 10 high and 3
+moderate. High packages included multer and sharp.
+See audit/01-static.md:86-114.
+What to implement: Upgrade or replace affected packages, resolve the
+framework-breaking upgrade path deliberately, rerun the upload abuse matrix,
+and require a clean or formally risk-accepted dependency audit.
+
+Fix Within The First Weeks
+--------------------------
+1. Current automated coverage gives misleading confidence.
+Why this matters: Regressions can pass while critical integrations never run.
+Evidence: API tests reported 283 skipped. Current API coverage did not finish
+within five minutes. Web branch coverage measured 0.87%, below its 1.3%
+threshold. Vendor has an echo instead of unit tests.
+See audit/02-tests.md.
+What to implement: Make credential-dependent suites fail clearly in the
+required environment, publish coverage per workspace, raise meaningful
+thresholds, and replace the Vendor echo with real tests.
+
+2. Vendor branch-protection naming may not enforce the intended check.
+Why this matters: A broken Vendor portal change could merge while the
+repository appears to require a differently named check.
+Evidence: Checked-in branch protection names
+E2E (vendor portal, all projects), while the workflow job is named
+E2E (vendor authoritative lifecycle). See audit/02-tests.md.
+What to implement: Inspect actual GitHub protection, align the exact check
+name, and prove a deliberately failing Vendor check blocks a test branch.
+
+3. User interfaces can expose raw internal or provider error text.
+Why this matters: Users receive confusing messages and internal details may
+leak.
+Evidence:
+apps/vendor/src/app/menu/menu-list-client.tsx:209-214,
+apps/vendor/src/app/analytics/analytics-client.tsx:53-59,
+apps/vendor/src/app/payouts/payouts-client.tsx:193-197, and
+apps/api/src/modules/compliance/compliance.service.ts:94-100.
+What to implement: Map internal failures to stable user messages, retain
+provider detail only in structured logs, and test each error state.
+
+4. File replacement and partial upload failures leave orphaned objects.
+Why this matters: Storage cost grows and private files outlive their visible
+record.
+Evidence:
+apps/api/src/modules/catalogue/menu-items.service.ts:1031-1051 and
+apps/api/src/modules/reviews/reviews.service.ts:203-216.
+See audit/06-uploads.md for the other paths.
+What to implement: Make object and database updates compensating or
+transactional, remove replaced objects, and run a scheduled orphan report.
+
+5. The build passes with warnings and the sitemap omits vendor URLs.
+Why this matters: Vendor discovery from search engines is incomplete and
+warning noise hides real regressions.
+Evidence: The build passed 5/5 tasks but every frontend compiled with
+warnings. Sitemap generation received HTTP 400 and skipped vendor URLs.
+See audit/01-static.md:10-44.
+What to implement: Fix the vendor sitemap request, fail build verification
+when required sitemap data is missing, and reduce warnings to zero.
+
+Housekeeping
+------------
+1. Document the 16 environment variable names listed in
+audit/01-static.md:125-162 and state which runtime owns each one.
+
+2. Replace deprecated Next lint commands in Web, Vendor and Admin.
+Evidence: audit/01-static.md:62-84.
+
+3. Extend the no-em-dash CI check beyond the local pre-commit hook.
+Evidence: audit/01-static.md:179-188.
+
+4. Return an HTTP 404 for missing vendor slugs rather than an in-page 404
+with HTTP 200.
+Evidence: Both audited visits to /vendors/audit-missing-slug returned
+HTTP 200 while rendering "We couldn't find that page".
+See audit/03-customer.md.
+
+5. Resolve the Admin sign-in console warnings and missing resource.
+Evidence: audit/evidence/admin-sign-in.jpg was captured with a 404 resource,
+failed HMR WebSocket and nested-form browser warning.
+
+Confirmed Working
+-----------------
+1. All four local services were running without a restart.
+Evidence: audit/00-inventory.md:206-215.
+
+2. The isolated build passed 5/5 tasks in 90.751 seconds.
+Type checking passed 7/7 tasks. Lint passed 7/7 tasks, with 202 API warnings.
+Evidence: audit/01-static.md.
+
+3. Tracked-file secret scans found no live credential or private-key header.
+No secret value appears in this audit.
+Evidence: audit/01-static.md:116-123.
+
+4. API tests passed 1,175 tests and skipped 283. Admin unit tests passed
+11/11. The financial suite passed 123/123.
+Evidence: audit/02-tests.md.
+
+5. Playwright discovery found no orphan spec: Admin 7 specs/9 projects,
+Vendor 18/24 and Web 18/1.
+Evidence: audit/02-tests.md.
+
+6. All 50 customer routes rendered in Chromium at desktop and 375 px.
+There are 100 screenshots under audit/evidence/customer/.
+Evidence: audit/03-customer.md.
+
+7. The internal link command checked 70 unique live targets and reported
+zero broken links in 44.662 seconds.
+Evidence: audit/07-links.md.
+
+8. Catering deposit arithmetic rejects sub-£50 normal quotes, caps deposit
+at total, uses integer pence and asserts exact reconciliation.
+Evidence: packages/config/src/catering-deposit.ts:28-75.
+
+9. Stripe webhook claims occur before enqueue, and account.updated is handled.
+Evidence:
+apps/api/src/modules/payments/stripe-webhook.controller.ts:92-115,
+apps/api/src/modules/payments/stripe-webhook-delivery.service.ts:33-108,
+and apps/api/src/modules/payments/stripe-webhook.processor.ts:216-285.
+
+10. Menu publication and checkout contain allergen declaration gates.
+Evidence:
+apps/api/src/modules/catalogue/menu-items.service.ts:952-959 and
+apps/api/src/modules/orders/orders.service.ts:494-504.
+
+11. Material vendor terms with fewer than 15 days' notice are rejected.
+Evidence: apps/api/src/modules/terms/terms.service.ts:89-99.
+
+12. Production API startup requires ADMIN_REQUIRE_AAL2=true, and the guard
+rejects non-AAL2 staff sessions when enabled.
+Evidence: apps/api/src/common/config/required-env.ts:91-107 and
+apps/api/src/auth/guards/aal.guard.ts:55-83.
+
+13. The public error-incident path keeps client attribution separate from
+authenticated ownership.
+Evidence:
+apps/api/src/modules/error-incidents/error-incidents.service.ts:81-105.
+
+Not Verified
+------------
+The following must not be treated as working:
+
+1. Production service health, deployment configuration, data, queues,
+mailboxes, monitoring, branch protection or database schema.
+
+2. Current API coverage and any API integration test skipped because a
+credential or factory prerequisite was absent.
+
+3. A complete real customer flow: postcode cases, real vendor/allergen
+display, basket changes, first-price disclosure, payment, confirmation,
+tracking, cancellation, reviews and account mutations.
+
+4. Horizontal overflow measurements for 91 customer route visits whose
+summary was lost when the first crawl reached five minutes.
+
+5. Every authenticated Vendor route for a V4 zero-data vendor, QR visibility
+under five seconds, onboarding, terms, Stripe Connect, tax, menu changes,
+availability, delivery, orders, catering UI, payouts and disputes.
+
+6. Every authenticated Admin route and workflow, including applications,
+enforcement notice timing, compliance, appeals, chargebacks, catering,
+moderation, payouts, rates, legal operations, users, roles and queues.
+
+7. Runtime role enforcement for every Admin endpoint with a Vendor token and
+every Vendor object endpoint with another Vendor's token.
+
+8. Production staff MFA configuration and enrolment for every staff member.
+
+9. Real upload format results for JPEG, PNG, WebP, HEIC, PDF, SVG, zero-byte,
+spoofed extension and files larger than 10 MB.
+
+10. EXIF orientation, replace/delete behaviour, aspect ratios, placeholders,
+private signed-out access, cross-vendor access and public image access.
+
+11. Actual payout PDF, payout CSV, terms PDF, QR and catering pack rendering.
+No catering compliance-pack implementation was found.
+
+12. External links, telephone links, email links and whether support@,
+compliance@, privacy@ and vendors@ exist and are monitored.
+
+13. Production live terms version, real-vendor denominator and current
+acceptance count.
+
+14. A real order_confirmation from order creation through queue, processor
+and email or WhatsApp provider dispatch.
+
+15. Live Stripe webhook, payment, refund, chargeback and payout transfer
+execution, including exact batch/detail reconciliation.
+
+16. Rendered confirmation that Annex A and Annex C are absent from
+/become-a-vendor and that a prominent full Vendor Terms link remains.
+
+Coverage
+--------
+Customer routes: 50/50 desktop and 50/50 mobile rendered. HTTP status and
+overflow were retained only for the final nine measured visits.
+
+Vendor routes: 45 exist. Exact authenticated route coverage is not claimed.
+The V1 state representative test passed; the V4 suite lost its session.
+
+Admin routes: 49 exist. Authenticated coverage is 0/49 because staff setup
+was denied by MFA configuration.
+
+API: 43 controllers and 326 decorated handlers were inventoried. A complete
+authenticated endpoint matrix was not run.
+
+Upload paths: 7 current upload paths were reviewed in source. 0/7 completed
+the full runtime format, size, orientation, replace/delete and access matrix.
+
+Tests executed: root unit/integration tests, Admin unit tests, API financial
+tests, all three discovery guards, the root browser command, measured Web
+coverage, attempted API coverage, the customer browser suite, the targeted
+Vendor run, targeted Admin checks and the live link audit.
+
+Audit files: audit/00-inventory.md through audit/08-critical.md contain the
+phase evidence. No product fix was made.

@@ -1,0 +1,419 @@
+ROLE: You are conducting the final pre-launch readiness audit
+of Feastpot before real vendors, customers and admin staff use
+the platform. You are an auditor for this task, not a
+developer.
+
+═══════════════════════════════════════════════════════════
+GROUND RULES. READ FULLY BEFORE STARTING.
+═══════════════════════════════════════════════════════════
+
+RULE 1: FIX NOTHING.
+Do not edit, refactor, patch or "quickly improve" anything.
+Record findings only. If you change code while auditing it,
+the report describes a codebase that no longer exists.
+Only exception: you may create files under /audit/.
+
+RULE 2: EVIDENCE OR SILENCE.
+Every finding needs a file path and line number, a command you
+actually ran with its real output, or a screenshot you
+actually captured. If you cannot verify something, write
+NOT VERIFIED and say what blocked you. Never infer that
+something works. Never assume a file does what its name
+suggests. Never carry a claim forward from an older audit
+without reproducing it yourself.
+An honest "could not verify" is worth more to me than a
+confident guess. I will check your file references.
+
+RULE 3: COST CONTROL. THIS MATTERS.
+A previous run cost 5 hours 41 minutes and $33.47 because it
+looped on CI. Do not repeat that.
+  No git push. No CI runs. No deployments. No service
+  restarts. No job replays or discards.
+  No repeated retry loops. If something fails twice the same
+  way, record it and move on.
+  Work locally against running dev servers.
+  After EACH phase, append findings to the phase file and
+  print a one-line progress note.
+  HARD CAP: if total elapsed work reaches 90 minutes, stop
+  wherever you are, write the report with what you have, and
+  clearly list what remains unaudited. Do not push past the
+  cap to "finish".
+
+RULE 4: PHASE ORDER IS FIXED.
+Work phases in order. Do not skip ahead. Each phase writes to
+its own file under /audit/.
+
+═══════════════════════════════════════════════════════════
+CONTEXT
+═══════════════════════════════════════════════════════════
+Turborepo. apps/web (customer PWA, feastpot.co.uk),
+apps/vendor (vendor.feastpot.co.uk), apps/admin, apps/api
+(NestJS), packages/*. Prisma + Supabase, BullMQ, Stripe
+Connect, Resend, WhatsApp Cloud API, Playwright, Replit.
+
+Start all three apps and the API locally. Confirm each
+responds before proceeding. If any will not start, that is
+finding number one and the audit continues against whatever
+does start.
+
+═══════════════════════════════════════════════════════════
+PHASE 0: INVENTORY  →  /audit/00-inventory.md
+═══════════════════════════════════════════════════════════
+Record the commit SHA being audited.
+Enumerate every route in all three apps. Report the total
+count per app. This is the denominator for Phases 3 to 5, and
+I will compare it against how many you actually visit.
+Enumerate every API endpoint.
+Confirm which apps and services are running.
+
+═══════════════════════════════════════════════════════════
+PHASE 1: STATIC HEALTH  →  /audit/01-static.md
+═══════════════════════════════════════════════════════════
+Run and record EXACT output, including warning counts. Do not
+summarise a warning-laden pass as "clean":
+  npm run build
+  npm run typecheck
+  npm run lint
+  npm audit
+Report error and warning counts verbatim.
+
+Then:
+  Secrets: scan tracked files for provider keys, tokens,
+    private key headers, and anything under NEXT_PUBLIC_ that
+    should not be public. Report variable NAMES only, never
+    values.
+  Environment: list every variable read by code, which are
+    documented in .env.example, and which are not.
+  Unfinished work: grep TODO, FIXME, HACK, XXX, "placeholder",
+    "for now", "not implemented", "coming soon". For each,
+    judge whether it is cosmetic or load-bearing, where
+    load-bearing means a user or a payment could hit it.
+  Em dash rule: grep U+2014 across all apps, API, packages,
+    prisma, seed data, email templates and WhatsApp templates.
+    Confirm the ESLint rule and CI guard actually cover every
+    workspace, not just some.
+  Error handling: find every place an empty dataset could
+    reach an error boundary instead of an empty state, and
+    every user-facing message that could leak a stack trace or
+    provider error text.
+
+═══════════════════════════════════════════════════════════
+PHASE 2: TEST SUITE REALITY  →  /audit/02-tests.md
+═══════════════════════════════════════════════════════════
+Run every test command defined in every package.json. Record
+verbatim: pass, fail and SKIPPED counts plus duration.
+Skipped tests matter as much as failures; report them
+prominently with the reason each is skipped.
+
+Then answer directly, with evidence:
+  Does any workspace still use --passWithNoTests?
+  Is a coverage threshold actually enforced, and what is the
+    real measured coverage per workspace?
+  Which user journeys are gated by a required CI check, and
+    which are not? Specifically: customer checkout, vendor
+    portal, admin panel, payment paths.
+  Does every Playwright spec file belong to a runnable
+    project, in all three apps? List any orphans.
+  Which tests silently skip when credentials are absent?
+
+Do not push to CI to find out. Read the workflow files and run
+locally.
+
+═══════════════════════════════════════════════════════════
+PHASE 3: CUSTOMER APP  →  /audit/03-customer.md
+═══════════════════════════════════════════════════════════
+Use Playwright with real browser visits. Screenshot evidence
+to /audit/evidence/.
+
+Visit EVERY route from Phase 0. For each record: renders,
+renders with an error, renders empty with no explanation, or
+404. No route may be marked "assumed working".
+
+Then exercise these as a NEW customer with zero history:
+  postcode with vendors, postcode with none, invalid postcode
+  browse vendors, open a vendor profile
+  per-dish allergen information present and readable
+  add to basket, change quantity, remove
+  checkout: is the TOTAL INCLUDING all mandatory fees shown at
+    the first point pricing appears?
+  complete a test-mode payment if the publishable key is
+    configured; if not, report that as a blocker
+  order confirmation, order history, tracking
+  cancel an order
+  leave a review before delivery (should be blocked) and after
+  account pages: addresses, profile, notifications, FeastPass
+  sign up, sign in, password reset, sign out
+
+Mobile: repeat the core path at 375px. Report any horizontal
+scroll with measured scrollWidth against clientWidth.
+
+═══════════════════════════════════════════════════════════
+PHASE 4: VENDOR APP  →  /audit/04-vendor.md
+═══════════════════════════════════════════════════════════
+CRITICAL: test with a vendor account that has ZERO data. Zero
+orders, zero documents, zero disputes, zero payouts, no tax
+profile. A new cook signing up IS this case, and a previous
+audit could not create one at all. If you cannot provision an
+empty vendor, that is a headline finding, not a footnote.
+
+Visit every vendor route for that account. Previously reported
+as broken; reproduce or refute each with a screenshot:
+  /earnings, /compliance, /account-status
+  /referrals QR code, and TIME how long until it is visible
+    (requirement is under 5 seconds)
+  /catering/new, specifically whether it renders with
+    navigation
+
+Then exercise, per account state where possible:
+  application, terms acceptance, Stripe Connect onboarding
+  tax information capture
+  menu creation WITH allergens, and WITHOUT allergens (the
+    second must be blocked)
+  availability, capacity caps, lead times, delivery settings
+  receive, accept, reject and fulfil an order
+  catering quote: build one and CHECK THE ARITHMETIC. Assert
+    deposit plus balance equals total, and that no input
+    produces a negative balance.
+  earnings, payouts, statements
+  disputes, profile, team, security, notifications
+  the referral link and share text
+
+Mobile at 375px throughout.
+
+═══════════════════════════════════════════════════════════
+PHASE 5: ADMIN APP  →  /audit/05-admin.md
+═══════════════════════════════════════════════════════════
+Visit every admin route. Then exercise:
+  vendor application review, approve, reject, request info
+  vendor suspend and terminate: does the system REQUIRE a
+    written reason, and is notice issued at or before effect?
+  compliance document review and expiry handling
+  disputes and the two-stage appeal (does stage 2 by the SAME
+    reviewer get rejected?)
+  chargebacks, catering triage and assignment
+  menu moderation, review moderation
+  payouts: run a batch, inspect a statement
+  commission rates: attempt a change and confirm the notice
+    flow cannot be bypassed
+  legal ops, terms publishing (does under-15-days notice get
+    rejected? does missing solicitor sign-off get rejected?)
+  users, roles, audit log, discount codes, push broadcast
+  dead letters, job queues access
+
+Role testing: for each of admin, support, finance and
+compliance, confirm the sidebar and the server both enforce
+the matrix documented in /user-guide. Report any destination
+reachable by a role that should not have it.
+
+Data truthfulness: report any percentage rendered without its
+denominator, any "all clear" message against a zero
+denominator, any raw UUID where a name exists, and any test
+data mixed into operational views.
+
+═══════════════════════════════════════════════════════════
+PHASE 6: IMAGE UPLOADS AND FILE HANDLING
+                              →  /audit/06-uploads.md
+═══════════════════════════════════════════════════════════
+This area has never been audited. Test every upload path in
+the product:
+  vendor logo and cover image
+  menu item photos
+  compliance document upload (insurance, certificates, ID)
+  menu photo upload for assisted build, if implemented
+  any customer-side upload (review photos, dispute evidence)
+  generated files: QR codes, payout statement PDFs, catering
+    compliance packs, terms acceptance PDFs
+
+For EACH upload path test:
+  FORMATS: jpg, png, webp, and HEIC specifically. iPhones
+    shoot HEIC by default and vendors will upload from phones.
+    If HEIC fails, that is a major finding.
+  PDF where documents are expected.
+  EXIF ORIENTATION: upload a portrait photo taken on a phone
+    and confirm it does not render sideways. This is a classic
+    failure and vendors will notice immediately.
+  SIZE: a large file (10MB+) and confirm either it is accepted
+    or rejected with a clear message, never a silent failure
+    or a timeout.
+  ZERO-BYTE file, and a file with a mismatched extension (a
+    .txt renamed to .jpg). Both should be rejected cleanly.
+  SVG: confirm SVG uploads are either rejected or sanitised.
+    An SVG can carry script.
+  REPLACE and DELETE: upload, replace, delete. Confirm the old
+    object is removed and no broken reference remains.
+
+Storage and access control, this is the security part:
+  Confirm each file lands in the expected Supabase Storage
+    bucket.
+  PRIVATE DOCUMENTS MUST BE PRIVATE. Take the URL of an
+    uploaded compliance document (insurance certificate, photo
+    ID) and attempt to fetch it while signed out and from a
+    different vendor's session. If it is retrievable, that is
+    a critical finding. Report the exact URL pattern, not the
+    document contents.
+  Confirm public images (menu photos, logos) ARE publicly
+    reachable, since a broken image on a listing costs orders.
+  Check whether uploaded filenames are sanitised or used raw.
+
+Rendering: after each upload, confirm the image actually
+displays where it should, at the correct aspect ratio, on both
+desktop and mobile, and that a missing image degrades to a
+sensible placeholder rather than a broken icon.
+
+═══════════════════════════════════════════════════════════
+PHASE 7: LINK INTEGRITY  →  /audit/07-links.md
+═══════════════════════════════════════════════════════════
+Crawl every internal link in all three apps: navigation,
+sidebars, footers, breadcrumbs, in-content links, buttons that
+navigate, and cross-app links between the customer site,
+vendor portal and admin.
+Record status code, redirect chain and final URL.
+Check anchor targets exist where a link points to one.
+Check links inside email and WhatsApp templates resolve.
+Report external links separately as warnings.
+Confirm the mailboxes referenced in the product exist and are
+monitored: support@, compliance@, privacy@, vendors@. An
+unmonitored compliance mailbox turns a compliant appeal
+process into a non-compliant one.
+Report ZERO or list every broken link with its source page.
+
+═══════════════════════════════════════════════════════════
+PHASE 8: MONEY, COMPLIANCE AND NOTIFICATIONS
+                              →  /audit/08-critical.md
+═══════════════════════════════════════════════════════════
+Verify each of the following against the CURRENT code and,
+where safe, the running system. State FIXED, STILL PRESENT or
+NOT VERIFIED with evidence for each.
+
+RATES (should be 8% first, 5% repeat, 0% referred, 10%
+catering):
+  Read the rate from every surface and report whether they all
+    agree: rate engine, API calculation, /become-a-vendor
+    worked examples, earnings calculator, published terms
+    Annex A, vendor portal Rate Schedule, vendor Earnings
+    page, admin Settings, admin Commission rates, payout PDF,
+    payout CSV, payout email.
+  Grep for any remaining hardcoded 12% or 0.12 outside
+    historic rate rows and migrations.
+
+MONEY PATHS:
+  Is the Stripe webhook event claimed ATOMICALLY before the
+    job is queued?
+  Is account.updated subscribed and handled?
+  Does any money calculation use floating point rather than
+    integer pence?
+  Catering: does deposit plus balance always equal total, with
+    no negative balance possible at any input?
+  Payout statements: does any format still compare against a
+    hardcoded rate? Do batch totals and detail rows include
+    the same orders?
+
+FOOD SAFETY AND LEGAL:
+  Can a menu item be published with no allergen declaration
+    and no free-from-all-14 confirmation? Test the write path
+    AND the public read path.
+  Which vendor terms version is live, and how many acceptance
+    records exist against it, against how many live vendors?
+  Does publishing a terms version with under 15 days notice
+    get rejected?
+  Does the FHRS policy in the /become-a-vendor FAQ match what
+    the code actually enforces for a vendor who is registered
+    but awaiting first inspection?
+  Are the Annex A and Annex C sections removed from
+    /become-a-vendor, and does a prominent link to the full
+    vendor terms remain?
+
+NOTIFICATIONS:
+  Confirm every registered notification event name has an
+    explicit handler and that the producer/handler consistency
+    contract passes.
+  Report which registered events have NO template and
+    therefore complete without notifying anyone.
+  Trigger order_confirmation end to end and confirm the email
+    actually renders and dispatches.
+
+SECURITY:
+  Is staff MFA enforced, or merely warned about?
+  Does the public error-incident endpoint still accept a
+    client-supplied vendorId or userId as authoritative?
+  Test every admin endpoint with a vendor token and every
+    vendor endpoint with another vendor's token. Report any
+    that return data they should not.
+
+═══════════════════════════════════════════════════════════
+PHASE 9: THE REPORT
+       →  /audit/FEASTPOT_READINESS_<YYYY-MM-DD>.txt
+═══════════════════════════════════════════════════════════
+Plain text. No markdown syntax, no tables, no emoji. Wrap at
+78 characters. UK English. No em dashes anywhere.
+
+Structure:
+
+  FEASTPOT LAUNCH READINESS AUDIT
+  <date>
+
+  Purpose
+  -------
+  What was covered, how, and the commit SHA audited.
+
+  Verdict
+  -------
+  Six to ten lines. Is this platform ready for real vendors,
+  real customers and real admin staff? Answer plainly. If not,
+  name the small number of things that must be true first. Do
+  not hedge.
+
+  Blockers - Must Fix Before Any Real User
+  -----------------------------------------
+  For each:
+    <n>. <One line stating the problem as fact>
+    Why this matters: plain-language consequence.
+    Evidence: file:line with a short excerpt, or the command
+      and its real output, or the screenshot path.
+    What to implement: specific and actionable.
+
+  Fix Within The First Weeks
+  --------------------------
+  Same format.
+
+  Housekeeping
+  ------------
+  Same format, briefer.
+
+  Confirmed Working
+  -----------------
+  Only things you actively exercised. This tells me where NOT
+  to spend effort, so it matters as much as the problems.
+
+  Not Verified
+  ------------
+  Everything you could not test and why. Be exhaustive. A
+  reader must be able to tell exactly where this audit's
+  knowledge ends.
+
+  Coverage
+  --------
+  Routes visited versus routes existing, per app. Upload paths
+  tested versus upload paths existing. Tests executed.
+
+RANKING RULE
+Order by consequence multiplied by likelihood. Food safety,
+money loss and legal exposure outrank everything. A cosmetic
+issue ranks last however easy it is to fix. Do not rank by
+ease of fixing.
+
+TONE
+Write for a founder making launch decisions, not for
+engineers. Plain language. No softening. If something is bad,
+say it is bad.
+
+FINAL CHECKS
+  Every finding has real evidence. Delete any you cannot
+    evidence.
+  No secret values anywhere in the file.
+  No em dash characters anywhere in the file.
+  The Not Verified section is complete and honest.
+  You fixed nothing.
+
+Then give me a five-line summary in chat plus the blocker
+count. Do not begin fixing anything.
