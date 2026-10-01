@@ -25,7 +25,23 @@ Using illustrative public demo assets avoids requesting unrelated credentials,
 but those images remain dependent on development storage retention.
 
 **How to apply:** Isolate such assets under a dedicated demo namespace, retain
-their source files, and keep the vendor private and non-orderable. If a demo is
+their source files, and keep the vendor non-orderable. Default to private;
+explicitly authorised public demos require the read-only boundary below. If a demo is
 ever replaced with a real vendor, migrate the photos to production-owned storage
 and replace sample details with genuine evidence rather than merely clearing
 the test marker.
+
+Public demo browsing and demo-owner access do not make a fixture a real trading
+vendor. Preserve test provenance, unverified compliance, held/unavailable dishes
+and disabled payment capabilities when allowing either.
+
+**Why:** A requested searchable demonstration needs its sample menu and photos
+visible without fabricating eligibility, activating checkout or contaminating
+operational figures. Owner login is a separate permission from customer ordering.
+
+**How to apply:** Require an explicitly scoped read-only public projection, label
+all customer surfaces as fictional, and enforce the ordering prohibition on the
+server independently of status or UI controls. Demo account setup must use the
+matching production Auth project, preserve the existing owner's UUID, and prove
+email possession through the invitation before establishing a password. Never
+reuse development Auth credentials simply because development hosts demo photos.

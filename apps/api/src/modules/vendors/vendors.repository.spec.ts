@@ -17,6 +17,6 @@ describe('VendorRepository public search provenance', () => {
     await repository.search({ limit: 20 }, null);
 
     const query = queryRaw.mock.calls[0]?.[0] as { strings: readonly string[] };
-    expect(query.strings.join('')).toContain('AND v.is_seed_data = false');
+    expect(query.strings.join('')).toContain('v.is_seed_data = false');
   });
 });

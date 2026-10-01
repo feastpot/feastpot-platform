@@ -616,6 +616,11 @@ export class VendorsController {
       'Verified trust signals for a vendor (public, customer profile). Never exposes unverified signals, evidence references or verifier ids.',
   })
   async getTrustSignals(@Param('id', new ParseUUIDPipe()) id: string) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id },
+      select: { publicDemo: true },
+    });
+    if (vendor?.publicDemo) return { signals: [] };
     const signals = await getVendorTrustSignals(this.prisma, id);
     return {
       signals: signals.map((s) => ({

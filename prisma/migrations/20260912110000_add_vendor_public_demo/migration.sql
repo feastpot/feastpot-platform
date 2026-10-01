@@ -1,0 +1,2 @@
+ALTER TABLE "vendors"
+ADD COLUMN IF NOT EXISTS "public_demo" BOOLEAN NOT NULL DEFAULT false;
