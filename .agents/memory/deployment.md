@@ -75,9 +75,12 @@ finishes. Observed VM startup deadlines allow roughly 60 seconds for the entire
 run command, including npm launch overhead and migrations, not 60 seconds from
 the Node entry point. On the 0.5-vCPU VM, successful migration startup can leave
 only about 20 seconds for Node. Fast workspace startup does not establish that
-the published VM can meet this deadline.
+the published VM can meet this deadline. Cold production dependency loading
+(including monitoring SDK imports) can consume the remaining window before
+Nest starts, even when the same imports take milliseconds in the workspace.
 **How to apply:** keep `db:deploy` limited to connectivity preflight, `prisma
 migrate deploy`, and RLS lockdown. Run exceptional migration-history repairs
 separately instead of adding them to every VM start. Compare platform startup,
 Node entry, lifecycle initialization and listener timings before choosing a
-fix; never bypass migration or security gates just to make the probe pass.
+fix; do not blame Redis/Storage initialization unless startup has reached those
+hooks. Never bypass migration or security gates just to make the probe pass.

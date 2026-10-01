@@ -91,7 +91,9 @@ fi
 # 2. Apply migrations.
 # ---------------------------------------------------------------------------
 echo "[db-deploy] Running prisma migrate deploy..."
-npx prisma migrate deploy --schema="$SCHEMA"
+# The build installs Prisma locally. Avoid npx's package-resolution startup
+# overhead inside the VM's limited readiness window; never download at runtime.
+./node_modules/.bin/prisma migrate deploy --schema="$SCHEMA"
 MIGRATE_EXIT=$?
 if [ $MIGRATE_EXIT -ne 0 ]; then
   echo "[db-deploy] prisma migrate deploy failed with exit $MIGRATE_EXIT"
