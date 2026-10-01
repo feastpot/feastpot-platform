@@ -1,6 +1,15 @@
-// Sentry must be required before anything else so its OpenTelemetry
+// Use unbuffered, secret-free phase markers to diagnose startup deadlines.
+// process.uptime() also includes time spent loading the entry point.
+function logStartupPhase(phase: string): void {
+  // eslint-disable-next-line no-console
+  console.info(`[feastpot-api] startup +${Math.round(process.uptime() * 1000)}ms: ${phase}`);
+}
+
+logStartupPhase('loading instrumentation');
+// Sentry must be required before other modules so its OpenTelemetry
 // auto-instrumentation can hook into Node's module loader.
 import './instrument';
+logStartupPhase('instrumentation loaded; loading application modules');
 import 'reflect-metadata';
 
 // Bull v3 spins up three ioredis connections per queue (client, subscriber,
@@ -122,6 +131,7 @@ const ALLOWED_ORIGINS = [
 ];
 
 async function bootstrap(): Promise<void> {
+  logStartupPhase('application modules loaded; checking configuration');
   // Organisational standard: resolve the environment-specific Stripe secrets
   // (STRIPE_*_LIVE / STRIPE_*_TEST, stored as encrypted Replit Secrets) into the
   // canonical STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET vars based on NODE_ENV.
@@ -170,12 +180,14 @@ async function bootstrap(): Promise<void> {
   // bufferLogs: true so the early-bootstrap logs are buffered until pino
   // takes over below - otherwise they'd be dropped by Nest's default logger
   // before useLogger() swaps it out.
+  logStartupPhase('creating Nest application');
   const app = await NestFactory.create(AppModule, {
     rawBody: true,
     bodyParser: false,
     bufferLogs: true,
   });
   app.useLogger(app.get(Logger));
+  logStartupPhase('Nest application created; configuring HTTP');
 
   // Manual body parsers - must be installed BEFORE any route runs. The verify
   // callback stashes the raw Buffer on the request so Stripe's webhook
@@ -324,7 +336,11 @@ async function bootstrap(): Promise<void> {
 
   // Bind to 0.0.0.0 - required for Replit's container networking. Listening on
   // localhost only would make the service invisible to the platform's proxy.
+  logStartupPhase('initializing application lifecycle hooks');
+  await app.init();
+  logStartupPhase(`lifecycle hooks complete; binding port ${port}`);
   await app.listen(port, '0.0.0.0');
+  logStartupPhase('HTTP listener ready');
   // eslint-disable-next-line no-console
   console.info(`[feastpot-api] listening on http://0.0.0.0:${port} (${env})`);
   // eslint-disable-next-line no-console

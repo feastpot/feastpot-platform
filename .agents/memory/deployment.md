@@ -71,9 +71,13 @@ blocked until the user explicitly approves publishing.
 
 **Keep pre-listener deployment work within the VM health-check budget.**
 **Why:** Replit health checking starts before the synchronous `db:deploy` step
-finishes. The API itself takes about 21 seconds to become ready; an obsolete
-migration-repair probe once added 30-35 seconds and caused healthy code to be
-killed before port 3001 opened.
+finishes. Observed VM startup deadlines allow roughly 60 seconds for the entire
+run command, including npm launch overhead and migrations, not 60 seconds from
+the Node entry point. On the 0.5-vCPU VM, successful migration startup can leave
+only about 20 seconds for Node. Fast workspace startup does not establish that
+the published VM can meet this deadline.
 **How to apply:** keep `db:deploy` limited to connectivity preflight, `prisma
 migrate deploy`, and RLS lockdown. Run exceptional migration-history repairs
-separately instead of adding them to every VM start.
+separately instead of adding them to every VM start. Compare platform startup,
+Node entry, lifecycle initialization and listener timings before choosing a
+fix; never bypass migration or security gates just to make the probe pass.
