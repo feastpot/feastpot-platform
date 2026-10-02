@@ -12,6 +12,7 @@
 - [WhatsApp template slots](whatsapp-template-slots.md) - approved templates have 1-2 slots (no order-total slot); Meta enforces exact counts; builders keyed by whatsappTemplate name.
 - [WhatsApp Content SID naming](whatsapp-content-sid-naming.md) - Twilio env var is `TWILIO_CONTENT_SID_<whatsappTemplate>`, NOT the registry key (they diverge, e.g. payout_batch_ready→payout_statement); enumerate by whatsappTemplate.
 - [Redis / Upstash for BullMQ](redis-upstash.md) - must be paid Upstash (free 500K cmd/mo cap fails); `rediss://` TLS; queues tuned to 5-min polls - don't revert.
+- [Redis queue isolation](redis-queue-isolation.md) - workspace Redis can share production queues despite separate SQL databases; isolate tests before changing queue state.
 - [Bull lock vs stalled invariant](bull-lock-vs-stalled.md) - 5-min stalledInterval needs lockDuration>stalledInterval or jobs falsely fail "stalled"; stalled failures bypass the attempts-based Sentry gate.
 - [Deployment](deployment.md) - 1 service/repl so this repl deploys the API; API MUST be VM (workers+crons in-process); placeholder STRIPE_WEBHOOK_SECRET to break webhook chicken-and-egg.
 - [Prisma baseline / P3005](prisma-baseline-p3005.md) - `db push` on the shared Supabase DB leaves no migration history → prod `migrate deploy` P3005 crash-loop; recover by baselining (resolve --applied + sha256 psql insert).

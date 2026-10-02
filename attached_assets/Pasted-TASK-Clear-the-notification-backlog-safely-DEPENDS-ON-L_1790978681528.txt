@@ -1,0 +1,61 @@
+TASK: Clear the notification backlog safely.
+
+DEPENDS ON: LR-01, which establishes whether these failures
+are historic or current in production.
+
+THE STATE
+The API log recorded notifications failed=135, waiting=254,
+plus 12 failed compliance jobs and 8 failed terms-notice jobs.
+QUEUE_ALERT_SLACK_WEBHOOK_URL was not set, which is why nobody
+knew.
+
+STEP 1: DIAGNOSE BEFORE TOUCHING ANYTHING
+For a representative sample of failed jobs, report: job name,
+error message, attempt count, timestamp, and payload shape
+with no personal data.
+Answer specifically:
+  Are these the SAME failure class as the handler registry
+  bug that was fixed, meaning stale corpses from before the
+  fix?
+  Or are they NEW failures with a different cause?
+  Why are 254 jobs WAITING rather than processing? A large
+  waiting count with a running worker suggests the worker is
+  not consuming, concurrency is exhausted, or Redis
+  connectivity is degraded. This may matter more than the
+  failures.
+
+STEP 2: CLASSIFY
+  Stale failures predating the handler fix: safe to discard
+  after recording. They will never succeed and retrying sends
+  nothing useful.
+  Current failures: fix the cause, then retry.
+  Waiting jobs: determine whether the worker is alive and
+  consuming at all.
+
+STEP 3: ACT, WITH MY APPROVAL PER CLASS
+Report your classification and proposed action per class and
+WAIT for my approval before discarding or replaying anything.
+Do not clear the queue to make the number look better.
+
+STEP 4: CONFIGURE ALERTING
+Set and verify QUEUE_ALERT_SLACK_WEBHOOK_URL. Trigger a test
+alert and confirm delivery. Then configure thresholds so a
+backlog of this size raises an alert long before it reaches
+135 failures.
+
+STEP 5: PROVE DELIVERY WORKS
+Trigger order_confirmation end to end: order created, job
+enqueued, worker processes it, template renders, provider
+accepts it. Report the provider response. This is the single
+most important verification in this prompt.
+
+COST CONTROL
+No repeated replay attempts. Diagnose once, report, wait for
+approval. Target 40 minutes.
+
+ACCEPTANCE CRITERIA
+- Every failed job class diagnosed and classified.
+- The waiting-jobs cause identified.
+- Alerting configured and verified.
+- order_confirmation proven to reach its provider.
+- Nothing discarded or replayed without my approval.

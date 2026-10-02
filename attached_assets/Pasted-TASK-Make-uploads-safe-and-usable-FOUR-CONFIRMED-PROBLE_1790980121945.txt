@@ -1,0 +1,65 @@
+TASK: Make uploads safe and usable.
+
+FOUR CONFIRMED PROBLEMS
+
+1. HEIC IS UNSUPPORTED
+   apps/api/src/modules/catalogue/supabase-storage.service.ts:65-76
+   excludes HEIC from the bucket MIME lists. iPhones shoot
+   HEIC by default, so a large share of vendors will fail at
+   their first photo upload during onboarding.
+   ASK ME BEFORE IMPLEMENTING which approach to take:
+     (a) client-side conversion to JPEG before upload, cheaper
+         to run, no server image dependency
+     (b) server-side normalisation via sharp with libheif,
+         heavier and adds a dependency on the same stack that
+         LR-07 flags as vulnerable
+   I am cost-conscious about infrastructure, so present the
+   running cost of each before I choose.
+
+2. DECLARED CONTENT TYPE IS TRUSTED
+   apps/api/src/modules/compliance/compliance.service.ts:75-100
+   and apps/api/src/modules/disputes/disputes.service.ts:841-875
+   upload declared bytes with no magic-byte validation. A .txt
+   renamed .jpg reaches storage.
+   Validate real file content before storage on every upload
+   path. Reject zero-byte files. Reject SVG, or sanitise it,
+   because SVG can carry script.
+
+3. NO EXIF ORIENTATION HANDLING
+   None was found. A portrait photo taken on a phone will
+   render sideways. Vendors notice this immediately and it
+   makes the platform look amateur. Normalise orientation on
+   ingest.
+
+4. PRIVATE DOCUMENT ACCESS IS UNPROVEN
+   This is the security item. Compliance documents include
+   insurance certificates and photo ID.
+   TEST AND REPORT: take the storage URL of an uploaded
+   compliance document and attempt to fetch it while signed
+   out, and from a different vendor's session. If either
+   succeeds, that is a data protection incident and the most
+   serious finding in this entire remediation.
+   Report the URL PATTERN only, never document contents.
+   Then confirm the inverse: public images such as menu photos
+   and logos ARE publicly reachable, because a broken image on
+   a listing costs orders.
+
+RUNTIME MATRIX, ACTUALLY EXECUTE IT
+For each of the 7 upload paths, test: jpg, png, webp, HEIC,
+PDF where expected, SVG, zero-byte, mismatched extension, and
+a file over 10MB. Record the actual result of each. The audit
+completed 0 of 7; complete all 7.
+After each upload, confirm the image renders at the correct
+aspect ratio on desktop and at 375px, and that a missing image
+degrades to a placeholder rather than a broken icon.
+
+COST CONTROL
+Target 60 minutes. Report the HEIC options and wait for my
+decision before building that part.
+
+ACCEPTANCE CRITERIA
+- All 7 upload paths pass the full format and abuse matrix.
+- Magic-byte validation on every path.
+- Orientation normalised.
+- Signed-out and cross-vendor access to private documents
+  proven DENIED, with evidence.

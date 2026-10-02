@@ -174,3 +174,17 @@ mtime_ms = 1790973896965
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/6d8b2c51-6c80-4d44-b575-70fe5a451422/bc60bdde-1202-4cbb-adc4-33c00b0c9edf"
 storage_version_token = "1790973897802031"
 content_type = "text/csv"
+
+[[outputs]]
+id = "g9Hms_VNoDTU3NghUGqhX"
+uri = "file://.local/notification-backlog-diagnosis.md"
+type = "text"
+title = "Notification backlog: read-only diagnosis"
+description = "Production queue state, all failure classes, redacted attempts/timestamps/payload shapes, and proposed actions. No jobs changed."
+logical_id = "1ad0a159-fe56-4072-988b-1f6c5059817a"
+content_hash = "sha256:25fdb5e8d3fc5295606c66f1dfe953d6b17f0d4d1e95fa122d5e339907761cfa"
+size = 29791
+mtime_ms = 1790979328697
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/1ad0a159-fe56-4072-988b-1f6c5059817a/399f5650-c896-4091-961a-59b622192bcf"
+storage_version_token = "1790979396701534"
+content_type = "text/markdown"
