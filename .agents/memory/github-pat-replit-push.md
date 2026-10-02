@@ -10,6 +10,13 @@ Git and the GitHub CLI can reject their stored credentials while the installed G
 
 **How to apply:** Use the connection's authenticated proxy for GitHub Git Data API blob, tree, commit, and branch operations when shell push authentication fails. Preserve the intended base and file scope. Never put credentials into remote URLs, shell arguments, or chat.
 
+## Connector request pacing
+Pace bulk Git Data uploads and handle HTTP 429 with the returned retry delay.
+
+**Why:** The connector proxy enforces a per-repl 10-requests-per-second limit independently of GitHub's own quota; concurrent immutable-blob uploads exceeded it.
+
+**How to apply:** Sequential uploads with at least 200 ms between requests worked. Use bounded retries for rate-limited immutable operations and verify uploaded blob and tree hashes before creating the branch.
+
 ## Merge restrictions
 This repository does not allow GitHub automatic merging. Required checks still gate a normal merge.
 
