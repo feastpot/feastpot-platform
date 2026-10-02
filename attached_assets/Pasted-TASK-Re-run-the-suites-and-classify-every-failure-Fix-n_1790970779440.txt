@@ -1,0 +1,64 @@
+TASK: Re-run the suites and classify every failure. Fix
+nothing.
+
+DEPENDS ON: LR-02.
+
+RUN
+  the customer browser suite
+  the vendor browser suite, including a full V4 zero-data pass
+  the admin browser suite, all projects
+  the API suite, and report how many of the 283 previously
+    skipped tests now execute
+Record exact pass, fail, skipped and did-not-run counts for
+each.
+
+CLASSIFY EVERY FAILURE INTO EXACTLY ONE BUCKET
+
+  A. GENUINE PRODUCT DEFECT
+     The application is wrong. A user would hit this.
+     Record: what the user would experience, the file and line
+     if identifiable, and a screenshot.
+
+  B. REMAINING HARNESS FAULT
+     The test cannot run correctly for environmental reasons.
+     Record what is missing.
+
+  C. INCORRECT TEST
+     The product is right and the test asserts something
+     false or outdated. Common after the rate change from
+     12/10 to 8/5/0 and after the terms rewrite.
+     Record what the test asserts and why it is wrong.
+
+This classification is the deliverable. Do not merge buckets.
+A B or C item fixed as though it were an A wastes a day and
+leaves the real defect in place.
+
+SPECIFIC FAILURES THE AUDIT NAMED, CLASSIFY EACH
+  checkout financials
+  payment outcomes
+  the 375px post-order journey
+  the real Stripe test-mode purchase smoke
+For each, state plainly whether a real customer would fail to
+complete a purchase today.
+
+ALSO REPORT
+  The full authenticated route matrix: how many vendor routes
+  and how many admin routes now render successfully for a
+  zero-data account and for each of the four staff roles.
+  The audit could claim 0 of 49 admin routes. Give me the real
+  number.
+  Time the referral QR from page load to visible. The stated
+  requirement is under 5 seconds.
+  Build the catering quote UI and check the arithmetic by hand
+  against the API result.
+
+COST CONTROL
+One run per suite. If a suite fails to complete, record and
+move on rather than retrying repeatedly. Target 45 minutes.
+
+ACCEPTANCE CRITERIA
+- Every failure classified A, B or C with evidence.
+- A definitive answer on whether customer checkout works.
+- Real authenticated route coverage numbers for vendor and
+  admin.
+Do not fix anything. This list drives LR-09 and LR-10.
