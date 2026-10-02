@@ -4,6 +4,7 @@ import {
   calculateCateringDeposit,
   MINIMUM_CATERING_QUOTE_PENCE,
 } from '@feastpot/config/catering-deposit';
+import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
 import { useRouter } from 'next/navigation';
 import { type FormEvent, useEffect, useState } from 'react';
 
@@ -85,6 +86,7 @@ export function CateringQuoteForm({
   const send = useSendCateringQuote(bookingId ?? '', accessToken);
 
   const [items, setItems] = useState<LineItemState[]>([emptyItem()]);
+  const [vendorReferred, setVendorReferred] = useState(false);
   const [eventDate, setEventDate] = useState('');
   const [guestCount, setGuestCount] = useState('');
   const [eventAddress, setEventAddress] = useState('');
@@ -97,6 +99,7 @@ export function CateringQuoteForm({
 
   useEffect(() => {
     if (!existing) return;
+    setVendorReferred(existing.attributionSource === 'VENDOR_REFERRED');
     setEventDate(existing.eventDate ? new Date(existing.eventDate).toISOString().slice(0, 16) : '');
     setGuestCount(String(existing.guestCount));
     setEventAddress(existing.eventAddress ?? '');
@@ -195,6 +198,7 @@ export function CateringQuoteForm({
 
     try {
       const quoteInput = {
+        vendorReferred,
         eventDate: eventDate ? new Date(eventDate).toISOString() : undefined,
         guestCount: guestCount ? parseInt(guestCount, 10) : undefined,
         eventAddress: eventAddress.trim() || undefined,
@@ -346,6 +350,18 @@ export function CateringQuoteForm({
               />
             </div>
             <div>
+              <label className="mb-4 flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={vendorReferred}
+                  onChange={(e) => setVendorReferred(e.target.checked)}
+                />
+                <span>
+                  I brought this client: {COMMISSION_RATES.cateringVendorReferred.percent}% catering
+                  commission. Otherwise {COMMISSION_RATES.catering.percent}% applies. Commission is
+                  on the entire quote total.
+                </span>
+              </label>
               <label className={fieldLabel}>Quote expires at {requiredMarker}</label>
               <input
                 type="datetime-local"

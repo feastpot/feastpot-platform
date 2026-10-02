@@ -2,6 +2,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsInt,
   IsOptional,
   IsString,
@@ -30,6 +31,11 @@ class LineItemDto {
 }
 
 export class FillCateringQuoteDto {
+  /** Omitted preserves the assigned booking's existing referral classification. */
+  @IsOptional()
+  @IsBoolean()
+  vendorReferred?: boolean;
+
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })

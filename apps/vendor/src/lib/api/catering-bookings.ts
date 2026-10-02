@@ -51,6 +51,7 @@ export interface CateringBooking {
 }
 
 export interface CreateCateringBookingInput {
+  vendorReferred?: boolean;
   enquiryId: string;
   eventDate?: string;
   guestCount?: number;
@@ -91,6 +92,7 @@ export function sendCateringQuote(id: string, accessToken: string): Promise<{ se
 }
 
 export interface FillCateringQuoteInput {
+  vendorReferred?: boolean;
   lineItems: Array<{
     description: string;
     quantity: number;

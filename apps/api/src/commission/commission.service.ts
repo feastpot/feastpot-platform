@@ -1,3 +1,4 @@
+import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DiscountFundedBy, OrderSource, RateStatus, TermsDocumentType } from '@prisma/client';
@@ -11,6 +12,8 @@ export interface ResolvedRate {
   isFirstOrder: boolean | null;
   ratePercent: Decimal;
 }
+
+export type CateringCommissionSource = 'CATERING' | 'CATERING_VENDOR_REFERRED';
 
 export interface CommissionResult {
   commissionPence: number;
@@ -40,6 +43,30 @@ export class CommissionService {
   private readonly logger = new Logger(CommissionService.name);
 
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Catering has its own canonical rates, not marketplace first/repeat rates.
+   * Snapshot the percentage on the booking; no marketplace CommissionRate ID
+   * is applicable. Round half up using integer arithmetic only.
+   */
+  computeCateringCommission(totalPence: number, source: CateringCommissionSource) {
+    if (source !== 'CATERING' && source !== 'CATERING_VENDOR_REFERRED') {
+      throw new BadRequestException('Catering requires a catering commission source');
+    }
+    if (!Number.isSafeInteger(totalPence) || totalPence < 0 || totalPence > 2_147_483_647) {
+      throw new BadRequestException('Catering total must be non-negative integer pence');
+    }
+    const rate =
+      source === 'CATERING' ? COMMISSION_RATES.catering : COMMISSION_RATES.cateringVendorReferred;
+    const commissionPence = Number((BigInt(totalPence) * BigInt(rate.percent) + 50n) / 100n);
+    return {
+      source,
+      rateId: null,
+      ratePercent: new Decimal(rate.percent),
+      commissionPence,
+      vendorPayoutPence: totalPence - commissionPence,
+    };
+  }
 
   // ─── Rate resolution ────────────────────────────────────────────────────────
 
