@@ -1,3 +1,4 @@
+import { prepareUpload } from '@feastpot/ui/upload';
 import { apiRequest } from './client';
 
 // ─── Featured reviews (homepage) ────────────────────────────────────────────
@@ -75,7 +76,7 @@ export async function uploadReviewPhotos(
 ): Promise<{ id: string; photoUrls: string[] }> {
   const { API_URL } = await import('@/lib/env');
   const form = new FormData();
-  for (const f of files) form.append('photos', f);
+  for (const f of files) form.append('photos', await prepareUpload(f));
   const res = await fetch(`${API_URL}/v1/reviews/${encodeURIComponent(reviewId)}/photos`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${accessToken}` },

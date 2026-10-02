@@ -62,7 +62,15 @@ export function MenuImportClient({ vendorId }: { vendorId: string }) {
     const chosen = Array.from(list ?? []);
     if (chosen.length > 4) return toast({ title: 'Choose up to 4 files', variant: 'destructive' });
     const invalid = chosen.find(
-      (f) => !['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(f.type),
+      (f) =>
+        ![
+          'application/pdf',
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'image/heic',
+          'image/heif',
+        ].includes(f.type) && !/\.(heic|heif)$/i.test(f.name),
     );
     if (invalid)
       return toast({ title: 'Use PDF, JPG, PNG, or WebP files', variant: 'destructive' });
@@ -118,7 +126,7 @@ export function MenuImportClient({ vendorId }: { vendorId: string }) {
               <input
                 ref={galleryInput}
                 type="file"
-                accept="image/jpeg,image/png,image/webp,application/pdf"
+                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif,application/pdf"
                 multiple
                 className="sr-only"
                 onChange={(e) => selectFiles(e.target.files)}
@@ -127,7 +135,7 @@ export function MenuImportClient({ vendorId }: { vendorId: string }) {
               <input
                 ref={cameraInput}
                 type="file"
-                accept="image/jpeg,image/png,image/webp"
+                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
                 capture="environment"
                 className="sr-only"
                 onChange={(e) => selectFiles(e.target.files)}

@@ -30,7 +30,7 @@ import {
   cn,
 } from '@feastpot/ui';
 import { ArrowLeft, GripVertical, Trash2, Upload } from 'lucide-react';
-import Image from 'next/image';
+import { SafeImage as Image } from '@feastpot/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -797,7 +797,7 @@ export function ItemEditorClient({
             <input
               ref={fileRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];

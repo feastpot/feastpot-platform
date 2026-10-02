@@ -1,4 +1,7 @@
 'use client';
+import { SecureDownload, SecureImage } from '@feastpot/ui';
+import { useAccessToken } from '@/lib/auth/use-access-token';
+import { API_URL } from '@/lib/env';
 
 import { cn } from '@feastpot/ui';
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
@@ -176,7 +179,7 @@ function EvidenceSection({ disputeId }: { disputeId: string }) {
       ) : (
         <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
           {evidence.map((e) => (
-            <EvidenceItem key={e.id} evidence={e} />
+            <EvidenceItem key={e.id} evidence={e} disputeId={disputeId} />
           ))}
         </ul>
       )}
@@ -184,15 +187,18 @@ function EvidenceSection({ disputeId }: { disputeId: string }) {
   );
 }
 
-function EvidenceItem({ evidence }: { evidence: DisputeEvidence }) {
+function EvidenceItem({ evidence, disputeId }: { evidence: DisputeEvidence; disputeId: string }) {
+  const { token } = useAccessToken();
+  const url = `${API_URL}/v1/disputes/${disputeId}/evidence/${evidence.id}/download`;
   const isImage = evidence.type === 'photo' || evidence.type === 'screenshot';
   return (
     <li className="overflow-hidden rounded-lg border border-border bg-surface">
-      <a href={evidence.fileUrl} target="_blank" rel="noopener noreferrer" className="block">
+      <SecureDownload url={url} token={token} className="block">
         {isImage ? (
           // eslint-disable-next-line @next/next/no-img-element -- Supabase public URL, sizes unknown; a plain img avoids next/image remote-domain config.
-          <img
-            src={evidence.fileUrl}
+          <SecureImage
+            url={url}
+            token={token}
             alt={evidence.caption ?? `${evidence.type} evidence`}
             className="h-28 w-full bg-white object-cover"
           />
@@ -202,7 +208,7 @@ function EvidenceItem({ evidence }: { evidence: DisputeEvidence }) {
             <span className="text-[11px] font-medium">Document</span>
           </div>
         )}
-      </a>
+      </SecureDownload>
       <div className="px-2 py-1.5">
         <p className="truncate text-[11px] font-medium capitalize text-dark">{evidence.type}</p>
         {evidence.caption && (

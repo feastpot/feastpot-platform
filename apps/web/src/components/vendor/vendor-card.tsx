@@ -1,3 +1,4 @@
+import { SafePhoto } from '@feastpot/ui';
 import { Clock, ShieldCheck, ShoppingBag, Star } from 'lucide-react';
 import Link from 'next/link';
 
@@ -47,7 +48,7 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
       <div className={cn('relative w-full overflow-hidden', coverHeight)}>
         {vendor.coverImageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <SafePhoto
             src={vendor.coverImageUrl}
             alt=""
             className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
@@ -97,7 +98,7 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
         {/* Logo chip (bottom-left of cover) */}
         {vendor.logoUrl && (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <SafePhoto
             src={vendor.logoUrl}
             alt=""
             className="absolute bottom-2 left-2 h-9 w-9 rounded-xl border-2 border-white object-cover shadow-sm"

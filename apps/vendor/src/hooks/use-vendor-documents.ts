@@ -1,4 +1,5 @@
 'use client';
+import { prepareUpload } from '@feastpot/ui/upload';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -48,7 +49,10 @@ export function useUploadDocument(vendorId: string) {
     mutationFn: async (input: { file: File; type: VendorDocumentType; expiresAt?: string }) => {
       if (input.file.size > MAX) throw new Error('File exceeds 5 MB');
       const fd = new FormData();
-      fd.append('file', input.file);
+      fd.append(
+        'file',
+        await prepareUpload(input.file, { allowPdf: true, maxBytes: 10 * 1024 * 1024 }),
+      );
       fd.append('type', input.type);
       if (input.expiresAt) fd.append('expiresAt', input.expiresAt);
       const res = await fetch(`${API_URL}/v1/vendors/${vendorId}/documents`, {

@@ -1,6 +1,6 @@
 'use client';
 
-import { cn } from '@feastpot/ui';
+import { cn, SecureDownload } from '@feastpot/ui';
 import {
   AlertTriangle,
   Camera,
@@ -15,6 +15,8 @@ import { useRef, useState } from 'react';
 
 import type { VendorDocument, VendorDocumentType } from '@/hooks/use-vendor-documents';
 import { formatDate } from '@/lib/format';
+import { useAccessToken } from '@/lib/auth/use-access-token';
+import { API_URL } from '@/lib/env';
 
 import {
   COMPLIANCE_STATE_META,
@@ -176,6 +178,7 @@ export function DocumentRow({
   onPick: (file: File, expiresAt?: string) => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
+  const { token } = useAccessToken();
   const [expiresAt, setExpiresAt] = useState('');
   const state = deriveComplianceState(doc);
   const days = daysUntil(doc?.expiresAt ?? null);
@@ -235,6 +238,14 @@ export function DocumentRow({
             {doc && (
               <p className="mt-2 text-[11px] text-mid">
                 {doc.fileName ?? '(file)'}
+                <SecureDownload
+                  url={`${API_URL}/v1/vendors/${doc.vendorId}/documents/${doc.id}/download`}
+                  token={token}
+                  filename={doc.fileName ?? 'document'}
+                  className="ml-2 font-semibold text-teal"
+                >
+                  Download
+                </SecureDownload>
                 {doc.expiresAt ? ` · expires ${formatDate(doc.expiresAt)}` : ' · no expiry set'}
                 {state === 'expiring_soon' && days !== null && (
                   <span className="ml-1 font-semibold text-amber-700">
@@ -283,7 +294,7 @@ export function DocumentRow({
           <input
             ref={fileRef}
             type="file"
-            accept="application/pdf,image/jpeg,image/png"
+            accept="application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];

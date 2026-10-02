@@ -24,6 +24,7 @@ import * as Sentry from '@sentry/nestjs';
 
 import { SupabaseService } from '../../auth/supabase.service';
 import type { AuthUser } from '../../auth/types';
+import { validateUpload } from '../../common/uploads/validate-upload';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DOCUMENTS_BUCKET } from '../catalogue/supabase-storage.service';
 import { InboxService } from '../inbox/inbox.service';
@@ -845,6 +846,17 @@ export class DisputesService {
       });
     }
 
+    validateUpload(file, 10 * 1024 * 1024, true);
+    if (
+      declaredType &&
+      (declaredType === EvidenceType.photo || declaredType === EvidenceType.screenshot) &&
+      !file.mimetype.startsWith('image/')
+    ) {
+      throw new BadRequestException({
+        code: 'EVIDENCE_TYPE_MISMATCH',
+        message: 'Photo or screenshot evidence requires an image',
+      });
+    }
     const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100);
     const path = `disputes/${id}/${Date.now()}-${safeName}`;
     const storage = this.supabase.getClient().storage.from(DOCUMENTS_BUCKET);
@@ -887,6 +899,36 @@ export class DisputesService {
   }
 
   // -------------------- helpers --------------------
+
+  async downloadEvidence(id: string, evidenceId: string, user: AuthUser) {
+    const dispute = await this.get(id, user);
+    const evidence = dispute.evidence.find((row) => row.id === evidenceId);
+    if (!evidence)
+      throw new NotFoundException({ code: 'EVIDENCE_NOT_FOUND', message: 'Evidence not found' });
+    const marker = `/storage/v1/object/public/${DOCUMENTS_BUCKET}/`;
+    const pathname = new URL(evidence.fileUrl).pathname;
+    if (!pathname.includes(marker))
+      throw new NotFoundException({
+        code: 'EVIDENCE_UNAVAILABLE',
+        message: 'Evidence unavailable',
+      });
+    const path = decodeURIComponent(pathname.split(marker)[1]!);
+    if (!path.startsWith(`disputes/${id}/`))
+      throw new NotFoundException({
+        code: 'EVIDENCE_UNAVAILABLE',
+        message: 'Evidence unavailable',
+      });
+    const { data, error } = await this.supabase
+      .getClient()
+      .storage.from(DOCUMENTS_BUCKET)
+      .download(path);
+    if (error || !data)
+      throw new NotFoundException({
+        code: 'EVIDENCE_UNAVAILABLE',
+        message: 'Evidence unavailable',
+      });
+    return { bytes: Buffer.from(await data.arrayBuffer()), type: data.type };
+  }
 
   private assertTransition(from: DisputeStatus, to: DisputeStatus): void {
     if (from === to) return;

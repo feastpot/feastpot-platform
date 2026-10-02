@@ -1,4 +1,5 @@
 'use client';
+import { prepareUpload } from '@feastpot/ui/upload';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -90,7 +91,11 @@ export function useCreateMenuImport(vendorId: string) {
       const oversized = files.find((file) => file.size > 10 * 1024 * 1024);
       if (oversized) throw new Error(`${oversized.name} is larger than 10 MB.`);
       const body = new FormData();
-      files.forEach((file) => body.append('files', file));
+      for (const file of files)
+        body.append(
+          'files',
+          await prepareUpload(file, { allowPdf: true, maxBytes: 10 * 1024 * 1024 }),
+        );
       const response = await fetch(`${API_URL}/v1/vendors/${vendorId}/menu-imports`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },

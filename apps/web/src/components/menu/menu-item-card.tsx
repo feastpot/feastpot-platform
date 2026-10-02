@@ -1,5 +1,6 @@
 'use client';
 
+import { SafePhoto } from '@feastpot/ui';
 import { Info, Minus, Plus } from 'lucide-react';
 import { useRef, useState } from 'react';
 
@@ -197,7 +198,7 @@ export function MenuItemCard({ item, vendor, readOnlyDemo = false }: Props) {
       <article className="fp-card flex gap-3 p-3">
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <SafePhoto
             src={cover}
             alt=""
             loading="lazy"
@@ -299,7 +300,7 @@ export function MenuItemCard({ item, vendor, readOnlyDemo = false }: Props) {
       <div className="fp-card flex gap-3 p-3 opacity-50">
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <SafePhoto
             src={cover}
             alt=""
             className="h-20 w-20 shrink-0 rounded-xl object-cover grayscale"
@@ -329,7 +330,7 @@ export function MenuItemCard({ item, vendor, readOnlyDemo = false }: Props) {
       <div className="flex gap-3">
         {cover ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
+          <SafePhoto
             src={cover}
             alt=""
             loading="lazy"
