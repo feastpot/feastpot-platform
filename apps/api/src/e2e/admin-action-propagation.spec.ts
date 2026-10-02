@@ -74,6 +74,7 @@ const waitFor = async <T>(read: () => Promise<T | null>, label: string): Promise
     let scheduledRateId: string;
     let scheduledRatePercent: number;
     let originalRateId: string;
+    let originalRateEffectiveTo: Date | null;
     let rateTermsVersionId: string | undefined;
     let createdApplicationId: string | undefined;
     let earlierCommission: OrderCommission | null;
@@ -213,7 +214,7 @@ const waitFor = async <T>(read: () => Promise<T | null>, label: string): Promise
         if (originalRateId) {
           await factory.prisma.commissionRate.update({
             where: { id: originalRateId },
-            data: { effectiveTo: null },
+            data: { effectiveTo: originalRateEffectiveTo },
           });
         }
         if (createdApplicationId) {
@@ -557,9 +558,17 @@ const waitFor = async <T>(read: () => Promise<T | null>, label: string): Promise
         where: { orderId: customer.orderId! },
       });
       const current = await factory.prisma.commissionRate.findFirstOrThrow({
-        where: { source: 'MARKETPLACE', isFirstOrder: true, effectiveTo: null },
+        where: {
+          source: 'MARKETPLACE',
+          isFirstOrder: true,
+          isAnomalous: false,
+          effectiveFrom: { lte: new Date() },
+          OR: [{ effectiveTo: null }, { effectiveTo: { gt: new Date() } }],
+        },
+        orderBy: { effectiveFrom: 'desc' },
       });
       originalRateId = current.id;
+      originalRateEffectiveTo = current.effectiveTo;
       scheduledRatePercent = Number(current.ratePercent) + 0.01;
       const rateEffectiveAt = days(16 + (Date.now() % 1000));
       const scheduled = await request(app.getHttpServer())

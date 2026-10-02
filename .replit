@@ -34,9 +34,6 @@ args = "Admin"
 name = "API"
 author = "agent"
 
-[workflows.workflow.metadata]
-outputType = "console"
-
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run dev --workspace=@feastpot/api"
@@ -130,9 +127,6 @@ MENU_AUTO_APPROVE = "false"
 ADMIN_REQUIRE_AAL2 = "true"
 
 [userenv.development]
-ADMIN_E2E_ALLOW_AAL1 = "false"
-ADMIN_REQUIRE_AAL2 = "true"
-NEXT_PUBLIC_ADMIN_REQUIRE_AAL2 = "true"
 
 [postMerge]
 path = "scripts/post-merge.sh"

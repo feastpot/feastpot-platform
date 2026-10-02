@@ -1646,7 +1646,8 @@ export class VendorsService {
     }
     const publicDemo = lite.publicDemo === true;
     const profile = await this.repo.findById(lite.id, demoPreview);
-    if (!profile) throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
+    if (!profile)
+      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
     const vendor = this.publicVendorProjection({ ...profile, publicDemo });
     // Platform service fee (bps) is global and read from env at REQUEST time,
     // not from the cached profile, so the customer PWA's express-checkout total

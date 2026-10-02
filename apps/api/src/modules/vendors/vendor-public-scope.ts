@@ -67,17 +67,12 @@ export function publicVendorWhere(
 export function orderableVendorDiscoveryWhere(): Prisma.VendorWhereInput {
   return {
     publicDemo: false,
-    ...(process.env.NODE_ENV === 'test'
-      ? {}
-      : { isSeedData: false, user: { isTestData: false } }),
+    ...(process.env.NODE_ENV === 'test' ? {} : { isSeedData: false, user: { isTestData: false } }),
   };
 }
 
 /** SQL counterpart to isExplicitPublicDemo for raw public-search queries. */
-export function explicitPublicDemoSql(
-  vendorAlias = 'v',
-  ownerAlias = 'owner',
-): Prisma.Sql {
+export function explicitPublicDemoSql(vendorAlias = 'v', ownerAlias = 'owner'): Prisma.Sql {
   return Prisma.sql`(
     ${Prisma.raw(`${vendorAlias}.public_demo`)} = true
     AND ${Prisma.raw(`${vendorAlias}.is_seed_data`)} = false

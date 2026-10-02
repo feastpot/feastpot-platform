@@ -8,7 +8,10 @@ import { NotificationEvent } from '../notifications/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailProvider } from '../notifications/providers/email.provider';
 import { WhatsappProvider } from '../notifications/providers/whatsapp.provider';
-import { isNonOrderableVendor, orderableVendorDiscoveryWhere } from '../vendors/vendor-public-scope';
+import {
+  isNonOrderableVendor,
+  orderableVendorDiscoveryWhere,
+} from '../vendors/vendor-public-scope';
 
 import { isCateringEnquiryStatus } from './catering-enquiry-status';
 import type { AssignCateringEnquiryDto } from './dto/assign-catering-enquiry.dto';

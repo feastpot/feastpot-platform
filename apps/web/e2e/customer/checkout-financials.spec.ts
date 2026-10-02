@@ -78,7 +78,7 @@ async function prepareCheckout(
   await page.locator('#signin-email').fill('checkout@example.test');
   await page.locator('#signin-password').fill('Password1!');
   await page.getByRole('button', { name: /sign in/i }).click();
-  await page.waitForURL(/\/vendors(?:[/?#]|$)/, { timeout: 20_000 });
+  await page.waitForURL(/\/(?:vendors|checkout)(?:[/?#]|$)/, { timeout: 20_000 });
 
   await page.evaluate(
     ({ discount, activeFeastPass, vendorId, menuItemId, firstVisiblePricePence }) => {
@@ -199,7 +199,9 @@ async function prepareCheckout(
   await expect(
     page.getByText(activeFeastPass ? 'Free' : '£1.00', { exact: true }).first(),
   ).toBeVisible();
-  await expect(page.getByText('Total', { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(discountCode ? 'Total before promo' : 'Total', { exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByText(activeFeastPass ? '£22.50' : '£23.50', { exact: true }),
   ).toBeVisible();

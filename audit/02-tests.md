@@ -140,22 +140,22 @@ Result:
 
 Concrete failures:
 
-1. Admin destination-map test failed:
+1.  Admin destination-map test failed:
 
-       /platform-facts must be represented in ADMIN_DESTINATION_ROLES or
-       explicitly excluded
+        /platform-facts must be represented in ADMIN_DESTINATION_ROLES or
+        explicitly excluded
 
-   Evidence:
-   `apps/admin/e2e/admin-destination-map.spec.ts:47-59`.
+    Evidence:
+    `apps/admin/e2e/admin-destination-map.spec.ts:47-59`.
 
-2. Admin and Vendor setup could not launch the expected Playwright Chromium
-   executable:
+2.  Admin and Vendor setup could not launch the expected Playwright Chromium
+    executable:
 
-       Executable doesn't exist at
-       /home/runner/.cache/ms-playwright/chromium_headless_shell-1234/...
+        Executable doesn't exist at
+        /home/runner/.cache/ms-playwright/chromium_headless_shell-1234/...
 
-3. Vendor lifecycle evidence failed closed because
-   `TEST_FACTORY_NAMESPACE` was absent.
+3.  Vendor lifecycle evidence failed closed because
+    `TEST_FACTORY_NAMESPACE` was absent.
 
 The unchanged command was not rerun because it contained a deterministic
 Admin inventory failure and missing prerequisites. Broad browser coverage is

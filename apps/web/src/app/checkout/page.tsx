@@ -405,7 +405,9 @@ function CheckoutInner() {
         <span className="inline-flex rounded-full bg-plantain px-3 py-1 text-xs font-black uppercase tracking-wide text-charcoal">
           Demo · view only
         </span>
-        <h1 className="font-display text-xl font-black text-charcoal">No orders from this vendor</h1>
+        <h1 className="font-display text-xl font-black text-charcoal">
+          No orders from this vendor
+        </h1>
         <p className="text-sm font-medium text-charcoal-mid">
           This fictional demo menu is for illustration only. Orders and catering enquiries are not
           available.
@@ -1090,16 +1092,21 @@ function CheckoutInner() {
             the sole option (the correct fallback - no "not supported" notice).
             Includes its own "or pay by card" divider when shown. */}
         {!vendorProfileReady ? (
-          <p role="status" className="rounded-xl bg-cream-warm p-3 text-sm font-medium text-charcoal-mid">
+          <p
+            role="status"
+            className="rounded-xl bg-cream-warm p-3 text-sm font-medium text-charcoal-mid"
+          >
             Confirming that this vendor can accept orders. Payment is unavailable until confirmed.
           </p>
-        ) : expressPayReady && (
-          <AppleGooglePayButton
-            totalPence={expressTotalPence}
-            label={`${PLATFORM_FACTS.brandName} · ${vendor.name}`}
-            disabled={submitting}
-            onPaymentMethod={handleExpressPay}
-          />
+        ) : (
+          expressPayReady && (
+            <AppleGooglePayButton
+              totalPence={expressTotalPence}
+              label={`${PLATFORM_FACTS.brandName} · ${vendor.name}`}
+              disabled={submitting}
+              onPaymentMethod={handleExpressPay}
+            />
+          )
         )}
 
         {vendorProfileReady && !isDemoVendor && !vendorCannotOrder && (

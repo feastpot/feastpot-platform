@@ -44,7 +44,10 @@ describe('CateringBookingsService read-only demo guards', () => {
     );
 
     await expect(
-      service.createQuote({ id: 'owner', email: 'owner@example.com', role: 'vendor' } as AuthUser, {} as never),
+      service.createQuote(
+        { id: 'owner', email: 'owner@example.com', role: 'vendor' } as AuthUser,
+        {} as never,
+      ),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(commission.resolveRateAndCompute).not.toHaveBeenCalled();
     expect(prisma.cateringBooking.create).not.toHaveBeenCalled();
