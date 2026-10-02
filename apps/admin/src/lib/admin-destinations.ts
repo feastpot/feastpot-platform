@@ -19,6 +19,7 @@ export const ADMIN_DESTINATION_ROLES = {
   '/reviews/queue': ['admin'],
   '/payouts': ['admin', 'finance'],
   '/commission-rates': ['admin', 'finance'],
+  '/platform-facts': STAFF_ROLES,
   '/discount-codes': ['admin', 'finance'],
   '/feastpass-health': ['admin', 'finance'],
   '/analytics': ['admin', 'finance', 'support'],

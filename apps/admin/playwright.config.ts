@@ -1,4 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
+import { browserAuthState } from '../../scripts/browser-auth-state';
+
+const adminStorageState = browserAuthState('admin', 'admin');
 
 /**
  * Playwright configuration for the @feastpot/admin e2e test suite.
@@ -11,8 +14,9 @@ import { defineConfig, devices } from '@playwright/test';
  *
  * Environment variables:
  *   PLAYWRIGHT_BASE_URL    Admin app origin. Defaults to http://localhost:3003.
- *   TEST_ADMIN_EMAIL       Supabase email for the pre-seeded test admin account.
- *   TEST_ADMIN_PASSWORD    Corresponding password.
+ *   TEST_FACTORY_NAMESPACE Namespaced real staff/customer/vendor factory identities.
+ *   ADMIN_REQUIRE_AAL2 and NEXT_PUBLIC_ADMIN_REQUIRE_AAL2 must both be true.
+ *   ADMIN_E2E_ALLOW_AAL1 must be disabled; setup performs genuine TOTP verification.
  *
  * Run:
  *   npm run test:e2e --workspace=@feastpot/admin
@@ -23,6 +27,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: 1,
+  maxFailures: 0,
   reporter: [
     ['list'],
     ['html', { open: 'never', outputFolder: 'e2e-report' }],
@@ -43,6 +48,7 @@ export default defineConfig({
       name: 'setup',
       testMatch: /auth\.setup\.ts/,
       teardown: 'auth-teardown',
+      use: { trace: 'off', screenshot: 'off', video: 'off' },
     },
     {
       name: 'auth-teardown',
@@ -55,7 +61,7 @@ export default defineConfig({
       testMatch: /debounce\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
-        storageState: 'e2e/.auth/admin.json',
+        storageState: adminStorageState,
       },
       dependencies: ['setup'],
     },
@@ -66,7 +72,7 @@ export default defineConfig({
       testMatch: /admin-shell\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
-        storageState: 'e2e/.auth/admin.json',
+        storageState: adminStorageState,
       },
       dependencies: ['setup'],
     },
@@ -77,7 +83,7 @@ export default defineConfig({
       testMatch: /catering-sla\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
-        storageState: 'e2e/.auth/admin.json',
+        storageState: adminStorageState,
       },
       dependencies: ['setup'],
     },
@@ -86,7 +92,7 @@ export default defineConfig({
       testMatch: /admin-compliance\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
-        storageState: 'e2e/.auth/admin.json',
+        storageState: adminStorageState,
       },
       dependencies: ['setup'],
     },
@@ -97,7 +103,7 @@ export default defineConfig({
       testMatch: /vendors\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
-        storageState: 'e2e/.auth/admin.json',
+        storageState: adminStorageState,
       },
       dependencies: ['setup'],
     },

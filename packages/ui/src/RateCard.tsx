@@ -113,7 +113,9 @@ export function RateCard({ rates, loading, error, className = '' }: RateCardProp
         Rate Schedule (Annex A)
       </h3>
       <p className="mb-4 text-[12px] text-neutral-500">
-        All rates apply to the food subtotal only, never to delivery fees, service charges, or tips.
+        Marketplace and vendor-referred commission applies to food subtotal only, excluding delivery
+        fees, service charges, and tips. Catering uses the event total. Customer charges and
+        optional add-ons are listed separately.
       </p>
 
       {loading && (
@@ -167,7 +169,12 @@ export function RateCard({ rates, loading, error, className = '' }: RateCardProp
                   <tbody>
                     {rows.map((r) => (
                       <tr key={r.key} className="border-b border-neutral-50 last:border-0">
-                        <td className="py-2.5 text-[13px] text-neutral-800">{r.label}</td>
+                        <td className="py-2.5 text-[13px] text-neutral-800">
+                          {r.label}
+                          <span className="mt-1 block text-xs font-normal text-neutral-500">
+                            {r.basis}
+                          </span>
+                        </td>
                         <td className="py-2.5 text-right text-[14px] font-bold text-neutral-900">
                           {r.rateDisplay}
                         </td>

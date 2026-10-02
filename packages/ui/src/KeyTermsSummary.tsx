@@ -40,7 +40,7 @@ export function KeyTermsSummary({ className = '', rates = [] }: KeyTermsSummaryP
       : 'The current rates for first-order marketplace, repeat-order, and vendor-referred orders are listed in the Rate Schedule (Annex A).';
   const keyTerms: string[] = [
     'You are an independent business, not an employee of Feastpot. You set your own menu, prices, delivery area, and minimum order.',
-    'Commission is charged on the food subtotal of completed orders only. It is never charged on delivery fees, customer service fees, tips, or discounts.',
+    'Marketplace and vendor-referred commission is charged on the food subtotal of completed orders only, excluding delivery fees, customer service fees, tips, and discounts. Catering commission uses the calculation basis listed in Annex A.',
     commissionSummary,
     'When you accept an order it becomes a binding contract between you and the customer. Only accept orders you can fulfil.',
     'Feastpot holds customer payments and pays your earnings every Monday after delivery is confirmed.',

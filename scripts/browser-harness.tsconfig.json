@@ -1,0 +1,10 @@
+{
+  "extends": "../packages/config/tsconfig.base.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "noEmit": true
+  },
+  "include": ["run-browser-determinism.ts", "browser-auth-state.ts"],
+  "ts-node": { "transpileOnly": true }
+}

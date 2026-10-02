@@ -169,8 +169,8 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
           !vendor.publicDemo &&
           typeof vendor.minOrderPence === 'number' &&
           vendor.minOrderPence > 0 && (
-          <p className="mt-0.5 text-[9px] text-charcoal-mid/60">+ up to £2.99 service fee</p>
-        )}
+            <p className="mt-0.5 text-[9px] text-charcoal-mid/60">+ up to £2.99 service fee</p>
+          )}
         {/* Distance chip on carousel cards - shown whenever the API returns it
             (requires a postcode in the search query, e.g. from the coverage cookie) */}
         {isCarousel && !vendor.publicDemo && typeof vendor.distanceKm === 'number' && (
@@ -186,28 +186,28 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
             (not pulled from real reviews) so empty-review vendors still
             show a warm human note instead of going blank. */}
         {!vendor.publicDemo && (
-        <div className="mt-2 flex items-center gap-2 border-t border-cream-warm pt-2">
-          <div
-            aria-hidden
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand text-[10px] font-bold text-white"
-            style={{ background: 'linear-gradient(135deg, #00843D, #005C2B)' }}
-          >
-            {vendor.businessName
-              .split(' ')
-              .map((w) => w[0] ?? '')
-              .join('')
-              .substring(0, 2)
-              .toUpperCase()}
+          <div className="mt-2 flex items-center gap-2 border-t border-cream-warm pt-2">
+            <div
+              aria-hidden
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand text-[10px] font-bold text-white"
+              style={{ background: 'linear-gradient(135deg, #00843D, #005C2B)' }}
+            >
+              {vendor.businessName
+                .split(' ')
+                .map((w) => w[0] ?? '')
+                .join('')
+                .substring(0, 2)
+                .toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[10px] font-semibold text-charcoal">
+                Home cook · {vendor.address?.city || 'UK'}
+              </p>
+              <p className="truncate text-[11px] italic text-charcoal-mid">
+                &ldquo;Just like my grandmother makes it.&rdquo;
+              </p>
+            </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[10px] font-semibold text-charcoal">
-              Home cook · {vendor.address?.city || 'UK'}
-            </p>
-            <p className="truncate text-[11px] italic text-charcoal-mid">
-              &ldquo;Just like my grandmother makes it.&rdquo;
-            </p>
-          </div>
-        </div>
         )}
         {vendor.publicDemo && (
           <p className="mt-2 border-t border-cream-warm pt-2 text-[11px] font-semibold text-charcoal-mid">
@@ -220,7 +220,8 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
             is genuine (cooks pre-commit a fixed weekend tray count), so
             this isn't a dark pattern - it reflects the actual marketplace.
             Uses wireframe red #E30613 (scotch) for urgency. */}
-        {!vendor.publicDemo && typeof vendor.availableSlots === 'number' &&
+        {!vendor.publicDemo &&
+          typeof vendor.availableSlots === 'number' &&
           vendor.availableSlots <= 3 &&
           vendor.availableSlots > 0 && (
             <p className="mt-1.5 text-[10px] font-semibold text-scotch">

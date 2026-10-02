@@ -47,3 +47,10 @@ Removing a TOTP factor in the Supabase Dashboard does NOT immediately downgrade 
 
 ## Release enforcement
 The API asserts the production flag before Nest creates a listener. The production deployment workflow validates both API and admin flag surfaces before migrations or frontend deploy hooks run.
+
+## Browser-session assurance
+An AAL2 factory identity or token does not make a separate password-login browser session AAL2. Perform MFA verification in the browser session under test and check its newly issued JWT assurance level.
+
+**Why:** Supabase assurance belongs to the session, not permanently to the user. Reusing an enrolled identity while signing in again can still leave the browser at AAL1.
+
+**How to apply:** Privileged browser setup must prove genuine TOTP verification for its own session; do not substitute an independently issued factory token or a test bypass.

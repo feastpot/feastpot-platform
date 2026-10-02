@@ -158,11 +158,14 @@ test.describe('customer discovery permutations', () => {
       });
     });
     await page.goto('/vendors?postcode=SE15');
-    await page.getByText('Filters', { exact: true }).click();
-    const dairyFree = page.getByLabel('Dairy-free');
+    const mobileSummary = page.locator('details > summary').filter({ hasText: 'Filters' });
+    if (await mobileSummary.isVisible()) await mobileSummary.click();
+    const dairyFree = page.getByLabel('Dairy-free').filter({ visible: true });
     await expect(dairyFree).toBeVisible();
-    await dairyFree.check();
+    // The checked value follows Next's asynchronous URL update.
+    await dairyFree.click();
     await expect(page).toHaveURL(/allergenFree=milk/);
+    await expect(dairyFree).toBeChecked();
     await expect(
       page.locator('article').filter({ hasText: declaredDishVendor.businessName }),
     ).toBeVisible();

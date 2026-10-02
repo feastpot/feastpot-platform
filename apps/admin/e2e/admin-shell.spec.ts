@@ -64,7 +64,7 @@ async function skipIfUnauthenticated(page: import('@playwright/test').Page, path
   await page.goto(`${BASE}${path}`);
   const url = page.url();
   if (url.includes('/sign-in')) {
-    test.skip(true, 'Not authenticated -- set TEST_ADMIN_EMAIL and TEST_ADMIN_PASSWORD to run');
+    throw new Error('Admin session missing: run the genuine AAL2 setup.');
   }
 }
 

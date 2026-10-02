@@ -24,6 +24,12 @@ export const COMMISSION_RATES = {
     basis:
       'Entire accepted quote total, including delivery, service, setup, and other quoted elements',
   },
+  cateringVendorReferred: {
+    percent: 5,
+    label: 'Vendor-referred catering commission',
+    basis:
+      'Entire accepted quote total, including delivery, service, setup, and other quoted elements',
+  },
   customerServiceFee: {
     percent: 5,
     label: 'Customer service fee',

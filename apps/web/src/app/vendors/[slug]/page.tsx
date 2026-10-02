@@ -283,8 +283,8 @@ export default async function VendorProfilePage({ params }: PageProps) {
             Fictional demo profile
           </p>
           <p className="mt-1 text-sm font-bold leading-relaxed text-charcoal">
-            AI-generated photos and a sample menu are shown for illustration only. This profile
-            does not accept orders or catering enquiries.
+            AI-generated photos and a sample menu are shown for illustration only. This profile does
+            not accept orders or catering enquiries.
           </p>
         </aside>
       )}

@@ -212,7 +212,7 @@ async function interceptOrderFailure(page: Page, failure: OrderFailure): Promise
 }
 
 test.describe('customer checkout conditions and first-price disclosure', () => {
-  test.describe.configure({ mode: 'serial', retries: 0 });
+  test.describe.configure({ mode: 'default', retries: 0 });
 
   test('all five checkout financial snapshots preserve the same vendor payout', async ({
     customer,

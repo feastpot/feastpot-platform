@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import path from 'node:path';
+import { browserAuthState } from '../../../scripts/browser-auth-state';
 import {
   ADMIN_DESTINATION_MATRIX,
   STAFF_ROLES,
@@ -7,7 +7,7 @@ import {
 } from '../src/lib/admin-destinations';
 
 const BASE = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3003';
-const stateFile = (role: StaffRole) => path.join(__dirname, `.auth/${role}.json`);
+const stateFile = (role: StaffRole) => browserAuthState('admin', role);
 
 async function authenticatedPage(browser: import('@playwright/test').Browser, role: StaffRole) {
   const context = await browser.newContext({ storageState: stateFile(role) });
@@ -20,7 +20,7 @@ for (const role of ['customer', 'vendor'] as const) {
       browser,
     }) => {
       const context = await browser.newContext({
-        storageState: path.join(__dirname, `.auth/${role}.json`),
+        storageState: browserAuthState('admin', role),
       });
       const page = await context.newPage();
       try {

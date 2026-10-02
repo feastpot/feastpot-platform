@@ -307,7 +307,7 @@ function base32ToBuffer(input: string): Buffer {
   return Buffer.from(bytes);
 }
 
-function totp(secret: string): string {
+export function totp(secret: string): string {
   const counter = Math.floor(Date.now() / 30_000);
   const buffer = Buffer.alloc(8);
   buffer.writeBigUInt64BE(BigInt(counter));

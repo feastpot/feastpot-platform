@@ -112,10 +112,13 @@ test.describe('I3: wildcard domain flag check', () => {
 // ---------------------------------------------------------------------------
 
 test.describe('I2/I4: runtime session isolation', () => {
-  test.skip(
-    !VENDOR_BASE_URL,
-    'Set TEST_VENDOR_BASE_URL to a distinct hostname (e.g. http://vendor.localhost:3002) to run runtime isolation tests. See MANUAL-AUTH-TESTS.md I2.',
-  );
+  test.beforeEach(() => {
+    if (!VENDOR_BASE_URL) {
+      throw new Error(
+        'Missing TEST_VENDOR_BASE_URL: runtime session-isolation tests require a distinct vendor hostname.',
+      );
+    }
+  });
 
   test('I2: session cookie set for web is not sent to vendor (different hostname)', async ({
     browser,
