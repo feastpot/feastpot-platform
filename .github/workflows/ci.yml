@@ -358,7 +358,7 @@ jobs:
         run: npx turbo run test --filter=@feastpot/api --filter=@feastpot/web -- --coverage --ci
       - name: Upload coverage to Codecov (optional)
         if: always()
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
