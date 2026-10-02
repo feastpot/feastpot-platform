@@ -15,6 +15,12 @@ description: Source-based, effective-dated commission rates and the legal/displa
 
 ## Legal and display boundary
 
+Catering is its own commission segment, with a canonical 10% rate. It must not inherit marketplace first-order or repeat rates. All catering quote paths must share one calculation and use integer pence.
+
+**Why:** The user explicitly required this after both catering quote paths were found resolving marketplace commission instead.
+
+**How to apply:** Keep catering calculations independent of marketplace attribution and rate changes; preserve historical financial records rather than silently recalculating them.
+
 - Commission percentages belong in the canonical Rate Schedule, not in the numbered Vendor Terms clauses. Contract body copy points to Annex A.
 - Repeat-order commission and the customer service fee must always be named explicitly because they can share the same percentage but affect different parties.
 

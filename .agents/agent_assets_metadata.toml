@@ -160,3 +160,17 @@ mtime_ms = 1790973521593
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/5b11d7d9-3078-457c-b082-6c331af5984c/64dc5607-1312-4835-ba3e-3b7bea3863f1"
 storage_version_token = "1790973540174332"
 content_type = "text/csv"
+
+[[outputs]]
+id = "m8kxqNwEdTSj5nU6qTJCZ"
+uri = "file://audit/catering-commission-existing-records-2026-10-02.csv"
+type = "table"
+title = "Catering records before any fix"
+description = "Read-only development and production inventory: each booking total, recorded commission, derived payout and explicit test provenance. No records changed."
+logical_id = "6d8b2c51-6c80-4d44-b575-70fe5a451422"
+content_hash = "sha256:7c5a20c40280e17b5fcea3c8be6331f33fcff6cd932d5be451ccdd854f5d7481"
+size = 11153
+mtime_ms = 1790973896965
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/6d8b2c51-6c80-4d44-b575-70fe5a451422/bc60bdde-1202-4cbb-adc4-33c00b0c9edf"
+storage_version_token = "1790973897802031"
+content_type = "text/csv"
