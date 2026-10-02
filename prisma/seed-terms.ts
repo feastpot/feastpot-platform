@@ -124,7 +124,7 @@ To operate as a vendor you must:
 
 ## 3. Payouts and commission
 
-**Commission rate.** Feastpot charges a platform commission of ${COMMISSION_RATES.marketplaceFirst.percent}% of the food subtotal on a customer's first completed marketplace order with you. Repeat marketplace orders use a ${COMMISSION_RATES.marketplaceRepeat.percent}% rate, and vendor-referred orders use a ${COMMISSION_RATES.vendorReferred.percent}% rate. Your current rates are displayed on your Payouts page. Commission is deducted from your weekly payout -- it is not charged to you separately and is not added to the price the customer pays.
+**Commission rate.** The current commission rates and calculation bases are set out in the Rate Schedule at Annex A. Feastpot may operate different rates by order source and may change them only in accordance with the changes and fee-notice clauses below. Your current rates are displayed on your Payouts page. Commission is deducted from your weekly payout -- it is not charged to you separately and is not added to the price the customer pays.
 
 **Food subtotal defined.** Food subtotal means the total price of food items only. It excludes delivery fees, customer service fees, tips, and any promotional discounts applied by Feastpot. **Catering exception:** catering commission is calculated on the entire accepted quote total, including any delivery, service, setup, and other quoted elements.
 
@@ -261,13 +261,17 @@ These terms and any disputes arising from them are governed by the law of Englan
 
 ## Annex A -- Rate Schedule
 
-| Tier | Commission rate | Applies when |
+| Segment | Rate | Applies when / calculation basis |
 |------|----------------|--------------|
 | First marketplace order | ${COMMISSION_RATES.marketplaceFirst.percent}% of food subtotal | Customer's first marketplace order with you |
 | Repeat marketplace order | ${COMMISSION_RATES.marketplaceRepeat.percent}% of food subtotal | Later marketplace orders from that customer |
 | Vendor-referred order | ${COMMISSION_RATES.vendorReferred.percent}% of food subtotal | Customer attributed to your referral link |
+| Catering commission | ${COMMISSION_RATES.catering.percent}% | ${COMMISSION_RATES.catering.basis} |
+| Catering booking deposit | 25% minimum | Part-payment of the quote total; the greater of 25% rounded up or the vendor cash minimum, capped at the quote total |
+| Founding cook programme | 0% | Food subtotal during the promotional period only |
+| Vendor Pro subscription | approx GBP 19/month | Optional monthly subscription |
 
-Customer service fee: 5% of food subtotal, capped at GBP 2.99 per order. The service fee is charged to the customer and retained by Feastpot; it is not deducted from vendor payouts.
+Customer service fee: ${COMMISSION_RATES.customerServiceFee.percent}% of food subtotal, capped at GBP 2.99 per order. The service fee is charged to the customer and retained by Feastpot; it is not deducted from vendor payouts.
 
 ## Annex B -- Required Documents
 
@@ -282,7 +286,7 @@ Customer service fee: 5% of food subtotal, capped at GBP 2.99 per order. The ser
 
 This is a plain-language summary only. The full terms above are the legally binding agreement.
 
-- **Commission**: ${COMMISSION_RATES.marketplaceFirst.percent}% of food subtotal for a first marketplace order, ${COMMISSION_RATES.marketplaceRepeat.percent}% for repeat marketplace orders, and ${COMMISSION_RATES.vendorReferred.percent}% for vendor-referred orders
+- **Commission**: Current rates and calculation bases are listed in Annex A
 - **Payouts**: Weekly, every Monday, via Stripe Connect
 - **Disputes**: Two-stage review; 14 calendar days to appeal each stage
 - **Notice before changes**: 15 days minimum for material changes
@@ -344,7 +348,7 @@ export async function seedTerms() {
       contentMdx: V2_CONTENT,
       contentHash: v2Hash,
       changeSummary: [
-        'Added: commission rate stated explicitly (12% new, 10% repeat, food subtotal only).',
+        'Added: commission rates and calculation bases are set out in the Rate Schedule (Annex A).',
         'Added: VAT treatment of commission.',
         'Added: chargeback and refund liability allocation.',
         'Added: 15 days minimum notice before any material change to terms or rates.',
