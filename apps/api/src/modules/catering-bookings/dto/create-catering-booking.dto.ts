@@ -3,6 +3,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsInt,
   IsISO8601,
   IsNotEmpty,
@@ -37,6 +38,11 @@ export class CateringLineItemDto {
 }
 
 export class CreateCateringBookingDto {
+  /** Explicit declaration that the vendor brought this catering client (5%). */
+  @IsOptional()
+  @IsBoolean()
+  vendorReferred?: boolean;
+
   /** The CateringEnquiry this booking is created against. */
   @IsUUID()
   enquiryId!: string;

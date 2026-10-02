@@ -1,8 +1,4 @@
-import {
-  DemoVendorBasketError,
-  useBasketStore,
-  type BasketVendor,
-} from '@/store/basket.store';
+import { DemoVendorBasketError, useBasketStore, type BasketVendor } from '@/store/basket.store';
 
 const sampleItem = {
   menuItemId: 'sample-dish',

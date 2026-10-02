@@ -125,15 +125,17 @@ export function VendorRowCard({ vendor, trustSignals, capacity }: Props) {
           )}
 
           {/* Delivery ETA + min order */}
-          {!vendor.publicDemo && <p className="mt-1 text-xs font-medium text-charcoal-mid">
-            {deliveryEta(vendor.deliveryEtaMins)}
-            {minOrderLabel && (
-              <>
-                <span className="mx-1">·</span>
-                {minOrderLabel}
-              </>
-            )}
-          </p>}
+          {!vendor.publicDemo && (
+            <p className="mt-1 text-xs font-medium text-charcoal-mid">
+              {deliveryEta(vendor.deliveryEtaMins)}
+              {minOrderLabel && (
+                <>
+                  <span className="mx-1">·</span>
+                  {minOrderLabel}
+                </>
+              )}
+            </p>
+          )}
           {/* DMCC Act 2024: disclose service fee at first price display. */}
           {!vendor.publicDemo && minOrderLabel && (
             <p className="text-[10px] text-charcoal-mid/60">+ up to £2.99 service fee</p>

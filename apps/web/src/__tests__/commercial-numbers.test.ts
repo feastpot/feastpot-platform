@@ -15,6 +15,7 @@ import { join } from 'path';
 
 import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
+import { currentTermsChangeNotes } from '../../../../packages/ui/src/terms-rate-summary';
 
 const SRC_ROOT = join(__dirname, '..', 'app');
 const REPO_ROOT = join(__dirname, '..', '..', '..', '..');
@@ -37,6 +38,63 @@ const SURFACES: Array<[label: string, path: string]> = [
 ];
 
 describe('Commercial-numbers consistency', () => {
+  describe('Vendor terms match Annex A', () => {
+    it('replaces the obsolete current-version commission note with an Annex A reference', () => {
+      const summary =
+        'Added: commission rate stated explicitly (12% new, 10% repeat, food subtotal only).\n' +
+        'Added: VAT treatment of commission.';
+      const notes = currentTermsChangeNotes(summary);
+      expect(notes[0]).toBe(
+        'Added: commission rates and calculation bases are set out in the Rate Schedule (Annex A).',
+      );
+      expect(notes[0]).not.toMatch(/\d+%/);
+      expect(notes[1]).toBe('Added: VAT treatment of commission.');
+      expect(summary).toContain('12% new');
+    });
+
+    it('preserves other change notes, including historical rate-cutover descriptions', () => {
+      const summary = 'Rates decreased from 12% to 8%.\n\nAdded: VAT treatment.';
+      expect(currentTermsChangeNotes(summary)).toEqual([
+        'Rates decreased from 12% to 8%.',
+        'Added: VAT treatment.',
+      ]);
+      expect(currentTermsChangeNotes('')).toEqual([]);
+    });
+
+    it('current onboarding uses the corrected note without altering accepted document content', () => {
+      const source = readRepo('apps/vendor/src/app/onboarding/terms/terms-acceptance-client.tsx');
+      expect(source).toContain('currentTermsChangeNotes(version.changeSummary)');
+      expect(source).toContain("version.contentMdx.split('\\n')");
+      expect(source).toContain('`/terms/versions/${version.id}/accept`');
+    });
+
+    it('seeded terms list every Annex A segment and do not repeat obsolete rates in change notes', () => {
+      const source = readRepo('prisma/seed-terms.ts');
+      expect(source).not.toContain('commission rate stated explicitly (12% new, 10% repeat');
+      for (const segment of [
+        'Catering commission',
+        'Catering booking deposit',
+        'Founding cook programme',
+        'Vendor Pro subscription',
+        'Customer service fee',
+      ]) {
+        expect(source).toContain(segment);
+      }
+      expect(source).toContain('${COMMISSION_RATES.catering.percent}%');
+      expect(source).toContain('${COMMISSION_RATES.customerServiceFee.percent}%');
+    });
+
+    it('rate card displays the schedule basis and does not claim catering uses food subtotal', () => {
+      const source = readRepo('packages/ui/src/RateCard.tsx');
+      expect(source).not.toContain('All rates apply to the food subtotal only');
+      expect(source).toContain('{r.basis}');
+      expect(source).toContain('Catering uses the event total');
+      const summary = readRepo('packages/ui/src/KeyTermsSummary.tsx');
+      expect(summary).toContain('Marketplace and vendor-referred commission is charged');
+      expect(summary).toContain('Catering commission uses the calculation basis listed in Annex A');
+    });
+  });
+
   describe('No hardcoded rate strings in source files', () => {
     it.each(SURFACES)('%s does not contain a hardcoded "%s" literal', (_, path) => {
       const content = readSrc(path);

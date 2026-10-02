@@ -248,7 +248,7 @@ export class VendorRepository {
     // not yet geocoded), we fall back to the legacy outward-postcode-prefix
     // proxy so the surface still returns something useful instead of empty.
     const distanceValue = hasUserCoords
-        ? Prisma.sql`(
+      ? Prisma.sql`(
             SELECT 2 * 6371 * asin(sqrt(
               power(sin(radians((dc.latitude - ${userLat}::float) / 2)), 2)
               + cos(radians(${userLat}::float)) * cos(radians(dc.latitude))

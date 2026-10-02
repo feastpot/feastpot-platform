@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { browserAuthState } from '../../../scripts/browser-auth-state';
 
 async function signIn(page: Page) {
   const email = process.env.TEST_VENDOR_EMAIL;
@@ -45,7 +46,7 @@ test('vendor metadata without a platform profile shows an application recovery m
 });
 
 test.describe('direct authenticated navigation', () => {
-  test.use({ storageState: 'e2e/.auth/vendor.json' });
+  test.use({ storageState: browserAuthState('vendor', 'vendor') });
 
   test('missing-profile recovery destination stays explanatory for a direct session visit', async ({
     page,

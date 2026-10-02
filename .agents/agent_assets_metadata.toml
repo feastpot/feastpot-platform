@@ -90,3 +90,87 @@ mtime_ms = 1788642611896
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/49bf50f6-002c-44db-8e5c-3ca7c2065c91/636e3092-722a-4487-8734-45c9081aaafd"
 storage_version_token = "1788642633692628"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "YhPojYYcXJY9CpxFfoGye"
+uri = "file://docs/legal/vendor-terms-annex-a-alignment.md"
+type = "text"
+title = "Vendor terms rate review"
+description = "Verified Annex A rates, presentation corrections, and a proposed catering deposit clause requiring legal approval before publication."
+logical_id = "c342c9d4-d135-4801-bf6f-98872af05a14"
+content_hash = "sha256:8ffd86824f9ff53be30acd521965fd151deb55c6819a2516f42f13071a261d55"
+size = 2939
+mtime_ms = 1790965107983
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/c342c9d4-d135-4801-bf6f-98872af05a14/6351abe2-8387-474a-9f6a-6d97b1a7b46f"
+storage_version_token = "1790965224507778"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "OOWNq1F7h_4TfDIPsLXHt"
+uri = "file://.local/browser-determinism/report.md"
+type = "text"
+title = "Local browser harness verification"
+description = "Suite counts, fixture evidence, unresolved authentication blockers, and LR-03 findings. No product fixes or CI pushes."
+logical_id = "6c772f66-88ef-42a0-a100-5c7ad655a0e4"
+content_hash = "sha256:ad3419e7f01a581a740615a8fd6a40838273021ddd53f57ffdae39ca8fec3e0e"
+size = 4769
+mtime_ms = 1790969952006
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/6c772f66-88ef-42a0-a100-5c7ad655a0e4/5640aa87-dfe2-4db9-9701-99660578590c"
+storage_version_token = "1790970166368349"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "HKKI7j4Mf0gSUcW20b3K1"
+uri = "file://audit/LR03-classification-2026-10-02.html"
+type = "html"
+title = "One-run audit and failure classification"
+description = "All 131 failures assigned A, B or C, with evidence, exact counts, checkout blockers and coverage limitations."
+logical_id = "21283a42-0e0c-4f18-8a31-2cb12815d2be"
+content_hash = "sha256:32fd5db233d2dfe6330e5308dc14c3fb0658ab6a8629f7c1252ad774ae6b2ca1"
+size = 732006
+mtime_ms = 1790973521589
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/21283a42-0e0c-4f18-8a31-2cb12815d2be/4d33e6b0-5726-4d47-a572-e6dfe229d067"
+storage_version_token = "1790973537912020"
+content_type = "text/html"
+
+[[outputs]]
+id = "EdSqX7hIpp1G9cPrsggKh"
+uri = "file://audit/LR03-test-cases-2026-10-02.csv"
+type = "table"
+title = "Complete test inventory — 2,510 cases"
+description = "Every passed, failed, skipped and did-not-run case, with classification and supporting evidence."
+logical_id = "da4fefaf-10f3-4eeb-be10-4e8b3ca72b7b"
+content_hash = "sha256:aa8f0b7b95778fc106e978b7dc7a8d070a250e03f53ad2d192eab010a4a63afd"
+size = 877863
+mtime_ms = 1790973521589
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/da4fefaf-10f3-4eeb-be10-4e8b3ca72b7b/bd563eb8-4beb-4788-aa65-01eb233fbd76"
+storage_version_token = "1790973539266218"
+content_type = "text/csv"
+
+[[outputs]]
+id = "cOvj9zygKUgxn6YJnQ5u3"
+uri = "file://audit/LR03-route-coverage-2026-10-02.csv"
+type = "table"
+title = "Authenticated route coverage"
+description = "Current route inventories and explicitly incomplete verification for V4 and all four staff roles."
+logical_id = "5b11d7d9-3078-457c-b082-6c331af5984c"
+content_hash = "sha256:2273d809a3a0e85b90634b6f1f8bec326bb83ac1b0d4bbc5f441d961cca4acd3"
+size = 490
+mtime_ms = 1790973521593
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/5b11d7d9-3078-457c-b082-6c331af5984c/64dc5607-1312-4835-ba3e-3b7bea3863f1"
+storage_version_token = "1790973540174332"
+content_type = "text/csv"
+
+[[outputs]]
+id = "m8kxqNwEdTSj5nU6qTJCZ"
+uri = "file://audit/catering-commission-existing-records-2026-10-02.csv"
+type = "table"
+title = "Catering records before any fix"
+description = "Read-only development and production inventory: each booking total, recorded commission, derived payout and explicit test provenance. No records changed."
+logical_id = "6d8b2c51-6c80-4d44-b575-70fe5a451422"
+content_hash = "sha256:7c5a20c40280e17b5fcea3c8be6331f33fcff6cd932d5be451ccdd854f5d7481"
+size = 11153
+mtime_ms = 1790973896965
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/6d8b2c51-6c80-4d44-b575-70fe5a451422/bc60bdde-1202-4cbb-adc4-33c00b0c9edf"
+storage_version_token = "1790973897802031"
+content_type = "text/csv"

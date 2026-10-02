@@ -21,7 +21,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 import { NotificationEvent } from '../notifications/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
-import { isNonOrderableVendor, orderableVendorDiscoveryWhere } from '../vendors/vendor-public-scope';
+import {
+  isNonOrderableVendor,
+  orderableVendorDiscoveryWhere,
+} from '../vendors/vendor-public-scope';
 
 import { ConfirmNumbersDto } from './dto/confirm-numbers.dto';
 import { CreateEventEnquiryDto } from './dto/create-enquiry.dto';

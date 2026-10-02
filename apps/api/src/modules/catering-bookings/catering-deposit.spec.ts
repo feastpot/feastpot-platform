@@ -227,6 +227,13 @@ describe('catering deposit lifecycle guards', () => {
 
   it('rejects and expires an expired event quote before creating a payment', async () => {
     const prisma = {
+      vendor: {
+        findUnique: jest.fn().mockResolvedValue({
+          publicDemo: false,
+          isSeedData: false,
+          user: { isTestData: false },
+        }),
+      },
       eventEnquiry: {
         findUnique: jest.fn().mockResolvedValue({
           id: 'enquiry-1',

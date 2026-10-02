@@ -1,0 +1,59 @@
+TASK: Make the browser suites deterministic. Do not fix any
+product defect in this prompt.
+
+WHY THIS BEFORE PRODUCT FIXES
+The audit could not distinguish a broken product from a
+broken test harness, and said so. Admin coverage came back
+0 of 49 routes. Until the suites run reliably you are guessing
+about what is actually wrong.
+
+THREE CONFIRMED HARNESS FAULTS
+
+1. VENDOR SUITE DESTROYS ITS OWN SESSION
+   The suite authenticated V4, then deleted its shared session
+   storage state file, and every dependent project failed in
+   milliseconds.
+   Find what removes that file: a global teardown, a beforeAll
+   cleanup, a conflicting fixture, or parallel workers racing
+   on the same path.
+   Fix so the session persists for the whole run and each
+   project gets an isolated state path if they need one.
+
+2. ADMIN SETUP BLOCKED BY MFA CONFIGURATION
+   Admin auth setup was redirected to
+   /unauthorized?reason=mfa-configuration, so no admin test
+   ran at all.
+   Production policy requires AAL2. The test environment must
+   satisfy that policy rather than bypass it. Provision a test
+   staff account with TOTP enrolled and seed the secret to the
+   test runner, or use a documented test-only AAL2 path that
+   CANNOT be enabled in production.
+   Do NOT disable the MFA requirement to make tests pass. That
+   would make the suite prove the opposite of what you need.
+
+3. THIRTY-ONE CUSTOMER TESTS DID NOT RUN
+   The customer run reported 37 failed, 8 skipped, 31 did not
+   run, 51 passed. Determine why 31 never executed: a failed
+   dependency project, a worker crash, or a bail setting.
+   Fix so every selected test either passes or fails. A test
+   that does not run is worse than one that fails.
+
+ALSO
+   Add /platform-facts to the admin route inventory. The route
+   map omits it, so it is untested and unenforced.
+   Confirm the identity factory can provision a genuine V4
+   zero-data vendor and every documented account state.
+   Make credential-dependent suites FAIL with a clear message
+   when credentials are absent, never skip silently.
+
+COST CONTROL
+No CI pushes. Run locally. If a fix does not work after two
+attempts, record the blocker and move to the next fault.
+Target 45 minutes. Hard stop at 60.
+
+ACCEPTANCE CRITERIA
+- A full vendor run completes with its session intact.
+- Admin auth setup succeeds with AAL2 satisfied, not bypassed.
+- Zero tests report "did not run".
+- Report the new pass/fail/skip counts for all three suites.
+Do not fix product defects. Report them for LR-03.

@@ -15,6 +15,18 @@ description: Source-based, effective-dated commission rates and the legal/displa
 
 ## Legal and display boundary
 
+Catering is its own commission segment: standard catering is 10%; when the vendor brings their own catering client, it is 5%. Ordinary vendor-referred orders remain separate. All catering quote paths must share one calculation and use integer pence, never marketplace first-order or repeat rates.
+
+**Why:** The user explicitly required the catering separation after both quote paths were found resolving marketplace commission, then confirmed "5%" for vendor-referred catering.
+
+**How to apply:** Keep catering calculations independent of marketplace attribution and rate changes; preserve historical financial records rather than silently recalculating them.
+
+The targeted catering fix uses canonical configuration rather than the ordinary order rate table, whose source enum contains only marketplace and ordinary vendor referral. Catering snapshots retain the charged percentage but do not claim a marketplace rate-row ID.
+
+**Why:** The user required fixed catering rates and a narrow fix, without silently modifying historical financial data.
+
+**How to apply:** If catering later moves to effective-dated database rates, introduce a distinct catering segment; never use ordinary vendor-referred rates as a shortcut.
+
 - Commission percentages belong in the canonical Rate Schedule, not in the numbered Vendor Terms clauses. Contract body copy points to Annex A.
 - Repeat-order commission and the customer service fee must always be named explicitly because they can share the same percentage but affect different parties.
 

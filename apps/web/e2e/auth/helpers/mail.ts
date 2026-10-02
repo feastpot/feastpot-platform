@@ -17,8 +17,6 @@
  * Mailosaur API docs: https://mailosaur.com/docs/api/
  */
 
-import { test } from '@playwright/test';
-
 const API_KEY = process.env.TEST_MAILOSAUR_API_KEY ?? '';
 const SERVER_ID = process.env.TEST_MAILOSAUR_SERVER_ID ?? '';
 const BASE_URL = 'https://mailosaur.com/api';
@@ -31,9 +29,8 @@ export function mailosaurAddress(localPart: string): string {
 /** Skip the current test if Mailosaur credentials are not configured. */
 export function skipIfNoMailosaur() {
   if (!API_KEY || !SERVER_ID) {
-    test.skip(
-      true,
-      'Set TEST_MAILOSAUR_API_KEY and TEST_MAILOSAUR_SERVER_ID to run real-email tests',
+    throw new Error(
+      'Missing TEST_MAILOSAUR_API_KEY and/or TEST_MAILOSAUR_SERVER_ID: real-email tests cannot run.',
     );
   }
 }
