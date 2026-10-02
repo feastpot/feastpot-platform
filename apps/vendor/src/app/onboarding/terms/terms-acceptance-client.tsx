@@ -19,7 +19,7 @@
  *   6. Keyboard accessible, screen-reader labelled, WCAG 2.2 AA.
  */
 
-import { Button, KeyTermsSummary, RateCard } from '@feastpot/ui';
+import { Button, currentTermsChangeNotes, KeyTermsSummary, RateCard } from '@feastpot/ui';
 import type { RateRow } from '@feastpot/ui';
 import { AlertCircle, CheckCircle2, Download, FileText, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -155,15 +155,12 @@ export function TermsAcceptanceClient({ accessToken, version, alreadyAccepted }:
           <section className="mb-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm">
             <p className="mb-2 font-semibold text-amber-900">What changed in v{version.version}</p>
             <ul className="space-y-1 text-amber-800">
-              {version.changeSummary
-                .split('\n')
-                .filter(Boolean)
-                .map((line, i) => (
-                  <li key={i} className="flex gap-2">
-                    <span className="shrink-0 text-amber-600">&#8226;</span>
-                    {line.replace(/^(Added|Changed|Fixed): /, '')}
-                  </li>
-                ))}
+              {currentTermsChangeNotes(version.changeSummary).map((line, i) => (
+                <li key={i} className="flex gap-2">
+                  <span className="shrink-0 text-amber-600">&#8226;</span>
+                  {line.replace(/^(Added|Changed|Fixed): /, '')}
+                </li>
+              ))}
             </ul>
           </section>
 
@@ -335,7 +332,7 @@ export function TermsAcceptanceClient({ accessToken, version, alreadyAccepted }:
           className="order-first mb-6 space-y-4 lg:order-last lg:mb-0"
           aria-label="Key terms summary and rate card"
         >
-          <KeyTermsSummary />
+          <KeyTermsSummary rates={rates} />
           <RateCard rates={rates} loading={ratesLoading} />
         </aside>
       </div>
