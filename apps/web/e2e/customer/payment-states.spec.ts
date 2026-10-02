@@ -180,7 +180,7 @@ async function withScenario(
 }
 
 test.describe('customer payment outcomes', () => {
-  test.describe.configure({ mode: 'serial', retries: 0 });
+  test.describe.configure({ mode: 'default', retries: 0 });
 
   test('success', async ({ page, request, customer }) => {
     await withScenario(request, customer, async ({ fixture, accessToken }) => {

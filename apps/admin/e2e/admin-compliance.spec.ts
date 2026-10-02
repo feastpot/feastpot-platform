@@ -12,10 +12,7 @@ const VENDOR_ID = '11111111-1111-1111-1111-111111111111';
 
 async function requireAdminSession(page: Page) {
   if (new URL(page.url()).pathname === '/sign-in') {
-    test.skip(
-      true,
-      'A valid admin storage state is required. Run the setup project with TEST_ADMIN_EMAIL and TEST_ADMIN_PASSWORD.',
-    );
+    throw new Error('Admin session missing: the genuine AAL2 setup must succeed before this test.');
   }
 }
 

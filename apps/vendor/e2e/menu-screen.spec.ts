@@ -16,9 +16,6 @@
  *   npm run test:e2e --workspace=@feastpot/vendor
  */
 
-import * as fs from 'fs';
-import * as path from 'path';
-
 import { expect, test } from '@playwright/test';
 
 import {
@@ -46,25 +43,15 @@ import { PageMetrics } from './helpers/page-metrics';
  * active. If the middleware redirected to /sign-in we fail immediately with
  * a clear message instead of timing out for the full 15 s.
  */
-const CACHE_PATH = path.join(__dirname, '.auth', 'vendor.json');
-
 async function waitForMenuReady(page: import('@playwright/test').Page) {
   await page.waitForLoadState('domcontentloaded');
 
   if (page.url().includes('/sign-in')) {
-    // The cached session was accepted by auth.setup but Supabase invalidated it
-    // server-side (e.g. password reset, revocation, or token rotation). Delete
-    // the stale cache so the next run forces a full sign-in rather than hitting
-    // the same redirect loop silently.
-    try {
-      fs.rmSync(CACHE_PATH);
-      console.warn(`waitForMenuReady: deleted stale session cache at ${CACHE_PATH}`);
-    } catch {
-      // File already gone - no action needed.
-    }
+    // Never delete another project's immutable setup state. A redirect is a
+    // failure of this test, not permission to break the rest of the run.
     throw new Error(
       'waitForMenuReady: redirected to /sign-in - the cached session was invalidated server-side.\n' +
-        'The stale cache has been deleted. Re-run to trigger a fresh sign-in:\n' +
+        'The shared session is preserved. Re-run to trigger a fresh sign-in:\n' +
         '  TEST_VENDOR_EMAIL=<email> TEST_VENDOR_PASSWORD=<password> npm run test:e2e --workspace=@feastpot/vendor',
     );
   }

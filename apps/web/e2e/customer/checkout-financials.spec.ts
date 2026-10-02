@@ -217,7 +217,7 @@ async function prepareCheckout(
 }
 
 test.describe('browser checkout failure contracts', () => {
-  test.beforeAll(() => {
+  test.beforeEach(() => {
     assertCustomerSmokeEnvironment();
   });
 

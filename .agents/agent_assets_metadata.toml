@@ -104,3 +104,17 @@ mtime_ms = 1790965107983
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/c342c9d4-d135-4801-bf6f-98872af05a14/6351abe2-8387-474a-9f6a-6d97b1a7b46f"
 storage_version_token = "1790965224507778"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "OOWNq1F7h_4TfDIPsLXHt"
+uri = "file://.local/browser-determinism/report.md"
+type = "text"
+title = "Local browser harness verification"
+description = "Suite counts, fixture evidence, unresolved authentication blockers, and LR-03 findings. No product fixes or CI pushes."
+logical_id = "6c772f66-88ef-42a0-a100-5c7ad655a0e4"
+content_hash = "sha256:ad3419e7f01a581a740615a8fd6a40838273021ddd53f57ffdae39ca8fec3e0e"
+size = 4769
+mtime_ms = 1790969952006
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/6c772f66-88ef-42a0-a100-5c7ad655a0e4/5640aa87-dfe2-4db9-9701-99660578590c"
+storage_version_token = "1790970166368349"
+content_type = "text/markdown"
