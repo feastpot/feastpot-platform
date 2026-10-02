@@ -5,6 +5,16 @@ description: How to deploy this 4-app monorepo on Replit; why the API is VM, and
 
 # Deploying FeastPot
 
+**Distinguish the health-check proxy port from the application's port.**
+**Why:** Replit's System logs can show connection refusal on an internal
+forwarding port, while the final startup error names the actual configured
+application port. Changing the application to match the proxy would introduce
+another outage.
+**How to apply:** compare the final expected-port error with the configured
+mapping and listener. System health-check failures establish unavailability,
+not its cause; use Application startup phases to distinguish slow initialization
+from a crash.
+
 Replit publishes **one service per repl**. This monorepo has 4 deployable apps
 (API + web + vendor + admin), so this repl deploys the **API**; the three Next.js
 frontends deploy from their own repls.
@@ -71,9 +81,16 @@ blocked until the user explicitly approves publishing.
 
 **Keep pre-listener deployment work within the VM health-check budget.**
 **Why:** Replit health checking starts before the synchronous `db:deploy` step
-finishes. The API itself takes about 21 seconds to become ready; an obsolete
-migration-repair probe once added 30-35 seconds and caused healthy code to be
-killed before port 3001 opened.
+finishes. Observed VM startup deadlines allow roughly 60 seconds for the entire
+run command, including npm launch overhead and migrations, not 60 seconds from
+the Node entry point. On the 0.5-vCPU VM, successful migration startup can leave
+only about 20 seconds for Node. Fast workspace startup does not establish that
+the published VM can meet this deadline. Cold production dependency loading
+(including monitoring SDK imports) can consume the remaining window before
+Nest starts, even when the same imports take milliseconds in the workspace.
 **How to apply:** keep `db:deploy` limited to connectivity preflight, `prisma
 migrate deploy`, and RLS lockdown. Run exceptional migration-history repairs
-separately instead of adding them to every VM start.
+separately instead of adding them to every VM start. Compare platform startup,
+Node entry, lifecycle initialization and listener timings before choosing a
+fix; do not blame Redis/Storage initialization unless startup has reached those
+hooks. Never bypass migration or security gates just to make the probe pass.

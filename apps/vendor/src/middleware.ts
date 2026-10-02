@@ -44,12 +44,14 @@ export async function middleware(request: NextRequest) {
   const isForgotPassword =
     pathname === '/forgot-password' || pathname.startsWith('/forgot-password/');
   const isNotRegistered = pathname === '/not-registered' || pathname.startsWith('/not-registered/');
-  // /auth/callback exchanges the Supabase recovery code for a session, and
-  // /auth/reset/* is the scanner-proof interstitial + new-password form.
-  // Neither is accessible with a session (user is locked out), so both must
-  // be public. Without this, the middleware bounces the user to /sign-in
-  // before the code exchange can set the cookie.
-  const isAuthFlow = pathname === '/auth/callback' || pathname.startsWith('/auth/reset/');
+  // /auth/callback exchanges OAuth/recovery codes, /auth/confirm is the
+  // scanner-safe invite/recovery confirmation page, and /auth/reset/* is the
+  // new-password flow. They must remain public so a fresh invite can establish
+  // its session before middleware tries to protect the vendor portal.
+  const isAuthFlow =
+    pathname === '/auth/callback' ||
+    pathname === '/auth/confirm' ||
+    pathname.startsWith('/auth/reset/');
   const isPlatformFacts = pathname === '/platform-facts' || pathname.startsWith('/platform-facts/');
   const isPublic =
     isSignIn ||

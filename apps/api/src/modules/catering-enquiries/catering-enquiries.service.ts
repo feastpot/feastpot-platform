@@ -8,6 +8,7 @@ import { NotificationEvent } from '../notifications/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailProvider } from '../notifications/providers/email.provider';
 import { WhatsappProvider } from '../notifications/providers/whatsapp.provider';
+import { isNonOrderableVendor, orderableVendorDiscoveryWhere } from '../vendors/vendor-public-scope';
 
 import { isCateringEnquiryStatus } from './catering-enquiry-status';
 import type { AssignCateringEnquiryDto } from './dto/assign-catering-enquiry.dto';
@@ -471,9 +472,7 @@ export class CateringEnquiriesService {
     const vendors = await this.prisma.vendor.findMany({
       where: {
         status: VendorStatus.live,
-        ...(process.env.NODE_ENV === 'test'
-          ? {}
-          : { isSeedData: false, user: { isTestData: false } }),
+        ...orderableVendorDiscoveryWhere(),
         eventCateringManualQuote: true,
         ...(q
           ? {
@@ -542,10 +541,19 @@ export class CateringEnquiriesService {
         userId: true,
         status: true,
         eventCateringManualQuote: true,
+        publicDemo: true,
+        isSeedData: true,
+        user: { select: { isTestData: true } },
         deliveryConfig: { select: { postcodes: true } },
       },
     });
     if (!vendor) throw new NotFoundException('Vendor not found');
+    if (isNonOrderableVendor(vendor)) {
+      throw new BadRequestException({
+        code: 'VENDOR_NOT_AVAILABLE_FOR_CATERING',
+        message: 'This vendor cannot accept catering assignments.',
+      });
+    }
     if (vendor.status !== VendorStatus.live) {
       throw new BadRequestException({
         code: 'VENDOR_NOT_LIVE',

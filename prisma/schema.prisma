@@ -1025,6 +1025,8 @@ model Vendor {
 
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  /// Public, read-only demo visibility is separately gated by persisted owner provenance.
+  publicDemo Boolean  @default(false) @map("public_demo")
   /// Set to true on rows created by the seed script. Rows with this flag are
   /// removed by the purge migration before production go-live. Never set this
   /// on real vendor rows; the purge migration deletes isSeedData = true vendors

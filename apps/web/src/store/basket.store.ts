@@ -29,6 +29,10 @@ export interface BasketVendor {
   id: string;
   name: string;
   slug: string;
+  /** Persisted so stale baskets can explain why checkout is unavailable. */
+  publicDemo?: boolean;
+  /** Optional for compatibility with older vendor API responses. */
+  canOrder?: boolean;
 }
 
 export interface BasketState {
@@ -69,6 +73,13 @@ export class CrossVendorBasketError extends Error {
   }
 }
 
+export class DemoVendorBasketError extends Error {
+  constructor() {
+    super('Demo vendors are view-only and cannot be added to a basket');
+    this.name = 'DemoVendorBasketError';
+  }
+}
+
 const calcLineTotal = (unitPricePence: number, quantity: number) => unitPricePence * quantity;
 
 /** Stable, deterministic line identity. */
@@ -89,6 +100,9 @@ export const useBasketStore = create<BasketState>()(
       vendor: null,
 
       addItem(item, vendor) {
+        if (vendor.publicDemo || vendor.canOrder === false) {
+          throw new DemoVendorBasketError();
+        }
         const state = get();
         if (state.vendor && state.vendor.id !== vendor.id && state.items.length > 0) {
           throw new CrossVendorBasketError();

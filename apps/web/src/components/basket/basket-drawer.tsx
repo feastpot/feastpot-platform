@@ -36,6 +36,7 @@ export function BasketDrawer({ children }: Props) {
   const router = useRouter();
   const items = useBasketStore((s) => s.items);
   const vendor = useBasketStore((s) => s.vendor);
+  const readOnlyVendor = Boolean(vendor?.publicDemo || vendor?.canOrder === false);
   const subtotal = useBasketStore((s) => s.getSubtotalPence());
   const removeLine = useBasketStore((s) => s.removeLine);
   const updateLineQuantity = useBasketStore((s) => s.updateLineQuantity);
@@ -70,6 +71,7 @@ export function BasketDrawer({ children }: Props) {
     : rawServiceFeePence;
 
   const onCheckout = () => {
+    if (readOnlyVendor) return;
     if (discount.trim()) {
       try {
         sessionStorage.setItem('feastpot.discount.v1', discount.trim());
@@ -113,7 +115,8 @@ export function BasketDrawer({ children }: Props) {
               className="flex items-center justify-between border-b border-cream-deep bg-cream px-4 py-3 text-sm hover:bg-cream-warm"
             >
               <span className="text-charcoal-mid">
-                Ordering from <strong className="font-bold text-charcoal">{vendor.name}</strong>
+                {readOnlyVendor ? 'Viewing sample menu from ' : 'Ordering from '}
+                <strong className="font-bold text-charcoal">{vendor.name}</strong>
               </span>
               <span className="text-xs font-bold text-brand">View vendor →</span>
             </Link>
@@ -131,8 +134,22 @@ export function BasketDrawer({ children }: Props) {
               ))}
             </ul>
 
-            {/* Totals + checkout */}
-            <footer className="space-y-3 border-t border-cream-deep bg-cream/50 px-4 py-3">
+            {readOnlyVendor ? (
+              <footer className="space-y-3 border-t border-cream-deep bg-cream/50 px-4 py-3">
+                <p className="rounded-xl border border-plantain bg-plantain/15 p-3 text-sm font-bold text-charcoal">
+                  This demo vendor is view-only. Sample items cannot be ordered.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => clearBasket()}
+                  className="w-full text-center text-xs font-medium text-charcoal-mid underline-offset-2 hover:underline"
+                >
+                  Empty basket
+                </button>
+              </footer>
+            ) : (
+            /* Totals + checkout */
+              <footer className="space-y-3 border-t border-cream-deep bg-cream/50 px-4 py-3">
               <div className="space-y-1 text-sm">
                 <div className="flex justify-between">
                   <span className="text-charcoal-mid">Subtotal</span>
@@ -206,7 +223,8 @@ export function BasketDrawer({ children }: Props) {
               >
                 Empty basket
               </button>
-            </footer>
+              </footer>
+            )}
           </>
         )}
       </SheetContent>

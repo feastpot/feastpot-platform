@@ -17,6 +17,9 @@
 #      role that bypasses RLS, so enabling RLS with no policies =
 #      deny-by-default for anon/authenticated, safely.
 set -u
+# A stale direct host must not consume the VM's entire readiness window before
+# we can try the session-pooler fallback. This also bounds RLS connection setup.
+export PGCONNECT_TIMEOUT="${PGCONNECT_TIMEOUT:-5}"
 SCHEMA="prisma/schema.prisma"
 
 # ---------------------------------------------------------------------------
@@ -91,7 +94,9 @@ fi
 # 2. Apply migrations.
 # ---------------------------------------------------------------------------
 echo "[db-deploy] Running prisma migrate deploy..."
-npx prisma migrate deploy --schema="$SCHEMA"
+# The build installs Prisma locally. Avoid npx's package-resolution startup
+# overhead inside the VM's limited readiness window; never download at runtime.
+./node_modules/.bin/prisma migrate deploy --schema="$SCHEMA"
 MIGRATE_EXIT=$?
 if [ $MIGRATE_EXIT -ne 0 ]; then
   echo "[db-deploy] prisma migrate deploy failed with exit $MIGRATE_EXIT"

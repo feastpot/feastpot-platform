@@ -29,6 +29,7 @@ import { NotificationEvent } from '../notifications/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailProvider } from '../notifications/providers/email.provider';
 import { PaymentsService } from '../payments/payments.service';
+import { isNonOrderableVendor } from '../vendors/vendor-public-scope';
 
 import type { CancelCateringBookingDto } from './dto/cancel-catering-booking.dto';
 import type { CreateCateringBookingDto } from './dto/create-catering-booking.dto';
@@ -109,9 +110,20 @@ export class CateringBookingsService {
   async createQuote(user: AuthUser, dto: CreateCateringBookingDto) {
     const vendor = await this.prisma.vendor.findUnique({
       where: { userId: user.id },
-      select: { id: true, businessName: true, slug: true, stripeAccountId: true },
+      select: {
+        id: true,
+        businessName: true,
+        slug: true,
+        stripeAccountId: true,
+        publicDemo: true,
+        isSeedData: true,
+        user: { select: { isTestData: true } },
+      },
     });
     if (!vendor) throw new ForbiddenException('No vendor profile');
+    if (isNonOrderableVendor(vendor)) {
+      throw new ForbiddenException('This vendor cannot create catering quotes');
+    }
 
     const enquiry = await this.prisma.cateringEnquiry.findUnique({
       where: { id: dto.enquiryId },
@@ -1167,9 +1179,19 @@ ${reason ? `<p>Reason: ${reason}</p>` : ''}
         customerEmail: true,
         customerName: true,
         assignNote: true,
+        vendor: {
+          select: {
+            publicDemo: true,
+            isSeedData: true,
+            user: { select: { isTestData: true } },
+          },
+        },
       },
     });
     if (!booking) throw new NotFoundException('Booking not found');
+    if (isNonOrderableVendor(booking.vendor)) {
+      throw new ForbiddenException('This vendor cannot create catering quotes');
+    }
     if (booking.status !== CateringBookingStatus.ASSIGNED) {
       throw new BadRequestException(
         `Cannot fill quote: booking is ${booking.status}. Only ASSIGNED bookings can have their quote filled.`,
