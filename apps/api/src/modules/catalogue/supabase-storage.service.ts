@@ -60,9 +60,17 @@ export class SupabaseStorageService implements OnModuleInit {
   /**
    * Ensure the shared media bucket exists. Supabase Storage returns
    * "Bucket not found" when the bucket hasn't been created yet in the
-   * project, so we create it on startup with public read access.
+   * project, so we create it on startup with public read access. This optional
+   * provisioning must not hold the API listener behind remote Storage calls;
+   * uploads retain their explicit errors if Storage is unavailable.
    */
-  async onModuleInit() {
+  onModuleInit(): void {
+    void this.provisionBuckets().catch(() => {
+      this.logger.warn('Storage bucket provisioning failed; uploads may be unavailable.');
+    });
+  }
+
+  private async provisionBuckets(): Promise<void> {
     await Promise.all([
       this.ensureBucket(STORAGE_BUCKET, {
         public: true,

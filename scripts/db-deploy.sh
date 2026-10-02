@@ -17,6 +17,9 @@
 #      role that bypasses RLS, so enabling RLS with no policies =
 #      deny-by-default for anon/authenticated, safely.
 set -u
+# A stale direct host must not consume the VM's entire readiness window before
+# we can try the session-pooler fallback. This also bounds RLS connection setup.
+export PGCONNECT_TIMEOUT="${PGCONNECT_TIMEOUT:-5}"
 SCHEMA="prisma/schema.prisma"
 
 # ---------------------------------------------------------------------------

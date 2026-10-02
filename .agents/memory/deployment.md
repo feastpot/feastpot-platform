@@ -5,6 +5,16 @@ description: How to deploy this 4-app monorepo on Replit; why the API is VM, and
 
 # Deploying FeastPot
 
+**Distinguish the health-check proxy port from the application's port.**
+**Why:** Replit's System logs can show connection refusal on an internal
+forwarding port, while the final startup error names the actual configured
+application port. Changing the application to match the proxy would introduce
+another outage.
+**How to apply:** compare the final expected-port error with the configured
+mapping and listener. System health-check failures establish unavailability,
+not its cause; use Application startup phases to distinguish slow initialization
+from a crash.
+
 Replit publishes **one service per repl**. This monorepo has 4 deployable apps
 (API + web + vendor + admin), so this repl deploys the **API**; the three Next.js
 frontends deploy from their own repls.

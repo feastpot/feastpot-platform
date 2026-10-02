@@ -5,6 +5,8 @@ function logStartupPhase(phase: string): void {
   console.info(`[feastpot-api] startup +${Math.round(process.uptime() * 1000)}ms: ${phase}`);
 }
 
+logStartupPhase('checking required configuration');
+import './common/config/startup-preflight';
 logStartupPhase('loading instrumentation');
 // Sentry must be required before other modules so its OpenTelemetry
 // auto-instrumentation can hook into Node's module loader.
@@ -100,11 +102,6 @@ import { Logger } from 'nestjs-pino';
 
 import { AppModule } from './app.module';
 import {
-  assertProductionAdminMfaEnforced,
-  assertRequiredEnvOrExit,
-} from './common/config/required-env';
-import { resolveStripeEnv } from './common/config/resolve-stripe-env';
-import {
   DEV_SUPABASE_REF,
   getSupabaseEnvironment,
   getSupabaseRef,
@@ -131,18 +128,9 @@ const ALLOWED_ORIGINS = [
 ];
 
 async function bootstrap(): Promise<void> {
-  logStartupPhase('application modules loaded; checking configuration');
-  // Organisational standard: resolve the environment-specific Stripe secrets
-  // (STRIPE_*_LIVE / STRIPE_*_TEST, stored as encrypted Replit Secrets) into the
-  // canonical STRIPE_SECRET_KEY / STRIPE_WEBHOOK_SECRET vars based on NODE_ENV.
-  // MUST run before the required-env gate below and before NestFactory.create()
-  // snapshots process.env into ConfigModule.
-  resolveStripeEnv();
-
-  // D21: fail loudly at startup if a critical secret is missing.
-  // In production we hard-exit (1); in dev we just log so contributors can
-  // run a partial stack without every secret set.
-  assertRequiredEnvOrExit();
+  logStartupPhase('application modules loaded; preparing bootstrap');
+  // Production configuration and MFA were checked by the dependency-free
+  // preflight before application imports and ConfigModule initialization.
 
   // Supabase project guard: production SHOULD run on a dedicated Supabase
   // project rather than the shared dev/prod ref. Today the platform still
@@ -153,10 +141,6 @@ async function bootstrap(): Promise<void> {
   // production project exists); otherwise we log loudly and continue.
   // Runs pre-Nest (before NestFactory connects Prisma), so the pino logger
   // isn't wired up yet - use console.error to match the required-env gate.
-  // Production must not expose a password-only staff surface. This runs before
-  // NestFactory.create() so a bad deployment cannot bind an HTTP listener.
-  assertProductionAdminMfaEnforced();
-
   if (process.env.NODE_ENV === 'production' && isDevSupabaseRef()) {
     const strict = process.env.REQUIRE_DEDICATED_SUPABASE === 'true';
     // eslint-disable-next-line no-console
