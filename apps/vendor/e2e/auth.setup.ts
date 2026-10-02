@@ -2,7 +2,7 @@
  * Playwright auth setup project.
  *
  * Signs in with the test vendor account and persists the Supabase session
- * (cookies + localStorage) to e2e/.auth/vendor.json so subsequent test
+ * (cookies + localStorage) to a private, run-isolated temporary file so subsequent test
  * projects can load it via storageState without repeating sign-in.
  *
  * Prerequisites:
@@ -10,18 +10,17 @@
  *   The account must belong to a vendor in `live` or `probation` status
  *   so the middleware lets it through to /menu.
  *
- * If the env vars are absent the file is written as empty JSON and a
- * warning is printed. Tests that require auth will see redirect-to-
- *  /sign-in and fail immediately rather than silently producing false
- * passes.
+ * Missing credentials fail the setup explicitly. The local deterministic runner
+ * supplies credentials from its namespaced V4 factory identity.
  */
 import * as fs from 'fs';
 import * as path from 'path';
 
 import { expect, test as setup, type Response } from '@playwright/test';
 import { createClient } from '@supabase/supabase-js';
+import { browserAuthState } from '../../../scripts/browser-auth-state';
 
-const STATE_PATH = path.join(__dirname, '.auth', 'vendor.json');
+const STATE_PATH = browserAuthState('vendor', 'vendor');
 
 function safeProfileResponseBody(body: string): string {
   const maxLength = 2_000;

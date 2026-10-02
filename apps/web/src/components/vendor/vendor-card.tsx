@@ -68,7 +68,12 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
             tokens so they sit correctly against the dark→transparent scrim
             without resorting to pure white plates. */}
         <div className="absolute right-2 top-2 flex flex-col items-end gap-1">
-          {vendor.communityFavourite && (
+          {vendor.publicDemo && (
+            <span className="rounded-full bg-plantain px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-charcoal shadow-sm">
+              Demo · no orders
+            </span>
+          )}
+          {!vendor.publicDemo && vendor.communityFavourite && (
             <span
               className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm"
               // Wireframe gold #F6B400 with near-black text - 9.6:1 contrast,
@@ -79,7 +84,7 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
               ★ Community Favourite
             </span>
           )}
-          {typeof vendor.fsaRating === 'number' && vendor.fsaRating >= 4 && (
+          {!vendor.publicDemo && typeof vendor.fsaRating === 'number' && vendor.fsaRating >= 4 && (
             <span
               className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold shadow-sm"
               style={{ background: '#E6F4EC', color: '#005C2B' }}
@@ -106,7 +111,7 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
           <h3 className={cn('line-clamp-1 font-bold leading-tight text-dark', titleSize)}>
             {vendor.businessName}
           </h3>
-          {vendor.rating > 0 && (
+          {!vendor.publicDemo && vendor.rating > 0 && (
             <span className="inline-flex shrink-0 items-center gap-0.5">
               <Star className="h-3 w-3 fill-amber-400 text-amber-400" aria-hidden />
               <span className="text-xs font-bold text-dark">{vendor.rating.toFixed(1)}</span>
@@ -140,7 +145,7 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
           </div>
         )}
 
-        {!isCarousel && (
+        {!isCarousel && !vendor.publicDemo && (
           <div className="mt-2 flex flex-wrap items-center gap-3 text-[10px] text-mid">
             {typeof vendor.minOrderPence === 'number' && vendor.minOrderPence > 0 && (
               <span className="inline-flex items-center gap-1">
@@ -160,12 +165,15 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
           </div>
         )}
         {/* DMCC Act 2024: service fee must be disclosed at first price display. */}
-        {!isCarousel && typeof vendor.minOrderPence === 'number' && vendor.minOrderPence > 0 && (
-          <p className="mt-0.5 text-[9px] text-charcoal-mid/60">+ up to £2.99 service fee</p>
-        )}
+        {!isCarousel &&
+          !vendor.publicDemo &&
+          typeof vendor.minOrderPence === 'number' &&
+          vendor.minOrderPence > 0 && (
+            <p className="mt-0.5 text-[9px] text-charcoal-mid/60">+ up to £2.99 service fee</p>
+          )}
         {/* Distance chip on carousel cards - shown whenever the API returns it
             (requires a postcode in the search query, e.g. from the coverage cookie) */}
-        {isCarousel && typeof vendor.distanceKm === 'number' && (
+        {isCarousel && !vendor.publicDemo && typeof vendor.distanceKm === 'number' && (
           <p className="mt-1 text-[10px] font-medium text-charcoal-mid">
             {vendor.distanceKm.toFixed(1)} km away
           </p>
@@ -177,35 +185,43 @@ export function VendorCard({ vendor, variant = 'list' }: Props) {
             review-style snippet. The snippet is intentionally evergreen
             (not pulled from real reviews) so empty-review vendors still
             show a warm human note instead of going blank. */}
-        <div className="mt-2 flex items-center gap-2 border-t border-cream-warm pt-2">
-          <div
-            aria-hidden
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand text-[10px] font-bold text-white"
-            style={{ background: 'linear-gradient(135deg, #00843D, #005C2B)' }}
-          >
-            {vendor.businessName
-              .split(' ')
-              .map((w) => w[0] ?? '')
-              .join('')
-              .substring(0, 2)
-              .toUpperCase()}
+        {!vendor.publicDemo && (
+          <div className="mt-2 flex items-center gap-2 border-t border-cream-warm pt-2">
+            <div
+              aria-hidden
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-brand text-[10px] font-bold text-white"
+              style={{ background: 'linear-gradient(135deg, #00843D, #005C2B)' }}
+            >
+              {vendor.businessName
+                .split(' ')
+                .map((w) => w[0] ?? '')
+                .join('')
+                .substring(0, 2)
+                .toUpperCase()}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[10px] font-semibold text-charcoal">
+                Home cook · {vendor.address?.city || 'UK'}
+              </p>
+              <p className="truncate text-[11px] italic text-charcoal-mid">
+                &ldquo;Just like my grandmother makes it.&rdquo;
+              </p>
+            </div>
           </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-[10px] font-semibold text-charcoal">
-              Home cook · {vendor.address?.city || 'UK'}
-            </p>
-            <p className="truncate text-[11px] italic text-charcoal-mid">
-              &ldquo;Just like my grandmother makes it.&rdquo;
-            </p>
-          </div>
-        </div>
+        )}
+        {vendor.publicDemo && (
+          <p className="mt-2 border-t border-cream-warm pt-2 text-[11px] font-semibold text-charcoal-mid">
+            Fictional sample menu · not available to order
+          </p>
+        )}
 
         {/* Scarcity ribbon - only renders when the API has surfaced a real
             `availableSlots` count of 3 or fewer. Slot scarcity on Feastpot
             is genuine (cooks pre-commit a fixed weekend tray count), so
             this isn't a dark pattern - it reflects the actual marketplace.
             Uses wireframe red #E30613 (scotch) for urgency. */}
-        {typeof vendor.availableSlots === 'number' &&
+        {!vendor.publicDemo &&
+          typeof vendor.availableSlots === 'number' &&
           vendor.availableSlots <= 3 &&
           vendor.availableSlots > 0 && (
             <p className="mt-1.5 text-[10px] font-semibold text-scotch">

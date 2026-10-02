@@ -12,7 +12,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { AttributionSource, CateringBookingStatus, OrderSource, UserRole } from '@prisma/client';
+import { AttributionSource, CateringBookingStatus, UserRole } from '@prisma/client';
 import type { Decimal } from '@prisma/client/runtime/library';
 import * as Sentry from '@sentry/nestjs';
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
@@ -24,14 +24,15 @@ import type { AuthUser } from '../../auth/types';
 import { CommissionService } from '../../commission/commission.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
-import { toResolvedSource } from '../attribution/attribution.service';
 import { NotificationEvent } from '../notifications/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
 import { EmailProvider } from '../notifications/providers/email.provider';
 import { PaymentsService } from '../payments/payments.service';
+import { isNonOrderableVendor } from '../vendors/vendor-public-scope';
 
 import type { CancelCateringBookingDto } from './dto/cancel-catering-booking.dto';
 import type { CreateCateringBookingDto } from './dto/create-catering-booking.dto';
+import type { FillCateringQuoteDto } from './dto/fill-catering-quote.dto';
 
 // Guest-count midpoints for each enquiry guestCountBand
 const GUEST_COUNT_MIDPOINTS: Record<string, number> = {
@@ -102,6 +103,17 @@ export class CateringBookingsService {
     private readonly payments: PaymentsService,
   ) {}
 
+  private calculateQuoteCommission(totalPence: number, vendorReferred: boolean) {
+    return {
+      ...this.commission.computeCateringCommission(
+        totalPence,
+        vendorReferred ? 'CATERING_VENDOR_REFERRED' : 'CATERING',
+      ),
+      // Attribution is metadata only; it never selects an ordinary order rate.
+      attributionSource: vendorReferred ? AttributionSource.VENDOR_REFERRED : null,
+    };
+  }
+
   // ---------------------------------------------------------------------------
   // Vendor: create quote
   // ---------------------------------------------------------------------------
@@ -109,9 +121,20 @@ export class CateringBookingsService {
   async createQuote(user: AuthUser, dto: CreateCateringBookingDto) {
     const vendor = await this.prisma.vendor.findUnique({
       where: { userId: user.id },
-      select: { id: true, businessName: true, slug: true, stripeAccountId: true },
+      select: {
+        id: true,
+        businessName: true,
+        slug: true,
+        stripeAccountId: true,
+        publicDemo: true,
+        isSeedData: true,
+        user: { select: { isTestData: true } },
+      },
     });
     if (!vendor) throw new ForbiddenException('No vendor profile');
+    if (isNonOrderableVendor(vendor)) {
+      throw new ForbiddenException('This vendor cannot create catering quotes');
+    }
 
     const enquiry = await this.prisma.cateringEnquiry.findUnique({
       where: { id: dto.enquiryId },
@@ -145,24 +168,8 @@ export class CateringBookingsService {
     const quoteExpiresAt =
       requestedExpiry && requestedExpiry < systemExpiry ? requestedExpiry : systemExpiry;
 
-    // Commission: at quote time there is no session/fp_ref cookie (the vendor
-    // creates the booking, not the customer). We default to MARKETPLACE/first.
-    // The resolved three-tier source is stored for consistent finance reporting.
-    // Admin can correct the attribution before the deposit is confirmed.
-    const source = OrderSource.MARKETPLACE;
-    const isFirstOrder = true;
-    const resolvedAttributionSource: AttributionSource = toResolvedSource(source, isFirstOrder);
-    const now = new Date();
-    const { rateId, ratePercent, commissionPence } = await this.commission.resolveRateAndCompute(
-      source,
-      isFirstOrder,
-      total, // subtotalPence = total for catering (no separate service fee)
-      0, // deliveryFeePence (catering has no delivery fee)
-      0, // serviceFeePence (none for catering)
-      0, // discountPence (catering quotes carry no discount codes)
-      null, // discountFundedBy (no discount)
-      now,
-    );
+    const { rateId, ratePercent, commissionPence, attributionSource } =
+      this.calculateQuoteCommission(total, dto.vendorReferred ?? false);
 
     const booking = await this.prisma.cateringBooking.create({
       data: {
@@ -181,7 +188,7 @@ export class CateringBookingsService {
         commissionPercent: ratePercent as unknown as Decimal,
         commissionPence,
         commissionRateId: rateId ?? null,
-        attributionSource: resolvedAttributionSource,
+        attributionSource,
         quoteExpiresAt,
         lineItems: {
           create: dto.lineItems.map((li) => ({
@@ -1135,24 +1142,7 @@ ${reason ? `<p>Reason: ${reason}</p>` : ''}
   // Vendor: fill in a quote on an ASSIGNED booking (ASSIGNED -> QUOTED)
   // ---------------------------------------------------------------------------
 
-  async fillQuote(
-    bookingId: string,
-    user: AuthUser,
-    dto: {
-      lineItems: Array<{
-        description: string;
-        quantity: number;
-        unitPence: number;
-        allergens?: string[];
-      }>;
-      eventDate?: string;
-      guestCount?: number;
-      eventAddress?: string;
-      preferredTime?: string;
-      quoteExpiresAt?: string;
-      minimumDepositPence: number;
-    },
-  ) {
+  async fillQuote(bookingId: string, user: AuthUser, dto: FillCateringQuoteDto) {
     const booking = await this.prisma.cateringBooking.findUnique({
       where: { id: bookingId },
       select: {
@@ -1167,9 +1157,20 @@ ${reason ? `<p>Reason: ${reason}</p>` : ''}
         customerEmail: true,
         customerName: true,
         assignNote: true,
+        attributionSource: true,
+        vendor: {
+          select: {
+            publicDemo: true,
+            isSeedData: true,
+            user: { select: { isTestData: true } },
+          },
+        },
       },
     });
     if (!booking) throw new NotFoundException('Booking not found');
+    if (isNonOrderableVendor(booking.vendor)) {
+      throw new ForbiddenException('This vendor cannot create catering quotes');
+    }
     if (booking.status !== CateringBookingStatus.ASSIGNED) {
       throw new BadRequestException(
         `Cannot fill quote: booking is ${booking.status}. Only ASSIGNED bookings can have their quote filled.`,
@@ -1193,17 +1194,11 @@ ${reason ? `<p>Reason: ${reason}</p>` : ''}
     const quoteExpiresAt =
       requestedExpiry && requestedExpiry < systemQuoteExpiry ? requestedExpiry : systemQuoteExpiry;
 
-    const now = new Date();
-    const { rateId, ratePercent, commissionPence } = await this.commission.resolveRateAndCompute(
-      'MARKETPLACE' as never,
-      true,
-      total,
-      0,
-      0,
-      0,
-      null,
-      now,
-    );
+    const { rateId, ratePercent, commissionPence, attributionSource } =
+      this.calculateQuoteCommission(
+        total,
+        dto.vendorReferred ?? booking.attributionSource === AttributionSource.VENDOR_REFERRED,
+      );
 
     const updated = await this.prisma.$transaction(async (tx) => {
       // Remove any existing line items (shouldn't exist on ASSIGNED, but defensive)
@@ -1224,6 +1219,7 @@ ${reason ? `<p>Reason: ${reason}</p>` : ''}
           commissionPercent: ratePercent as unknown as never,
           commissionPence,
           commissionRateId: rateId ?? null,
+          attributionSource,
           quoteExpiresAt,
           lineItems: {
             create: dto.lineItems.map((li) => ({

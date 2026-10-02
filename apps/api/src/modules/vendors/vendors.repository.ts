@@ -4,12 +4,14 @@ import { ModerationStatus, Prisma, VendorStatus } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { SearchVendorsDto, VendorSortBy } from './dto/search-vendors.dto';
+import {
+  explicitPublicDemoSql,
+  isExplicitPublicDemo,
+  orderableVendorDiscoveryWhere,
+  publicVendorWhere,
+} from './vendor-public-scope';
 
 const COMMUNITY_FAVOURITE_RATING = 4.3;
-
-function publicFixtureExclusion(): Prisma.VendorWhereInput {
-  return process.env.NODE_ENV === 'test' ? {} : { isSeedData: false, user: { isTestData: false } };
-}
 
 export interface SearchedVendorRow {
   id: string;
@@ -28,6 +30,7 @@ export interface SearchedVendorRow {
   compliance_status: string;
   /** FSA hygiene rating 0-5: always >= 3 in search results (WHERE clause enforces it). */
   fsa_hygiene_rating: number | null;
+  public_demo: boolean;
 }
 
 export interface DecodedCursor {
@@ -95,6 +98,7 @@ export class VendorRepository {
     const qRaw = dto.q?.trim();
     const q = qRaw && qRaw.length > 0 ? qRaw.slice(0, 200) : null;
     const qLike = q ? `%${q.replace(/[%_\\]/g, (c) => `\\${c}`)}%` : null;
+    const publicDemoScope = explicitPublicDemoSql();
 
     // ORDER BY + matching keyset cursor predicate (must use the SAME keys/direction
     // as ORDER BY for stable pagination - the previous id-only cursor was wrong).
@@ -198,10 +202,15 @@ export class VendorRepository {
             FROM menu_items mi
             JOIN menus m ON m.id = mi.menu_id
             WHERE mi.vendor_id = v.id
-              AND mi.is_available = true
-              AND mi.moderation_status IN ('auto_approved', 'approved')
-              AND (cardinality(mi.allergens) > 0 OR mi.allergens_free_from = true)
-              AND m.is_active = true
+              AND (
+                (
+                  mi.is_available = true
+                  AND mi.moderation_status IN ('auto_approved', 'approved')
+                  AND (cardinality(mi.allergens) > 0 OR mi.allergens_free_from = true)
+                  AND m.is_active = true
+                )
+                OR ${publicDemoScope}
+              )
               AND (mi.name ILIKE ${qLike} OR mi.description ILIKE ${qLike})
           )
         )`
@@ -217,10 +226,15 @@ export class VendorRepository {
             FROM menu_items mi
             JOIN menus m ON m.id = mi.menu_id
             WHERE mi.vendor_id = v.id
-              AND mi.is_available = true
-              AND mi.moderation_status IN ('auto_approved', 'approved')
-              AND (cardinality(mi.allergens) > 0 OR mi.allergens_free_from = true)
-              AND m.is_active = true
+              AND (
+                (
+                  mi.is_available = true
+                  AND mi.moderation_status IN ('auto_approved', 'approved')
+                  AND (cardinality(mi.allergens) > 0 OR mi.allergens_free_from = true)
+                  AND m.is_active = true
+                )
+                OR ${publicDemoScope}
+              )
               AND (mi.name ILIKE ${qLike} OR mi.description ILIKE ${qLike})
             ORDER BY mi.name
             LIMIT 3
@@ -233,7 +247,7 @@ export class VendorRepository {
     // 6371km radius). When we don't (no postcode, geocoding miss, or vendor
     // not yet geocoded), we fall back to the legacy outward-postcode-prefix
     // proxy so the surface still returns something useful instead of empty.
-    const distanceSelect = hasUserCoords
+    const distanceValue = hasUserCoords
       ? Prisma.sql`(
             SELECT 2 * 6371 * asin(sqrt(
               power(sin(radians((dc.latitude - ${userLat}::float) / 2)), 2)
@@ -244,7 +258,7 @@ export class VendorRepository {
             WHERE dc.vendor_id = v.id
               AND dc.latitude IS NOT NULL
               AND dc.longitude IS NOT NULL
-          ) AS distance_km`
+          )`
       : postcodePrefix
         ? Prisma.sql`CASE
               WHEN EXISTS (
@@ -261,8 +275,8 @@ export class VendorRepository {
                   AND UPPER(REPLACE(a.postcode, ' ', '')) LIKE ${postcodePrefix + '%'}
               ) THEN 0::float
               ELSE NULL::float
-            END AS distance_km`
-        : Prisma.sql`NULL::float AS distance_km`;
+            END`
+        : Prisma.sql`NULL::float`;
 
     // Radius filter: when the user gave us a postcode AND we successfully
     // geocoded it, include a vendor if EITHER:
@@ -360,36 +374,44 @@ export class VendorRepository {
       process.env.NODE_ENV === 'test'
         ? Prisma.empty
         : Prisma.sql`
-            AND v.is_seed_data = false
-            AND EXISTS (
-              SELECT 1
-              FROM users owner
-              WHERE owner.id = v.user_id
-                AND owner.is_test_data = false
+            AND (
+              (v.is_seed_data = false AND owner.is_test_data = false)
+              OR ${publicDemoScope}
             )
           `;
+    const publicDistanceSelect = Prisma.sql`
+      CASE WHEN v.public_demo = true THEN NULL::float ELSE ${distanceValue} END AS distance_km
+    `;
 
     return this.prisma.$queryRaw<SearchedVendorRow[]>(Prisma.sql`
       SELECT
         v.id, v.business_name, v.slug, v.description, v.cuisines,
         v.status, v.rating, v.rating_count, v.created_at,
         v.compliance_status, v.fsa_hygiene_rating,
-        ${distanceSelect},
+        v.public_demo AS public_demo,
+        ${publicDistanceSelect},
         ${matchedDishesSelect}
       FROM vendors v
-      WHERE v.status::text = ${dto.status ?? VendorStatus.live}
+      JOIN users owner ON owner.id = v.user_id
+      WHERE (
+          v.status::text = ${dto.status ?? VendorStatus.live}
+          OR ${publicDemoScope}
+        )
         ${publicFixtureClause}
-        AND v.approved_at IS NOT NULL
+        AND (v.approved_at IS NOT NULL OR ${publicDemoScope})
         AND v.suspended_at IS NULL
         -- Food-business registration is the publication gate. A vendor awaiting
         -- their first FHRS inspection may publish; once a rating exists it must
         -- be at least 3, as required by Vendor Terms clauses 2 and 10.
         AND (
-          v.compliance_status::text = 'REGISTERED_AWAITING_INSPECTION'
-          OR (
-            v.compliance_status::text = 'RATED'
-            AND v.fsa_hygiene_rating >= 3
+          (
+            v.compliance_status::text = 'REGISTERED_AWAITING_INSPECTION'
+            OR (
+              v.compliance_status::text = 'RATED'
+              AND v.fsa_hygiene_rating >= 3
+            )
           )
+          OR ${publicDemoScope}
         )
         ${cursorClause}
         ${cuisineClause}
@@ -405,7 +427,7 @@ export class VendorRepository {
     `);
   }
 
-  findById(id: string) {
+  findById(id: string, includeDemoPreview = false) {
     return this.prisma.vendor.findUnique({
       where: { id },
       include: {
@@ -417,7 +439,7 @@ export class VendorRepository {
         // createdAt as a stable tie-break) - the client groups them by
         // `category` for display, so order is preserved within each group.
         menus: {
-          where: { isActive: true },
+          ...(includeDemoPreview ? {} : { where: { isActive: true } }),
           orderBy: { createdAt: 'asc' },
           include: {
             // Customer-facing payload: only include published items so
@@ -425,13 +447,17 @@ export class VendorRepository {
             // only items that cleared moderation (auto_approved / approved) -
             // items held for review or rejected stay hidden from customers.
             items: {
-              where: {
-                isAvailable: true,
-                moderationStatus: {
-                  in: [ModerationStatus.auto_approved, ModerationStatus.approved],
-                },
-                OR: [{ allergens: { isEmpty: false } }, { allergensFreeFrom: true }],
-              },
+              ...(includeDemoPreview
+                ? {}
+                : {
+                    where: {
+                      isAvailable: true,
+                      moderationStatus: {
+                        in: [ModerationStatus.auto_approved, ModerationStatus.approved],
+                      },
+                      OR: [{ allergens: { isEmpty: false } }, { allergensFreeFrom: true }],
+                    },
+                  }),
               orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
             },
           },
@@ -449,16 +475,25 @@ export class VendorRepository {
 
   findBySlug(slug: string) {
     return this.prisma.vendor.findFirst({
-      where: { slug, ...publicFixtureExclusion() },
+      where: publicVendorWhere({ slug }),
+      include: { user: { select: { isTestData: true, provenance: true } } },
     });
   }
 
   async findPublicById(id: string) {
     const visible = await this.prisma.vendor.findFirst({
-      where: { id, ...publicFixtureExclusion() },
-      select: { id: true },
+      where: publicVendorWhere({ id }),
+      select: {
+        id: true,
+        publicDemo: true,
+        isSeedData: true,
+        user: { select: { isTestData: true, provenance: true } },
+      },
     });
-    return visible ? this.findById(id) : null;
+    if (!visible) return null;
+    const demoPreview = isExplicitPublicDemo(visible);
+    const profile = await this.findById(id, demoPreview);
+    return profile ? { ...profile, publicDemo: visible.publicDemo } : null;
   }
 
   findSlugRedirect(oldSlug: string) {
@@ -586,7 +621,11 @@ export class VendorRepository {
    */
   async getCommunityFavouriteCandidates() {
     return this.prisma.vendor.findMany({
-      where: { status: VendorStatus.live, rating: { gte: COMMUNITY_FAVOURITE_RATING } },
+      where: {
+        ...orderableVendorDiscoveryWhere(),
+        status: VendorStatus.live,
+        rating: { gte: COMMUNITY_FAVOURITE_RATING },
+      },
       select: { id: true, rating: true, ratingCount: true },
     });
   }

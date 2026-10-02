@@ -53,13 +53,13 @@ export function VendorRowCard({ vendor, trustSignals, capacity }: Props) {
   // Up to three dish/cuisine tags: prefer matched dishes from free-text search,
   // fall back to the vendor's cuisine list.
   const tags = (vendor.matchedDishes?.length ? vendor.matchedDishes : vendor.cuisines).slice(0, 3);
-  const isPopular = vendor.communityFavourite === true;
+  const isPopular = !vendor.publicDemo && vendor.communityFavourite === true;
   const distanceLabel = formatDistanceMiles(vendor.distanceKm);
   const minOrderLabel = formatMinOrder(vendor.minOrderPence);
 
   // At most two badges, priority reliable_orders → event_catering_experience
   // → first verified alphabetically.
-  const badgeTypes = orderTrustSignalsForCards(trustSignals).slice(0, 2);
+  const badgeTypes = vendor.publicDemo ? [] : orderTrustSignalsForCards(trustSignals).slice(0, 2);
 
   return (
     <article className="group relative overflow-hidden rounded-3xl border border-cream-deep bg-white shadow-sm transition hover:shadow-md">
@@ -94,6 +94,11 @@ export function VendorRowCard({ vendor, trustSignals, capacity }: Props) {
               <h3 className="font-display text-base font-black text-charcoal sm:text-lg">
                 <span className="truncate">{vendor.businessName}</span>
               </h3>
+              {vendor.publicDemo && (
+                <span className="mt-1 inline-flex rounded-full bg-plantain px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-charcoal">
+                  Demo
+                </span>
+              )}
               {vendor.cuisines.length > 0 && (
                 <p className="mt-0.5 truncate text-xs font-medium text-charcoal-mid">
                   {vendor.cuisines.slice(0, 2).join(' · ')}
@@ -103,37 +108,41 @@ export function VendorRowCard({ vendor, trustSignals, capacity }: Props) {
           </header>
 
           {/* Rating + price band */}
-          <p className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-bold text-charcoal">
-            <Star className="h-3.5 w-3.5 fill-plantain text-plantain" aria-hidden />
-            <span>{vendor.rating > 0 ? vendor.rating.toFixed(1) : 'New'}</span>
-            {vendor.ratingCount > 0 && (
-              <span className="font-medium text-charcoal-mid">
-                (
-                {vendor.ratingCount >= 1000
-                  ? `${(vendor.ratingCount / 1000).toFixed(1)}k+`
-                  : vendor.ratingCount}
-                )
-              </span>
-            )}
-          </p>
+          {!vendor.publicDemo && (
+            <p className="mt-1.5 inline-flex items-center gap-1.5 text-xs font-bold text-charcoal">
+              <Star className="h-3.5 w-3.5 fill-plantain text-plantain" aria-hidden />
+              <span>{vendor.rating > 0 ? vendor.rating.toFixed(1) : 'New'}</span>
+              {vendor.ratingCount > 0 && (
+                <span className="font-medium text-charcoal-mid">
+                  (
+                  {vendor.ratingCount >= 1000
+                    ? `${(vendor.ratingCount / 1000).toFixed(1)}k+`
+                    : vendor.ratingCount}
+                  )
+                </span>
+              )}
+            </p>
+          )}
 
           {/* Delivery ETA + min order */}
-          <p className="mt-1 text-xs font-medium text-charcoal-mid">
-            {deliveryEta(vendor.deliveryEtaMins)}
-            {minOrderLabel && (
-              <>
-                <span className="mx-1">·</span>
-                {minOrderLabel}
-              </>
-            )}
-          </p>
+          {!vendor.publicDemo && (
+            <p className="mt-1 text-xs font-medium text-charcoal-mid">
+              {deliveryEta(vendor.deliveryEtaMins)}
+              {minOrderLabel && (
+                <>
+                  <span className="mx-1">·</span>
+                  {minOrderLabel}
+                </>
+              )}
+            </p>
+          )}
           {/* DMCC Act 2024: disclose service fee at first price display. */}
-          {minOrderLabel && (
+          {!vendor.publicDemo && minOrderLabel && (
             <p className="text-[10px] text-charcoal-mid/60">+ up to £2.99 service fee</p>
           )}
 
           {/* Trust signal badges + capacity */}
-          {(badgeTypes.length > 0 || capacity) && (
+          {!vendor.publicDemo && (badgeTypes.length > 0 || capacity) && (
             <p className="mt-1.5 flex flex-wrap items-center gap-1.5">
               {badgeTypes.map((t) => (
                 <TrustSignalBadge key={t} signalType={t} label={TRUST_SIGNAL_LABELS[t]} />
@@ -143,7 +152,7 @@ export function VendorRowCard({ vendor, trustSignals, capacity }: Props) {
           )}
 
           {/* Distance */}
-          {distanceLabel && (
+          {!vendor.publicDemo && distanceLabel && (
             <p className="mt-1.5">
               <span className="inline-flex items-center rounded-full bg-teal/10 px-2 py-0.5 text-[11px] font-bold text-teal">
                 {distanceLabel}
@@ -180,10 +189,16 @@ export function VendorRowCard({ vendor, trustSignals, capacity }: Props) {
         aria-label={`View ${vendor.businessName} menu`}
         className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-brand px-3 py-2 text-[11px] font-bold text-white shadow-md transition hover:bg-brand-dark sm:px-4 sm:text-xs"
       >
-        <span aria-hidden className="text-sm font-black leading-none">
-          +
-        </span>
-        <span className="hidden sm:inline">View menu</span>
+        {vendor.publicDemo ? (
+          <span className="hidden sm:inline">View sample menu</span>
+        ) : (
+          <>
+            <span aria-hidden className="text-sm font-black leading-none">
+              +
+            </span>
+            <span className="hidden sm:inline">View menu</span>
+          </>
+        )}
       </Link>
     </article>
   );

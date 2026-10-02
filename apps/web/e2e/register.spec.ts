@@ -304,9 +304,7 @@ test('8. resend button triggers resend and shows cooldown', async ({ page }) => 
 test('9. old generic error string does not appear in built output', async () => {
   const nextDir = path.resolve(__dirname, '../.next');
   if (!fs.existsSync(nextDir)) {
-    // No build output in this environment; skip rather than fail.
-    test.skip(true, '.next build output not present -- run `npm run build` first');
-    return;
+    throw new Error('.next output is absent: start the Web workflow before running this test.');
   }
 
   const BANNED = [

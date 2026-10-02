@@ -21,6 +21,10 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { StripeService } from '../../stripe/stripe.service';
 import { NotificationEvent } from '../notifications/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
+import {
+  isNonOrderableVendor,
+  orderableVendorDiscoveryWhere,
+} from '../vendors/vendor-public-scope';
 
 import { ConfirmNumbersDto } from './dto/confirm-numbers.dto';
 import { CreateEventEnquiryDto } from './dto/create-enquiry.dto';
@@ -415,7 +419,10 @@ export class EventEnquiriesService {
   async matchVendors(enquiry: EventEnquiry): Promise<string[]> {
     const enquiryGeo = await this.geocodePostcode(enquiry.postcode);
 
-    const where: Record<string, unknown> = { status: VendorStatus.live };
+    const where: Record<string, unknown> = {
+      ...orderableVendorDiscoveryWhere(),
+      status: VendorStatus.live,
+    };
     if (enquiry.cuisines.length > 0) {
       where.cuisines = { hasSome: enquiry.cuisines };
     }
@@ -486,9 +493,17 @@ export class EventEnquiriesService {
   async submitQuote(enquiryId: string, user: AuthUser, dto: SubmitQuoteDto) {
     const vendor = await this.prisma.vendor.findUnique({
       where: { userId: user.id },
-      select: { id: true },
+      select: {
+        id: true,
+        publicDemo: true,
+        isSeedData: true,
+        user: { select: { isTestData: true } },
+      },
     });
     if (!vendor) throw new ForbiddenException('No vendor profile');
+    if (isNonOrderableVendor(vendor)) {
+      throw new ForbiddenException('This vendor cannot submit event quotes');
+    }
 
     const enquiry = await this.prisma.eventEnquiry.findUnique({ where: { id: enquiryId } });
     if (!enquiry) throw new NotFoundException('Enquiry not found');
@@ -581,6 +596,18 @@ export class EventEnquiriesService {
     if (enquiry.customerId !== customerId) throw new ForbiddenException();
     if (enquiry.status === EnquiryStatus.confirmed) {
       throw new BadRequestException('Enquiry already confirmed');
+    }
+
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id: dto.vendorId },
+      select: {
+        publicDemo: true,
+        isSeedData: true,
+        user: { select: { isTestData: true } },
+      },
+    });
+    if (!vendor || isNonOrderableVendor(vendor)) {
+      throw new BadRequestException('This vendor cannot accept event bookings');
     }
 
     const quote = enquiry.quotes.find(

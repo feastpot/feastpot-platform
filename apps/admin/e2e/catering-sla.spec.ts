@@ -126,7 +126,7 @@ test('SLA-1: 12h enquiry shows neutral SLA pill with age label', async ({ page }
 
   const loaded = await setupAndNavigate(page, enquiries);
   if (!loaded) {
-    test.skip(true, 'SSR auth not satisfied by mock -- run with real session to enable SLA tests');
+    throw new Error('Admin session missing: SSR must use a genuine AAL2 session, not auth mocks.');
     return;
   }
 
@@ -144,7 +144,7 @@ test('SLA-2: 36h enquiry shows amber SLA pill with age label', async ({ page }) 
 
   const loaded = await setupAndNavigate(page, enquiries);
   if (!loaded) {
-    test.skip(true, 'SSR auth not satisfied by mock -- run with real session to enable SLA tests');
+    throw new Error('Admin session missing: SSR must use a genuine AAL2 session, not auth mocks.');
     return;
   }
 
@@ -162,7 +162,7 @@ test('SLA-3: 60h enquiry shows red SLA pill with "Overdue by Nh" label', async (
 
   const loaded = await setupAndNavigate(page, enquiries);
   if (!loaded) {
-    test.skip(true, 'SSR auth not satisfied by mock -- run with real session to enable SLA tests');
+    throw new Error('Admin session missing: SSR must use a genuine AAL2 session, not auth mocks.');
     return;
   }
 
@@ -187,7 +187,7 @@ test('SLA-4: mixed-age enquiries sort most-urgent (overdue) first', async ({ pag
 
   const loaded = await setupAndNavigate(page, enquiries);
   if (!loaded) {
-    test.skip(true, 'SSR auth not satisfied by mock -- run with real session to enable SLA tests');
+    throw new Error('Admin session missing: SSR must use a genuine AAL2 session, not auth mocks.');
     return;
   }
 

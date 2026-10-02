@@ -33,4 +33,5 @@ export * from './KeyTermsSummary';
 export * from './components/benefits-strip';
 export * from './components/footer';
 export * from './RateCard';
+export * from './terms-rate-summary';
 export * from './VendorPortalLayout';

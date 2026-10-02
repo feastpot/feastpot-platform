@@ -1,0 +1,160 @@
+2026-10-01T17:02:14Z info: Deployment: ddce6f51-1096-445f-abec-e1ad290d8fce
+2026-10-01T17:02:14Z info: Build: cfbf38b2-cd82-413a-be21-e066c82bce36
+2026-10-01T17:02:16Z info: Running Security Scan
+2026-10-01T17:02:20Z info: Installing packages
+--> npm install
+
+
+> feastpot-platform@0.1.0 prepare
+> husky
+
+
+
+up to date, audited 1513 packages in 8s
+
+
+288 packages are looking for funding
+  run `npm fund` for details
+
+
+14 vulnerabilities (3 moderate, 11 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+
+npm notice
+npm notice New major version of npm available! 10.9.4 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice
+
+2026-10-01T17:02:30Z info: Starting Build
+npm warn deprecated sourcemap-codec@1.4.8: Please use @jridgewell/sourcemap-codec instead
+
+npm warn deprecated scmp@2.1.0: Just use Node.js's crypto.timingSafeEqual()
+
+npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+
+npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+
+2026-10-01T17:02:48Z info: Security Scan Complete
+npm warn deprecated @types/bull@4.10.4: This is a stub types definition. bull provides its own type definitions, so you do not need this installed.
+
+npm warn deprecated @humanwhocodes/object-schema@2.0.3: Use @eslint/object-schema instead
+
+npm warn deprecated @humanwhocodes/config-array@0.13.0: Use @eslint/config-array instead
+
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+
+npm warn deprecated source-map@0.8.0-beta.0: The work that was done in this beta branch won't be included in future versions
+
+npm warn deprecated source-map@0.8.0-beta.0: The work that was done in this beta branch won't be included in future versions
+
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+
+npm warn deprecated glob@7.2.3: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+
+npm warn deprecated glob@10.5.0: Old versions of glob are not supported, and contain widely publicized security vulnerabilities, which have been fixed in the current version. Please update. Support for old versions may be purchased (at exorbitant rates) by contacting i@izs.me
+
+npm warn deprecated recharts@2.15.4: 1.x and 2.x branches are no longer active. Bump to Recharts v3 to receive latest features and bugfixes. See https://github.com/recharts/recharts/wiki/3.0-migration-guide
+
+npm warn deprecated eslint@8.57.1: This version is no longer supported. Please see https://eslint.org/version-support for other options.
+
+
+> feastpot-platform@0.1.0 prepare
+> husky
+
+
+
+added 1505 packages, and audited 1513 packages in 41s
+
+288 packages are looking for funding
+  run `npm fund` for details
+
+
+21 vulnerabilities (10 moderate, 11 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+
+
+> feastpot-platform@0.1.0 db:generate
+> prisma generate --schema=prisma/schema.prisma
+
+
+Prisma schema loaded from prisma/schema.prisma
+
+
+✔ Generated Prisma Client (v5.22.0) to ./node_modules/@prisma/client in 1.04s
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+Tip: Interested in query caching in just a few lines of code? Try Accelerate today! https://pris.ly/tip-3-accelerate
+
+
+
+> feastpot-platform@0.1.0 build:api
+> turbo run build --filter=@feastpot/api
+
+
+• turbo 2.9.18
+
+
+   • Packages in scope: @feastpot/api
+   • Running build in 1 packages
+   • Remote caching disabled
+
+
+@feastpot/types:build: cache miss, executing 352f1232fd169e21
+
+@feastpot/types:build: 
+@feastpot/types:build: > @feastpot/types@0.1.0 build
+@feastpot/types:build: > tsc --build
+@feastpot/types:build: 
+
+@feastpot/api:build: cache miss, executing c6fbe436d3dda2d0
+
+@feastpot/api:build: 
+@feastpot/api:build: > @feastpot/api@0.1.0 build
+@feastpot/api:build: > nest build
+@feastpot/api:build: 
+
+
+ Tasks:    2 successful, 2 total
+Cached:    0 cached, 2 total
+  Time:    19.422s 
+
+
+2026-10-01T17:03:37Z info: Pushing pid1 binary layer...
+2026-10-01T17:03:41Z info: Created pid1 binary layer
+2026-10-01T17:03:45Z info: Pushing Repl layer...
+2026-10-01T17:03:45Z info: Pushing hosting layer...
+2026-10-01T17:03:45Z info: Retrieved cached nix layer
+2026-10-01T17:03:45Z info: Created hosting layer
+2026-10-01T17:08:44Z info: Created Repl layer
+2026-10-01T17:08:44Z info: Pushing Repl (cache) layer...
+2026-10-01T17:08:44Z info: Created Repl (cache) layer
+2026-10-01T17:08:47Z info: Pushed image manifest
+2026-10-01T17:08:49Z info: Pushed soci index manifest
+2026-10-01T17:08:49Z info: Pushed referrer manifest
+2026-10-01T17:08:56Z info: Creating virtual machine
+2026-10-01T17:09:20Z info: Virtual machine created
+2026-10-01T17:09:21Z info: Waiting for deployment to be ready

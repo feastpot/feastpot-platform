@@ -93,7 +93,7 @@ export function TermsClient({ view, history }: TermsClientProps) {
           Legal resources
         </h2>
         <div className="grid gap-4 lg:grid-cols-2">
-          <KeyTermsSummary />
+          <KeyTermsSummary rates={rates} />
           <RateCard rates={rates} loading={ratesLoading} error={ratesError ?? undefined} />
         </div>
         <div className="mt-3 flex flex-wrap gap-4 text-sm">

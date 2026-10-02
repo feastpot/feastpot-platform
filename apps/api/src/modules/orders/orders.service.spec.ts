@@ -539,7 +539,10 @@ describe('OrdersService.updateStatus authorization', () => {
 describe('OrdersService.createOrder allergen declaration gate', () => {
   const slotReached = new Error('slot validation reached');
 
-  const make = (allergenDeclaration: { allergens: string[]; allergensFreeFrom: boolean }) => {
+  const make = (
+    allergenDeclaration: { allergens: string[]; allergensFreeFrom: boolean },
+    vendorOverrides: Record<string, unknown> = {},
+  ) => {
     const prisma = {
       order: { findFirst: jest.fn().mockResolvedValue(null) },
     };
@@ -550,6 +553,7 @@ describe('OrdersService.createOrder allergen declaration gate', () => {
         complianceStatus: 'RATED',
         fsaHygieneRating: 5,
         deliveryConfig: null,
+        ...vendorOverrides,
       }),
       findMenuItems: jest.fn().mockResolvedValue([
         {
@@ -595,12 +599,13 @@ describe('OrdersService.createOrder allergen declaration gate', () => {
       items: Array<{ menuItemId: string; quantity: number }>;
       scheduledFor: string;
     },
+    paymentProvider?: unknown,
   ) =>
     (
       service as unknown as {
-        createOrderInner: (customerId: string, input: typeof dto) => Promise<unknown>;
+        createOrderInner: (...args: unknown[]) => Promise<unknown>;
       }
-    ).createOrderInner('cust-1', dto);
+    ).createOrderInner('cust-1', dto, undefined, undefined, undefined, paymentProvider);
 
   it('rejects an approved, available item with no allergen declaration', async () => {
     const { service, slots, dto } = make({ allergens: [], allergensFreeFrom: false });
@@ -619,6 +624,42 @@ describe('OrdersService.createOrder allergen declaration gate', () => {
 
     await expect(createOrderInner(service, dto)).rejects.toBe(slotReached);
     expect(slots.validateSlot).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects public demos before cancellation cleanup, slot reservation, or Stripe', async () => {
+    const { service, slots, dto } = make(
+      { allergens: ['peanuts'], allergensFreeFrom: false },
+      { publicDemo: true, isSeedData: false, user: { isTestData: true } },
+    );
+    const prisma = (service as unknown as { prisma: { order: { findFirst: jest.Mock } } }).prisma;
+    const paymentProvider = { createPaymentIntent: jest.fn() };
+
+    await expect(createOrderInner(service, dto, paymentProvider)).rejects.toMatchObject({
+      response: { code: 'VENDOR_NOT_ORDERABLE' },
+    });
+    expect(prisma.order.findFirst).not.toHaveBeenCalled();
+    expect(slots.validateSlot).not.toHaveBeenCalled();
+    expect(paymentProvider.createPaymentIntent).not.toHaveBeenCalled();
+  });
+
+  it('rejects persisted seed vendors in production before order side effects', async () => {
+    const originalEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = 'production';
+    try {
+      const { service, slots, dto } = make(
+        { allergens: ['peanuts'], allergensFreeFrom: false },
+        { publicDemo: false, isSeedData: true, user: { isTestData: false } },
+      );
+      const prisma = (service as unknown as { prisma: { order: { findFirst: jest.Mock } } }).prisma;
+
+      await expect(createOrderInner(service, dto)).rejects.toMatchObject({
+        response: { code: 'VENDOR_NOT_ORDERABLE' },
+      });
+      expect(prisma.order.findFirst).not.toHaveBeenCalled();
+      expect(slots.validateSlot).not.toHaveBeenCalled();
+    } finally {
+      process.env.NODE_ENV = originalEnv;
+    }
   });
 });
 

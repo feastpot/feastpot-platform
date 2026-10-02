@@ -35,6 +35,10 @@ export interface VendorListItem {
   address?: { city?: string | null } | null;
   /** Remaining cookable slots this weekend; drives the scarcity ribbon. */
   availableSlots?: number | null;
+  /** Publicly searchable fictional demo profile. */
+  publicDemo?: boolean;
+  /** False when this vendor must not accept orders (additive API field). */
+  canOrder?: boolean;
 }
 
 export interface VendorListResponse {
@@ -135,7 +139,7 @@ export interface VendorMenuItem {
 
 export function getVendorBySlug(
   slug: string,
-  options?: Pick<ApiRequestOptions, 'next' | 'signal'> & { postcode?: string | null },
+  options?: Pick<ApiRequestOptions, 'next' | 'signal' | 'cache'> & { postcode?: string | null },
 ): Promise<VendorProfile> {
   const { postcode, ...rest } = options ?? {};
   return apiRequest<VendorProfile>(`/vendors/${encodeURIComponent(slug)}`, {

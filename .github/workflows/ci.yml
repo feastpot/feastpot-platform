@@ -718,22 +718,34 @@ jobs:
     needs: [setup]
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
     env:
       PLAYWRIGHT_BASE_URL: http://localhost:3000
-      TEST_API_URL: ${{ secrets.TEST_API_URL }}
-      NEXT_PUBLIC_API_URL: ${{ secrets.TEST_API_URL }}
+      # Exercise this PR's API, not a deployed build that hides factory fixtures.
+      TEST_API_URL: http://127.0.0.1:3001
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:3001
+      API_URL: http://127.0.0.1:3001
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.TEST_STRIPE_PUBLISHABLE_KEY }}
       STRIPE_SECRET_KEY_TEST: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
       SUPABASE_DB_URL: ${{ secrets.TEST_SUPABASE_DB_URL }}
+      SUPABASE_DIRECT_URL: ${{ secrets.TEST_SUPABASE_DB_URL }}
+      SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      REDIS_URL: redis://localhost:6379
+      SESSION_SECRET: customer-ci-only-session-secret-not-for-deployment
       TEST_FACTORY_PASSWORD: ${{ secrets.TEST_FACTORY_PASSWORD }}
       TEST_FACTORY_NAMESPACE: customer-${{ github.run_id }}-${{ github.run_attempt }}
       CUSTOMER_E2E_USE_FACTORY: 'true'
       CUSTOMER_E2E_ISOLATED_ENVIRONMENT: 'true'
       # Keep the safety allowlist identical to the API this job exercises.
-      CUSTOMER_E2E_ALLOWED_API_ORIGIN: ${{ secrets.TEST_API_URL }}
+      CUSTOMER_E2E_ALLOWED_API_ORIGIN: http://127.0.0.1:3001
       CUSTOMER_E2E_ALLOWED_SUPABASE_REF: ${{ vars.CUSTOMER_E2E_ALLOWED_SUPABASE_REF }}
       PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
       PROD_DIRECT_URL: ${{ secrets.PROD_DIRECT_URL }}
@@ -772,13 +784,17 @@ jobs:
             sk_test_*) ;;
             *) echo "::error title=Unsafe Stripe key::STRIPE_SECRET_KEY_TEST must be an sk_test_ key."; exit 1 ;;
           esac
+      - name: Generate customer API Prisma client
+        run: npm run db:generate
+      - name: Start isolated customer API from this PR
+        run: NODE_ENV=test npm run dev --workspace=@feastpot/api > /tmp/customer-e2e-api.log 2>&1 &
       - name: Verify isolated customer API health
         shell: bash
         run: |
           set -euo pipefail
           api_health_url="${TEST_API_URL%/}/healthz"
           echo "Checking configured customer E2E API health endpoint..."
-          curl --fail --silent --show-error --max-time 15 --retry 2 --retry-all-errors \
+          curl --fail --silent --show-error --max-time 15 --retry 30 --retry-delay 2 --retry-all-errors \
             "$api_health_url" > /tmp/customer-e2e-api-health.json
           node -e "
             const health = JSON.parse(require('node:fs').readFileSync('/tmp/customer-e2e-api-health.json', 'utf8'));

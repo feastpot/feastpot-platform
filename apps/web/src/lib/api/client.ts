@@ -44,6 +44,8 @@ export interface ApiRequestOptions {
   headers?: Record<string, string>;
   /** Forward to fetch - useful for Next.js cache control on server components. */
   next?: { revalidate?: number; tags?: string[] };
+  /** Explicit browser/server fetch-cache policy for freshness-sensitive reads. */
+  cache?: RequestCache;
   signal?: AbortSignal;
 }
 
@@ -84,6 +86,7 @@ export async function apiRequest<T>(path: string, opts: ApiRequestOptions = {}):
           : JSON.stringify(opts.body)
         : undefined,
     signal: opts.signal,
+    cache: opts.cache,
     // Next.js cache hints - only consumed when called from a Server Component.
     next: opts.next,
   });

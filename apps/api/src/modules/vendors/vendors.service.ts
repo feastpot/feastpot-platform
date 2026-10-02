@@ -71,6 +71,7 @@ import {
 import { VendorDashboardResponseDto } from './dto/vendor-dashboard.dto';
 import { VendorStatsResponseDto } from './dto/vendor-stats.dto';
 import { VendorOnboardingService } from './vendor-onboarding.service';
+import { isExplicitPublicDemo } from './vendor-public-scope';
 import { VendorRepository, type DecodedCursor, type SearchedVendorRow } from './vendors.repository';
 
 const REVENUE_STATUSES_LIST: OrderStatus[] = [
@@ -188,6 +189,7 @@ const GEOCODE_CACHE = new Map<string, PostcodeLatLng>();
 // Cache for radius-to-district lookups via postcodes.io /outcodes.
 // Key: `${lat.toFixed(4)},${lng.toFixed(4)},${radiusMiles}`. TTL: 1 hour.
 const DISTRICT_CACHE = new Map<string, { expires: number; districts: string[] }>();
+type PublicVendorProfile = NonNullable<Awaited<ReturnType<VendorRepository['findById']>>>;
 
 async function fetchPostcodesIo(path: string, logger?: Logger): Promise<PostcodeLatLng> {
   try {
@@ -1501,20 +1503,25 @@ export class VendorsService {
   }
 
   private mapSearchRows(rows: SearchedVendorRow[]) {
-    return rows.map((r) => ({
-      id: r.id,
-      businessName: r.business_name,
-      slug: r.slug,
-      description: r.description,
-      cuisines: r.cuisines,
-      status: r.status,
-      rating: r.rating,
-      ratingCount: r.rating_count,
-      createdAt: r.created_at,
-      distanceKm: r.distance_km,
-      // Empty array (not null) so the client can `.length` without a guard.
-      matchedDishes: r.matched_dishes ?? [],
-    }));
+    return rows.map((r) => {
+      const publicDemo = r.public_demo === true;
+      return {
+        id: r.id,
+        businessName: r.business_name,
+        slug: r.slug,
+        description: r.description,
+        cuisines: r.cuisines,
+        status: r.status,
+        rating: publicDemo ? 0 : r.rating,
+        ratingCount: publicDemo ? 0 : r.rating_count,
+        createdAt: r.created_at,
+        distanceKm: publicDemo ? null : r.distance_km,
+        publicDemo,
+        canOrder: !publicDemo,
+        // Empty array (not null) so the client can `.length` without a guard.
+        matchedDishes: r.matched_dishes ?? [],
+      };
+    });
   }
 
   /**
@@ -1563,7 +1570,51 @@ export class VendorsService {
     const vendor = await this.repo.findPublicById(id);
     if (!vendor)
       throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
-    return vendor;
+    return this.publicVendorProjection(vendor);
+  }
+
+  private publicVendorProjection(vendor: PublicVendorProfile) {
+    // Public visibility is scoped in the repository. Any row explicitly marked
+    // publicDemo remains non-orderable, even in test fixture environments.
+    const publicDemo = vendor.publicDemo === true;
+    if (!publicDemo) return { ...vendor, publicDemo: false, canOrder: true };
+
+    const publicFields: Record<string, unknown> = { ...vendor };
+    delete publicFields.userId;
+    delete publicFields.commissionBps;
+    delete publicFields.stripeAccountId;
+    delete publicFields.payoutsEnabled;
+    delete publicFields.stripeChargesEnabled;
+    delete publicFields.stripePayoutsEnabled;
+    delete publicFields.stripeRequirementsCurrentlyDue;
+    delete publicFields.stripeRequirementsEventuallyDue;
+    delete publicFields.stripeRequirementsPastDue;
+    delete publicFields.stripeRequirementsPendingVerification;
+    delete publicFields.stripeRequirementsDisabledReason;
+    delete publicFields.stripeAccountUpdatedAt;
+    delete publicFields.approvedAt;
+    delete publicFields.termsActivatedAt;
+    delete publicFields.complianceStatus;
+    delete publicFields.fsaHygieneRating;
+    delete publicFields.fsaRatingDate;
+    delete publicFields.fsaRegistrationNumber;
+    delete publicFields.fsaLastChecked;
+    delete publicFields.fhrsId;
+    delete publicFields.foundingAllowanceGrantedPence;
+    delete publicFields.foundingAllowanceUsedPence;
+    delete publicFields.referredByVendorId;
+    delete publicFields.foundingReferralBonusGrantedAt;
+    delete publicFields.isSeedData;
+    return {
+      ...publicFields,
+      publicDemo: true,
+      canOrder: false,
+      rating: 0,
+      ratingCount: 0,
+      communityFavourite: false,
+      reorderRatePct: 0,
+      eventCateringManualQuote: false,
+    } as PublicVendorProfile & { canOrder: boolean };
   }
 
   /**
@@ -1589,10 +1640,15 @@ export class VendorsService {
    */
   async findBySlug(slug: string, postcode?: string) {
     const lite = await this.repo.findBySlug(slug);
-    if (!lite || lite.status !== 'live') {
+    const demoPreview = lite ? isExplicitPublicDemo(lite) : false;
+    if (!lite || (lite.status !== 'live' && !demoPreview)) {
       throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
     }
-    const vendor = await this.findById(lite.id);
+    const publicDemo = lite.publicDemo === true;
+    const profile = await this.repo.findById(lite.id, demoPreview);
+    if (!profile)
+      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
+    const vendor = this.publicVendorProjection({ ...profile, publicDemo });
     // Platform service fee (bps) is global and read from env at REQUEST time,
     // not from the cached profile, so the customer PWA's express-checkout total
     // stays in lockstep with what orders.service charges if the fee changes.
@@ -1600,7 +1656,9 @@ export class VendorsService {
     // Real per-star counts for the profile's rating bars. Computed fresh
     // (not from the profile cache) so a just-published review moves the bars
     // in lockstep with the recalculated headline rating.
-    const ratingBreakdown = await this.getRatingBreakdown(lite.id);
+    const ratingBreakdown = publicDemo
+      ? { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+      : await this.getRatingBreakdown(lite.id);
     // Resolve featured dish IDs to names. Items that have since been deleted
     // or taken offline are excluded automatically (self-heal on every read).
     const featuredDishDetails =
@@ -1620,6 +1678,7 @@ export class VendorsService {
         : [];
 
     const base = { ...vendor, platformServiceFeeBps, ratingBreakdown, featuredDishDetails };
+    if (publicDemo) return { ...base, distanceKm: null };
     const trimmed = postcode?.trim();
     if (!trimmed) return base;
     const dc = vendor.deliveryConfig;
@@ -1970,6 +2029,11 @@ export class VendorsService {
   }
 
   async getVendorReviews(vendorId: string, pagination: CursorPaginationDto) {
+    const vendor = await this.prisma.vendor.findUnique({
+      where: { id: vendorId },
+      select: { publicDemo: true },
+    });
+    if (vendor?.publicDemo) return { data: [], nextCursor: null };
     const limit = pagination.limit ?? 20;
     const reviews = await this.repo.listPublishedReviews(vendorId, limit, pagination.cursor);
     const nextCursor = reviews.length === limit ? reviews[reviews.length - 1]!.id : null;

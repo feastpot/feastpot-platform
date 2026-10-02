@@ -97,7 +97,24 @@ export default function OrderHistoryPage() {
         window.alert('Sorry, this vendor is no longer available.');
         return;
       }
-      const vendor = (await vendorRes.json()) as { id: string; businessName: string; slug: string };
+      const vendor = (await vendorRes.json()) as {
+        id: string;
+        businessName: string;
+        slug: string;
+        publicDemo?: boolean;
+        canOrder?: boolean;
+      };
+      // The fresh public lookup is authoritative for reorder UX. Do this
+      // before clearing or hydrating the basket so a demo fixture never
+      // becomes a checkout basket.
+      if (vendor.publicDemo || vendor.canOrder === false) {
+        window.alert(
+          vendor.publicDemo
+            ? 'This is a view-only demo vendor. Demo menus cannot be reordered.'
+            : 'Sorry, this vendor is not accepting orders.',
+        );
+        return;
+      }
 
       const store = useBasketStore.getState();
       // Cross-vendor guard. If the customer already has items from a DIFFERENT
@@ -113,7 +130,13 @@ export default function OrderHistoryPage() {
         store.clearBasket();
       }
 
-      const basketVendor = { id: vendor.id, name: vendor.businessName, slug: vendor.slug };
+      const basketVendor = {
+        id: vendor.id,
+        name: vendor.businessName,
+        slug: vendor.slug,
+        publicDemo: vendor.publicDemo,
+        canOrder: vendor.canOrder,
+      };
       const items = order.items ?? [];
       try {
         for (const item of items) {

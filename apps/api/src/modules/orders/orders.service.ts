@@ -61,6 +61,7 @@ import {
   releaseCapacity,
   reserveCapacity,
 } from '../vendors/vendor-capacity';
+import { isNonOrderableVendor } from '../vendors/vendor-public-scope';
 
 import { ProposeAmendmentDto, RespondAmendmentDto } from './dto/amendment.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -393,6 +394,22 @@ export class OrdersService {
     marketplaceMarker?: string,
     paymentProvider: OrderPaymentProvider = this.stripe,
   ) {
+    const vendor = await this.repo.vendorWithDelivery(dto.vendorId);
+    if (!vendor)
+      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
+    if (isNonOrderableVendor(vendor)) {
+      throw new ForbiddenException({
+        code: 'VENDOR_NOT_ORDERABLE',
+        message: 'This vendor is a read-only demo or test fixture and cannot accept orders',
+      });
+    }
+    if (vendor.status !== VendorStatus.live) {
+      throw new ConflictException({
+        code: 'VENDOR_OFFLINE',
+        message: 'This vendor is not currently accepting orders',
+      });
+    }
+
     const interruptedCancellation = await this.prisma.order.findFirst({
       where: {
         customerId,
@@ -408,16 +425,6 @@ export class OrdersService {
         customerId,
         'Reconciling an interrupted checkout before retry',
       );
-    }
-
-    const vendor = await this.repo.vendorWithDelivery(dto.vendorId);
-    if (!vendor)
-      throw new NotFoundException({ code: 'VENDOR_NOT_FOUND', message: 'Vendor not found' });
-    if (vendor.status !== VendorStatus.live) {
-      throw new ConflictException({
-        code: 'VENDOR_OFFLINE',
-        message: 'This vendor is not currently accepting orders',
-      });
     }
 
     // Listing-gate parity: awaiting a first FHRS inspection is allowed after

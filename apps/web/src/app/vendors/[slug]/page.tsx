@@ -47,6 +47,21 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug } = await params;
   try {
     const vendor = await getVendorBySlug(slug, { next: { revalidate: 300 } });
+    if (vendor.publicDemo) {
+      const description =
+        'Fictional demo profile with AI-generated photos and a sample menu. No orders or catering enquiries.';
+      return {
+        title: `${vendor.businessName} · Demo`,
+        description,
+        openGraph: {
+          title: `${vendor.businessName} · Demo`,
+          description,
+          images: vendor.coverImageUrl
+            ? [{ url: vendor.coverImageUrl, width: 1200, height: 630 }]
+            : undefined,
+        },
+      };
+    }
 
     // Fallback description (used when the vendor hasn't written their own bio
     // yet). Includes cuisine + city + a few menu items so every vendor page
@@ -188,7 +203,7 @@ export default async function VendorProfilePage({ params }: PageProps) {
   }
 
   const distanceMiles =
-    typeof vendor.distanceKm === 'number' && vendor.distanceKm >= 0
+    !vendor.publicDemo && typeof vendor.distanceKm === 'number' && vendor.distanceKm >= 0
       ? vendor.distanceKm * 0.621371
       : null;
 
@@ -197,17 +212,19 @@ export default async function VendorProfilePage({ params }: PageProps) {
   let trustSignals: VerifiedTrustSignal[] = [];
   let capacity: CapacityDay[] = [];
   let verification: VendorVerificationData | null = null;
-  try {
-    const [signalsRes, capacityRes, verificationRes] = await Promise.all([
-      getVendorTrustSignals(vendor.id, { next: { revalidate: 300 } }),
-      getVendorCapacity(vendor.id, { next: { revalidate: 60 } }),
-      getVendorVerification(vendor.id, { next: { revalidate: 300 } }),
-    ]);
-    trustSignals = signalsRes.signals;
-    capacity = capacityRes.capacity;
-    verification = verificationRes;
-  } catch {
-    // Additive data only - render the profile without it.
+  if (!vendor.publicDemo) {
+    try {
+      const [signalsRes, capacityRes, verificationRes] = await Promise.all([
+        getVendorTrustSignals(vendor.id, { next: { revalidate: 300 } }),
+        getVendorCapacity(vendor.id, { next: { revalidate: 60 } }),
+        getVendorVerification(vendor.id, { next: { revalidate: 300 } }),
+      ]);
+      trustSignals = signalsRes.signals;
+      capacity = capacityRes.capacity;
+      verification = verificationRes;
+    } catch {
+      // Additive data only - render the profile without it.
+    }
   }
 
   const allItems: VendorMenuItem[] = (vendor.menus ?? []).flatMap((m) => m.items ?? []);
@@ -218,8 +235,14 @@ export default async function VendorProfilePage({ params }: PageProps) {
     count: items.length,
   }));
 
-  const basketVendor = { id: vendor.id, name: vendor.businessName, slug: vendor.slug };
-  const minOrderPence = vendor.delivery?.minOrderPence ?? null;
+  const basketVendor = {
+    id: vendor.id,
+    name: vendor.businessName,
+    slug: vendor.slug,
+    publicDemo: vendor.publicDemo,
+    canOrder: vendor.canOrder,
+  };
+  const minOrderPence = vendor.publicDemo ? null : (vendor.delivery?.minOrderPence ?? null);
 
   return (
     <div className="px-4 pb-6">
@@ -253,6 +276,18 @@ export default async function VendorProfilePage({ params }: PageProps) {
           </li>
         </ol>
       </nav>
+
+      {vendor.publicDemo && (
+        <aside className="mt-4 rounded-2xl border-2 border-plantain bg-plantain/15 p-4">
+          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-charcoal">
+            Fictional demo profile
+          </p>
+          <p className="mt-1 text-sm font-bold leading-relaxed text-charcoal">
+            AI-generated photos and a sample menu are shown for illustration only. This profile does
+            not accept orders or catering enquiries.
+          </p>
+        </aside>
+      )}
 
       {/* HERO - bleeds edge-to-edge inside max-w-lg.
           Brand-DNA fallback: when no cover photo is uploaded (most early
@@ -329,11 +364,18 @@ export default async function VendorProfilePage({ params }: PageProps) {
           identity card - the audit asked us to elevate the trust signal,
           not duplicate it. */}
       <section className="mt-9 space-y-3">
-        <h1 className="font-display text-[24px] font-black leading-tight text-charcoal">
-          {vendor.businessName}
-        </h1>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="font-display text-[24px] font-black leading-tight text-charcoal">
+            {vendor.businessName}
+          </h1>
+          {vendor.publicDemo && (
+            <span className="rounded-full bg-plantain px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-charcoal">
+              Demo
+            </span>
+          )}
+        </div>
 
-        {vendor.rating > 0 && (
+        {!vendor.publicDemo && vendor.rating > 0 && (
           <Link
             href="#reviews"
             className="inline-flex items-center gap-1 text-sm text-charcoal transition-colors hover:text-brand"
@@ -361,44 +403,51 @@ export default async function VendorProfilePage({ params }: PageProps) {
             rec). Wireframe palette: green-gradient avatar on cream-warm
             card. "Cooking on Feastpot since {Month YYYY}" turns the
             createdAt into a community-tenure signal. */}
-        <div className="flex items-center gap-3 rounded-2xl bg-cream-warm p-3">
-          <div
-            aria-hidden
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-white text-sm font-black text-white shadow-card"
-            style={{ background: 'linear-gradient(135deg, #00843D, #005C2B)' }}
-          >
-            {vendor.businessName
-              .split(' ')
-              .map((w) => w[0] ?? '')
-              .join('')
-              .substring(0, 2)
-              .toUpperCase()}
+        {!vendor.publicDemo && (
+          <div className="flex items-center gap-3 rounded-2xl bg-cream-warm p-3">
+            <div
+              aria-hidden
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-white text-sm font-black text-white shadow-card"
+              style={{ background: 'linear-gradient(135deg, #00843D, #005C2B)' }}
+            >
+              {vendor.businessName
+                .split(' ')
+                .map((w) => w[0] ?? '')
+                .join('')
+                .substring(0, 2)
+                .toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <p className="text-[12px] font-bold text-charcoal">
+                Home cook · {vendor.address?.city || 'UK'}
+              </p>
+              <p className="text-[11px] font-medium text-charcoal-mid">
+                Cooking on Feastpot since{' '}
+                {new Date(vendor.createdAt).toLocaleDateString('en-GB', {
+                  month: 'long',
+                  year: 'numeric',
+                })}
+              </p>
+            </div>
           </div>
-          <div className="min-w-0">
-            <p className="text-[12px] font-bold text-charcoal">
-              Home cook · {vendor.address?.city || 'UK'}
-            </p>
-            <p className="text-[11px] font-medium text-charcoal-mid">
-              Cooking on Feastpot since{' '}
-              {new Date(vendor.createdAt).toLocaleDateString('en-GB', {
-                month: 'long',
-                year: 'numeric',
-              })}
-            </p>
+        )}
+        {vendor.publicDemo && (
+          <div className="rounded-2xl bg-cream-warm p-3 text-sm font-bold text-charcoal">
+            Fictional Nigerian food vendor · example dishes only
           </div>
-        </div>
+        )}
 
         {/* Prominent FSA Hygiene pill - wireframe brand-green palette,
             sits as its own row so it isn't lost in the metrics
             chip-strip below. Lucide shield replaces emoji. */}
-        {typeof vendor.fsaRating === 'number' && vendor.fsaRating >= 4 && (
+        {!vendor.publicDemo && typeof vendor.fsaRating === 'number' && vendor.fsaRating >= 4 && (
           <div className="inline-flex items-center gap-1.5 rounded-full border border-brand bg-brand-light px-3 py-1 text-[11px] font-bold text-brand-dark">
             <ShieldCheck className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
             FSA Hygiene {vendor.fsaRating}/5 - Verified
           </div>
         )}
 
-        {vendor.description && (
+        {!vendor.publicDemo && vendor.description && (
           <p className="text-sm font-medium leading-relaxed text-charcoal-mid">
             {vendor.description}
           </p>
@@ -406,7 +455,7 @@ export default async function VendorProfilePage({ params }: PageProps) {
 
         {/* T005: specialities surface as pills below the cuisine row so
             customers can scan what this kitchen is known for at a glance. */}
-        {vendor.specialities && vendor.specialities.length > 0 && (
+        {!vendor.publicDemo && vendor.specialities && vendor.specialities.length > 0 && (
           <ul className="flex flex-wrap gap-1.5 pt-1">
             {vendor.specialities.map((s) => (
               <li
@@ -422,29 +471,30 @@ export default async function VendorProfilePage({ params }: PageProps) {
         {/* Featured dishes: resolved from menu-item IDs by the API.
             `featuredDishDetails` carries the canonical names; fall back to
             the raw `featuredDishes` array for any legacy free-text values. */}
-        {(() => {
-          const details: Array<{ id: string; name: string }> =
-            (vendor as { featuredDishDetails?: Array<{ id: string; name: string }> })
-              .featuredDishDetails ?? [];
-          const names =
-            details.length > 0 ? details.map((d) => d.name) : (vendor.featuredDishes ?? []);
-          if (names.length === 0) return null;
-          return (
-            <div className="rounded-2xl bg-cream-warm p-3">
-              <p className="text-[11px] font-black uppercase tracking-[0.18em] text-brand">
-                Featured dishes
-              </p>
-              <ul className="mt-1.5 space-y-1 text-sm font-medium text-charcoal">
-                {names.map((name) => (
-                  <li key={name}>· {name}</li>
-                ))}
-              </ul>
-            </div>
-          );
-        })()}
+        {!vendor.publicDemo &&
+          (() => {
+            const details: Array<{ id: string; name: string }> =
+              (vendor as { featuredDishDetails?: Array<{ id: string; name: string }> })
+                .featuredDishDetails ?? [];
+            const names =
+              details.length > 0 ? details.map((d) => d.name) : (vendor.featuredDishes ?? []);
+            if (names.length === 0) return null;
+            return (
+              <div className="rounded-2xl bg-cream-warm p-3">
+                <p className="text-[11px] font-black uppercase tracking-[0.18em] text-brand">
+                  Featured dishes
+                </p>
+                <ul className="mt-1.5 space-y-1 text-sm font-medium text-charcoal">
+                  {names.map((name) => (
+                    <li key={name}>· {name}</li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
 
         {/* T005: long-form vendor story. */}
-        {vendor.vendorStory && (
+        {!vendor.publicDemo && vendor.vendorStory && (
           <details className="rounded-2xl border border-cream-deep bg-white p-3">
             <summary className="cursor-pointer text-sm font-bold text-charcoal">
               About this kitchen
@@ -457,7 +507,7 @@ export default async function VendorProfilePage({ params }: PageProps) {
 
         {/* T005: social links. Rendered as a compact link strip, opening in
             a new tab with noopener/noreferrer for safety. */}
-        {vendor.socialLinks && Object.keys(vendor.socialLinks).length > 0 && (
+        {!vendor.publicDemo && vendor.socialLinks && Object.keys(vendor.socialLinks).length > 0 && (
           <ul className="flex flex-wrap gap-2 pt-1 text-xs font-bold">
             {Object.entries(vendor.socialLinks).map(([k, v]) => (
               <li key={k}>
@@ -487,13 +537,13 @@ export default async function VendorProfilePage({ params }: PageProps) {
               {formatPoundsRound(minOrderPence)} minimum order
             </span>
           )}
-          {vendor.delivery && (
+          {!vendor.publicDemo && vendor.delivery && (
             <span className="inline-flex items-center gap-1">
               <Truck className="h-3 w-3" aria-hidden />
               {vendor.delivery.types.join(' · ')} · {vendor.delivery.localRadiusMiles}mi
             </span>
           )}
-          {vendor.delivery?.freeDeliveryOverPence != null && (
+          {!vendor.publicDemo && vendor.delivery?.freeDeliveryOverPence != null && (
             <span className="inline-flex items-center gap-1">
               <Clock className="h-3 w-3" aria-hidden />
               Free delivery over {formatPounds(vendor.delivery.freeDeliveryOverPence)}
@@ -501,24 +551,28 @@ export default async function VendorProfilePage({ params }: PageProps) {
           )}
           {/* UK DMCC Act 2024 first-price disclosure: service fee must be
               visible at the same point the customer first sees item prices. */}
-          <span className="inline-flex items-center gap-1">
-            <span aria-hidden>+</span>
-            Up to £2.99 service fee applies
-          </span>
+          {!vendor.publicDemo && (
+            <span className="inline-flex items-center gap-1">
+              <span aria-hidden>+</span>
+              Up to £2.99 service fee applies
+            </span>
+          )}
         </div>
 
         {/* Delivery coverage badge - uses the server-computed distance (set
             only when the customer has a saved coverage postcode) against the
             vendor's local delivery radius, so customers see up-front whether
             this kitchen actually delivers to them. */}
-        <div>
-          <CoverageBadge
-            distanceMiles={distanceMiles}
-            radiusMiles={vendor.delivery?.localRadiusMiles ?? null}
-            deliveryType={vendor.delivery?.types?.[0] ?? 'local'}
-            hasPostcode={Boolean(customerPostcode)}
-          />
-        </div>
+        {!vendor.publicDemo && (
+          <div>
+            <CoverageBadge
+              distanceMiles={distanceMiles}
+              radiusMiles={vendor.delivery?.localRadiusMiles ?? null}
+              deliveryType={vendor.delivery?.types?.[0] ?? 'local'}
+              hasPostcode={Boolean(customerPostcode)}
+            />
+          </div>
+        )}
       </section>
 
       {/* RATING BREAKDOWN - sits below the vendor info card so the trust
@@ -526,7 +580,7 @@ export default async function VendorProfilePage({ params }: PageProps) {
           the REAL per-star counts from the profile API (`ratingBreakdown`);
           the component only falls back to its labelled estimate if the field
           is ever absent. */}
-      {vendor.ratingCount > 0 && (
+      {!vendor.publicDemo && vendor.ratingCount > 0 && (
         <section className="mt-6">
           <RatingBreakdown
             avgRating={vendor.rating}
@@ -539,7 +593,7 @@ export default async function VendorProfilePage({ params }: PageProps) {
       {/* VERIFICATION PANEL - above the menu so customers see compliance
           evidence before adding items to their basket. Only rendered when
           the vendor has a verification record. Never gated on any paid tier. */}
-      {verification && (
+      {!vendor.publicDemo && verification && (
         <section className="mt-6">
           <VerificationPanel verification={verification} reviewCount={vendor.ratingCount} />
         </section>
@@ -578,7 +632,11 @@ export default async function VendorProfilePage({ params }: PageProps) {
                 <ul className="space-y-2">
                   {items.map((item) => (
                     <li key={item.id}>
-                      <MenuItemCard item={item} vendor={basketVendor} />
+                      <MenuItemCard
+                        item={item}
+                        vendor={basketVendor}
+                        readOnlyDemo={vendor.publicDemo}
+                      />
                     </li>
                   ))}
                 </ul>
@@ -589,38 +647,42 @@ export default async function VendorProfilePage({ params }: PageProps) {
       </section>
 
       {/* DELIVERED BY THE VENDOR - fulfilment attribution below the menu */}
-      <section
-        aria-label="Delivery information"
-        className="mt-8 rounded-2xl border border-cream-deep bg-cream-warm/60 p-5"
-      >
-        <h2 className="flex items-center gap-2 font-display text-[16px] font-black text-charcoal">
-          <Truck className="h-4 w-4 text-brand" aria-hidden />
-          Delivered by the vendor
-        </h2>
-        <p className="mt-1.5 text-[13.5px] font-medium leading-relaxed text-charcoal-mid">
-          This vendor delivers your order directly. The delivery fee is set by the vendor and shown
-          before you pay.
-        </p>
-      </section>
+      {!vendor.publicDemo && (
+        <section
+          aria-label="Delivery information"
+          className="mt-8 rounded-2xl border border-cream-deep bg-cream-warm/60 p-5"
+        >
+          <h2 className="flex items-center gap-2 font-display text-[16px] font-black text-charcoal">
+            <Truck className="h-4 w-4 text-brand" aria-hidden />
+            Delivered by the vendor
+          </h2>
+          <p className="mt-1.5 text-[13.5px] font-medium leading-relaxed text-charcoal-mid">
+            This vendor delivers your order directly. The delivery fee is set by the vendor and
+            shown before you pay.
+          </p>
+        </section>
+      )}
 
       {/* REVIEWS */}
-      <section
-        id="reviews"
-        style={{ scrollMarginTop: 'var(--page-safe-top)' }}
-        className="mt-8 space-y-3"
-      >
-        <p className="text-[11px] font-black uppercase tracking-[0.18em] text-brand">
-          From verified orders
-        </p>
-        <h2 className="font-display text-[20px] font-black text-charcoal">Verified reviews</h2>
-        <ReviewsSection vendorId={vendor.id} limit={3} />
-      </section>
+      {!vendor.publicDemo && (
+        <section
+          id="reviews"
+          style={{ scrollMarginTop: 'var(--page-safe-top)' }}
+          className="mt-8 space-y-3"
+        >
+          <p className="text-[11px] font-black uppercase tracking-[0.18em] text-brand">
+            From verified orders
+          </p>
+          <h2 className="font-display text-[20px] font-black text-charcoal">Verified reviews</h2>
+          <ReviewsSection vendorId={vendor.id} limit={3} />
+        </section>
+      )}
 
       {/* FLOATING BAR - fixed, only renders when basket has items for this vendor */}
-      <FloatingBasketBar vendorId={vendor.id} />
+      {!vendor.publicDemo && <FloatingBasketBar vendorId={vendor.id} />}
       {/* MARKETPLACE ATTRIBUTION TAGGER - sets fp_mp_{vendorId} cookie on mount so
           the attribution system knows this customer browsed via marketplace */}
-      <MarketplaceTagger vendorId={vendor.id} />
+      {!vendor.publicDemo && <MarketplaceTagger vendorId={vendor.id} />}
     </div>
   );
 }

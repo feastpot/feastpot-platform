@@ -90,6 +90,9 @@ export class OrdersRepository {
         businessName: true,
         commissionBps: true,
         status: true,
+        publicDemo: true,
+        isSeedData: true,
+        user: { select: { isTestData: true } },
         // FSA compliance gate fields - checked by createOrderInner before
         // any pricing/Stripe work so a non-compliant vendor fails fast.
         complianceStatus: true,

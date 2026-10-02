@@ -152,12 +152,20 @@ function CheckoutInner() {
   // "Service fee" line as soon as checkout loads - the customer never has to
   // enter an address first to learn a fee they'll be charged. The coverage
   // query (above) returns the same bps once a postcode is chosen.
-  const { data: baseVendor } = useQuery({
+  const baseVendorQuery = useQuery({
     queryKey: ['vendor', 'profile', vendor?.slug],
     enabled: Boolean(vendor?.slug),
-    staleTime: 60_000,
-    queryFn: () => getVendorBySlug(vendor!.slug),
+    staleTime: 0,
+    refetchOnMount: 'always',
+    queryFn: () => getVendorBySlug(vendor!.slug, { cache: 'no-store' }),
   });
+  const baseVendor = baseVendorQuery.data;
+  const isDemoVendor = vendor?.publicDemo === true || baseVendor?.publicDemo === true;
+  const vendorCannotOrder = vendor?.canOrder === false || baseVendor?.canOrder === false;
+  // Payment remains closed until the uncached profile lookup resolves on this
+  // checkout visit. A stale local basket/vendor record is never authoritative.
+  const vendorProfileReady =
+    Boolean(baseVendor) && !baseVendorQuery.isFetching && !baseVendorQuery.isError;
 
   const coverageRadiusMiles = coverageVendor?.delivery?.localRadiusMiles ?? null;
   const coverageDistanceMiles =
@@ -356,6 +364,9 @@ function CheckoutInner() {
   // FeastPass members get a 0 fee so we don't need platformServiceFeeBps to
   // compute the express total; non-members still need it loaded.
   const expressPayReady =
+    vendorProfileReady &&
+    !isDemoVendor &&
+    !vendorCannotOrder &&
     !discountCodeApplied &&
     !paidButUnconfirmed &&
     expressDeliveryFeePence != null &&
@@ -370,6 +381,55 @@ function CheckoutInner() {
       <p className="px-4 py-12 text-center text-sm font-medium text-charcoal-mid">
         Loading checkout&hellip;
       </p>
+    );
+  }
+
+  if (!vendorProfileReady) {
+    return (
+      <section className="space-y-3 px-4 py-12 text-center">
+        <h1 className="font-display text-xl font-black text-charcoal">
+          {baseVendorQuery.isError ? 'Vendor status unavailable' : 'Checking vendor status'}
+        </h1>
+        <p role="status" className="text-sm font-medium text-charcoal-mid">
+          {baseVendorQuery.isError
+            ? 'We could not confirm that this vendor can accept orders. No payment options are available; please refresh and try again.'
+            : 'Confirming that this vendor can accept orders before showing checkout.'}
+        </p>
+      </section>
+    );
+  }
+
+  if (isDemoVendor) {
+    return (
+      <section className="space-y-3 px-4 py-12 text-center">
+        <span className="inline-flex rounded-full bg-plantain px-3 py-1 text-xs font-black uppercase tracking-wide text-charcoal">
+          Demo · view only
+        </span>
+        <h1 className="font-display text-xl font-black text-charcoal">
+          No orders from this vendor
+        </h1>
+        <p className="text-sm font-medium text-charcoal-mid">
+          This fictional demo menu is for illustration only. Orders and catering enquiries are not
+          available.
+        </p>
+        <a
+          href={`/vendors/${vendor.slug}`}
+          className="inline-flex rounded-xl bg-brand px-5 py-3 text-sm font-bold text-white hover:bg-brand-dark"
+        >
+          Back to demo menu
+        </a>
+      </section>
+    );
+  }
+
+  if (vendorCannotOrder) {
+    return (
+      <section className="space-y-3 px-4 py-12 text-center">
+        <h1 className="font-display text-xl font-black text-charcoal">Orders unavailable</h1>
+        <p className="text-sm font-medium text-charcoal-mid">
+          {vendor.name} is not currently accepting orders.
+        </p>
+      </section>
     );
   }
 
@@ -413,6 +473,11 @@ function CheckoutInner() {
   // which Stripe requires.
   const handleExpressPay = async (paymentMethodId: string, complete: ExpressPayComplete) => {
     setServerError(null);
+    if (!vendorProfileReady || isDemoVendor || vendorCannotOrder) {
+      complete('fail');
+      setServerError('This vendor cannot accept orders from checkout.');
+      return;
+    }
 
     // Fast path: a previous attempt already authorised payment but the confirm
     // step failed. NEVER create a second order/charge - just retry the confirm
@@ -542,6 +607,16 @@ function CheckoutInner() {
     if (submittingRef.current) return;
     submittingRef.current = true;
     setServerError(null);
+
+    if (!vendorProfileReady || isDemoVendor || vendorCannotOrder) {
+      setServerError(
+        isDemoVendor
+          ? 'This demo vendor is view-only and cannot accept orders.'
+          : 'Vendor ordering availability could not be confirmed. Please refresh and try again.',
+      );
+      submittingRef.current = false;
+      return;
+    }
 
     if (!stripe || !elements) {
       setServerError('Payment system not ready. Please refresh and try again.');
@@ -1016,18 +1091,29 @@ function CheckoutInner() {
             component itself returns null otherwise, leaving the card form as
             the sole option (the correct fallback - no "not supported" notice).
             Includes its own "or pay by card" divider when shown. */}
-        {expressPayReady && (
-          <AppleGooglePayButton
-            totalPence={expressTotalPence}
-            label={`${PLATFORM_FACTS.brandName} · ${vendor.name}`}
-            disabled={submitting}
-            onPaymentMethod={handleExpressPay}
-          />
+        {!vendorProfileReady ? (
+          <p
+            role="status"
+            className="rounded-xl bg-cream-warm p-3 text-sm font-medium text-charcoal-mid"
+          >
+            Confirming that this vendor can accept orders. Payment is unavailable until confirmed.
+          </p>
+        ) : (
+          expressPayReady && (
+            <AppleGooglePayButton
+              totalPence={expressTotalPence}
+              label={`${PLATFORM_FACTS.brandName} · ${vendor.name}`}
+              disabled={submitting}
+              onPaymentMethod={handleExpressPay}
+            />
+          )
         )}
 
-        <div className="rounded-2xl border border-cream-deep bg-white p-3">
-          <CardElement options={CARD_ELEMENT_OPTIONS} />
-        </div>
+        {vendorProfileReady && !isDemoVendor && !vendorCannotOrder && (
+          <div className="rounded-2xl border border-cream-deep bg-white p-3">
+            <CardElement options={CARD_ELEMENT_OPTIONS} />
+          </div>
+        )}
 
         {/* Trust row */}
         <ul className="flex items-center justify-center gap-3 text-[11px] font-medium text-charcoal-mid">
@@ -1078,6 +1164,9 @@ function CheckoutInner() {
         type="submit"
         disabled={
           submitting ||
+          !vendorProfileReady ||
+          isDemoVendor ||
+          vendorCannotOrder ||
           !stripe ||
           !selectedAddressId ||
           !scheduledFor ||
@@ -1117,6 +1206,9 @@ function CheckoutInner() {
               type="submit"
               disabled={
                 submitting ||
+                !vendorProfileReady ||
+                isDemoVendor ||
+                vendorCannotOrder ||
                 !stripe ||
                 !selectedAddressId ||
                 !scheduledFor ||

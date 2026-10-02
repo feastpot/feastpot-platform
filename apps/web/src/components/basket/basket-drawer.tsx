@@ -36,6 +36,7 @@ export function BasketDrawer({ children }: Props) {
   const router = useRouter();
   const items = useBasketStore((s) => s.items);
   const vendor = useBasketStore((s) => s.vendor);
+  const readOnlyVendor = Boolean(vendor?.publicDemo || vendor?.canOrder === false);
   const subtotal = useBasketStore((s) => s.getSubtotalPence());
   const removeLine = useBasketStore((s) => s.removeLine);
   const updateLineQuantity = useBasketStore((s) => s.updateLineQuantity);
@@ -70,6 +71,7 @@ export function BasketDrawer({ children }: Props) {
     : rawServiceFeePence;
 
   const onCheckout = () => {
+    if (readOnlyVendor) return;
     if (discount.trim()) {
       try {
         sessionStorage.setItem('feastpot.discount.v1', discount.trim());
@@ -113,7 +115,8 @@ export function BasketDrawer({ children }: Props) {
               className="flex items-center justify-between border-b border-cream-deep bg-cream px-4 py-3 text-sm hover:bg-cream-warm"
             >
               <span className="text-charcoal-mid">
-                Ordering from <strong className="font-bold text-charcoal">{vendor.name}</strong>
+                {readOnlyVendor ? 'Viewing sample menu from ' : 'Ordering from '}
+                <strong className="font-bold text-charcoal">{vendor.name}</strong>
               </span>
               <span className="text-xs font-bold text-brand">View vendor →</span>
             </Link>
@@ -131,82 +134,99 @@ export function BasketDrawer({ children }: Props) {
               ))}
             </ul>
 
-            {/* Totals + checkout */}
-            <footer className="space-y-3 border-t border-cream-deep bg-cream/50 px-4 py-3">
-              <div className="space-y-1 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-charcoal-mid">Subtotal</span>
-                  <span className="font-bold text-charcoal">{formatPounds(subtotal)}</span>
-                </div>
-                {serviceFeePence > 0 && (
-                  <div className="flex justify-between">
-                    <span className="text-charcoal-mid">
-                      Service fee
-                      <span className="ml-1 text-[10px] font-medium text-charcoal-mid/70">
-                        {COMMISSION_RATES.customerServiceFee.label}:{' '}
-                        {COMMISSION_RATES.customerServiceFee.percent}% capped at £2.99
-                      </span>
-                    </span>
-                    <span className="font-bold text-charcoal">{formatPounds(serviceFeePence)}</span>
-                  </div>
-                )}
-                {isFeastPassMember && serviceFeePence === 0 && rawServiceFeePence > 0 && (
-                  <div className="flex justify-between">
-                    <span className="flex items-center gap-1 text-charcoal-mid">
-                      Service fee
-                      <span className="rounded-full bg-brand/10 px-1.5 py-0.5 text-[9px] font-bold text-brand">
-                        FeastPass
-                      </span>
-                    </span>
-                    <span className="font-bold text-brand">Free</span>
-                  </div>
-                )}
-                <div className="flex justify-between">
-                  <span className="text-charcoal-mid">Delivery</span>
-                  <span className="text-xs italic text-charcoal-mid">Calculated at checkout</span>
-                </div>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="discount"
-                  className="mb-1 block text-xs font-bold uppercase tracking-wide text-charcoal-mid"
+            {readOnlyVendor ? (
+              <footer className="space-y-3 border-t border-cream-deep bg-cream/50 px-4 py-3">
+                <p className="rounded-xl border border-plantain bg-plantain/15 p-3 text-sm font-bold text-charcoal">
+                  This demo vendor is view-only. Sample items cannot be ordered.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => clearBasket()}
+                  className="w-full text-center text-xs font-medium text-charcoal-mid underline-offset-2 hover:underline"
                 >
-                  Discount code
-                </label>
-                <input
-                  id="discount"
-                  type="text"
-                  value={discount}
-                  onChange={(e) => setDiscount(e.target.value)}
-                  placeholder="Optional"
-                  className="w-full rounded-xl border border-cream-deep bg-white px-3 py-2 text-sm text-charcoal placeholder:text-charcoal-mid focus:border-brand focus:outline-none"
-                />
-              </div>
+                  Empty basket
+                </button>
+              </footer>
+            ) : (
+              /* Totals + checkout */
+              <footer className="space-y-3 border-t border-cream-deep bg-cream/50 px-4 py-3">
+                <div className="space-y-1 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-charcoal-mid">Subtotal</span>
+                    <span className="font-bold text-charcoal">{formatPounds(subtotal)}</span>
+                  </div>
+                  {serviceFeePence > 0 && (
+                    <div className="flex justify-between">
+                      <span className="text-charcoal-mid">
+                        Service fee
+                        <span className="ml-1 text-[10px] font-medium text-charcoal-mid/70">
+                          {COMMISSION_RATES.customerServiceFee.label}:{' '}
+                          {COMMISSION_RATES.customerServiceFee.percent}% capped at £2.99
+                        </span>
+                      </span>
+                      <span className="font-bold text-charcoal">
+                        {formatPounds(serviceFeePence)}
+                      </span>
+                    </div>
+                  )}
+                  {isFeastPassMember && serviceFeePence === 0 && rawServiceFeePence > 0 && (
+                    <div className="flex justify-between">
+                      <span className="flex items-center gap-1 text-charcoal-mid">
+                        Service fee
+                        <span className="rounded-full bg-brand/10 px-1.5 py-0.5 text-[9px] font-bold text-brand">
+                          FeastPass
+                        </span>
+                      </span>
+                      <span className="font-bold text-brand">Free</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <span className="text-charcoal-mid">Delivery</span>
+                    <span className="text-xs italic text-charcoal-mid">Calculated at checkout</span>
+                  </div>
+                </div>
 
-              <div className="flex items-center justify-between border-t border-cream-deep pt-3 text-base">
-                <span className="font-display font-black text-charcoal">Total</span>
-                <span className="font-display font-black tabular-nums text-charcoal">
-                  {formatPounds(subtotal + serviceFeePence)}
-                  <span className="ml-1 text-xs font-medium text-charcoal-mid">+ delivery</span>
-                </span>
-              </div>
+                <div>
+                  <label
+                    htmlFor="discount"
+                    className="mb-1 block text-xs font-bold uppercase tracking-wide text-charcoal-mid"
+                  >
+                    Discount code
+                  </label>
+                  <input
+                    id="discount"
+                    type="text"
+                    value={discount}
+                    onChange={(e) => setDiscount(e.target.value)}
+                    placeholder="Optional"
+                    className="w-full rounded-xl border border-cream-deep bg-white px-3 py-2 text-sm text-charcoal placeholder:text-charcoal-mid focus:border-brand focus:outline-none"
+                  />
+                </div>
 
-              <button
-                type="button"
-                onClick={onCheckout}
-                className="w-full rounded-2xl bg-brand py-3 text-sm font-bold text-white shadow-card transition-colors hover:bg-brand-dark"
-              >
-                Proceed to checkout →
-              </button>
-              <button
-                type="button"
-                onClick={() => clearBasket()}
-                className="w-full text-center text-xs font-medium text-charcoal-mid underline-offset-2 hover:underline"
-              >
-                Empty basket
-              </button>
-            </footer>
+                <div className="flex items-center justify-between border-t border-cream-deep pt-3 text-base">
+                  <span className="font-display font-black text-charcoal">Total</span>
+                  <span className="font-display font-black tabular-nums text-charcoal">
+                    {formatPounds(subtotal + serviceFeePence)}
+                    <span className="ml-1 text-xs font-medium text-charcoal-mid">+ delivery</span>
+                  </span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={onCheckout}
+                  className="w-full rounded-2xl bg-brand py-3 text-sm font-bold text-white shadow-card transition-colors hover:bg-brand-dark"
+                >
+                  Proceed to checkout →
+                </button>
+                <button
+                  type="button"
+                  onClick={() => clearBasket()}
+                  className="w-full text-center text-xs font-medium text-charcoal-mid underline-offset-2 hover:underline"
+                >
+                  Empty basket
+                </button>
+              </footer>
+            )}
           </>
         )}
       </SheetContent>

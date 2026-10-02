@@ -71,11 +71,15 @@ describe('VendorsService', () => {
   let service: VendorsService;
   let members: { canActOnVendor: jest.Mock; resolveVendorIdByUserId: jest.Mock };
 
-  let prismaMock: { vendorApplication: { create: jest.Mock } };
+  let prismaMock: {
+    vendorApplication: { create: jest.Mock };
+    vendor: { findUnique: jest.Mock };
+  };
 
   beforeEach(() => {
     repo = makeRepo();
     prismaMock = {
+      vendor: { findUnique: jest.fn().mockResolvedValue(null) },
       vendorApplication: {
         create: jest.fn().mockImplementation(({ select: _select }) =>
           Promise.resolve({
@@ -127,6 +131,74 @@ describe('VendorsService', () => {
       queue,
       onboarding,
     );
+  });
+
+  describe('public demo response projection', () => {
+    it('marks demo search results non-orderable and hides distance and real rating signals', () => {
+      const rows = (
+        service as unknown as {
+          mapSearchRows: (rows: unknown[]) => Array<Record<string, unknown>>;
+        }
+      ).mapSearchRows([
+        {
+          id: 'demo-id',
+          business_name: 'Demo Kitchen',
+          slug: 'demo-kitchen',
+          description: null,
+          cuisines: ['nigerian'],
+          status: VendorStatus.pending,
+          rating: 4.8,
+          rating_count: 20,
+          created_at: new Date(),
+          distance_km: 1.2,
+          matched_dishes: ['Jollof'],
+          public_demo: true,
+        },
+      ]);
+
+      expect(rows[0]).toEqual(
+        expect.objectContaining({
+          publicDemo: true,
+          canOrder: false,
+          rating: 0,
+          ratingCount: 0,
+          distanceKm: null,
+        }),
+      );
+    });
+
+    it('omits compliance evidence and catering eligibility from a demo profile', () => {
+      const profile = (
+        service as unknown as {
+          publicVendorProjection: (vendor: Record<string, unknown>) => Record<string, unknown>;
+        }
+      ).publicVendorProjection({
+        id: 'demo-id',
+        publicDemo: true,
+        complianceStatus: 'NOT_ELIGIBLE',
+        fsaHygieneRating: null,
+        fsaRegistrationNumber: 'sample',
+        approvedAt: new Date(),
+        stripeAccountId: 'acct_demo',
+        eventCateringManualQuote: true,
+        rating: 4.5,
+        ratingCount: 10,
+      });
+
+      expect(profile).toEqual(
+        expect.objectContaining({
+          publicDemo: true,
+          canOrder: false,
+          rating: 0,
+          ratingCount: 0,
+          eventCateringManualQuote: false,
+        }),
+      );
+      expect(profile).not.toHaveProperty('complianceStatus');
+      expect(profile).not.toHaveProperty('fsaRegistrationNumber');
+      expect(profile).not.toHaveProperty('approvedAt');
+      expect(profile).not.toHaveProperty('stripeAccountId');
+    });
   });
 
   describe('registerInterest', () => {

@@ -13,12 +13,12 @@ export default defineConfig({
   testDir: './e2e',
   timeout: 30_000,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  workers: 1,
+  fullyParallel: false,
+  maxFailures: 0,
   // CI keeps a JSON result so the required customer-purchase guard can prove
   // CP-1 was discovered and actually ran rather than being silently skipped.
-  reporter: process.env.CI
-    ? [['github'], ['list'], ['json', { outputFile: 'e2e-results.json' }]]
-    : [['list']],
+  reporter: [['list'], ['json', { outputFile: 'e2e-results.json' }]],
 
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3000',

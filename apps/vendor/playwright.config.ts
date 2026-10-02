@@ -1,4 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
+import { browserAuthState } from '../../scripts/browser-auth-state';
+
+const vendorStorageState = browserAuthState('vendor', 'vendor');
 
 /**
  * Playwright configuration for the @feastpot/vendor e2e test suite.
@@ -30,6 +33,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   workers: 1,
+  maxFailures: 0,
   reporter: [
     ['list'],
     ['html', { open: 'never', outputFolder: 'e2e-report' }],
@@ -51,6 +55,7 @@ export default defineConfig({
     {
       name: 'setup',
       testMatch: /auth\.setup\.ts/,
+      use: { trace: 'off', screenshot: 'off', video: 'off' },
     },
 
     // ── Menu screen test suite ───────────────────────────────────────────────
@@ -59,7 +64,7 @@ export default defineConfig({
       testMatch: /menu-screen\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
-        storageState: 'e2e/.auth/vendor.json',
+        storageState: vendorStorageState,
       },
       dependencies: ['setup'],
     },
@@ -75,7 +80,7 @@ export default defineConfig({
         ...devices['iPhone 12'],
         browserName: 'chromium',
         viewport: { width: 375, height: 812 },
-        storageState: 'e2e/.auth/vendor.json',
+        storageState: vendorStorageState,
       },
       dependencies: ['setup'],
     },
@@ -86,7 +91,7 @@ export default defineConfig({
       testMatch: /availability-screen\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
-        storageState: 'e2e/.auth/vendor.json',
+        storageState: vendorStorageState,
       },
       dependencies: ['setup'],
     },
@@ -97,7 +102,7 @@ export default defineConfig({
       testMatch: /delivery-screen\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
-        storageState: 'e2e/.auth/vendor.json',
+        storageState: vendorStorageState,
       },
       dependencies: ['setup'],
     },
@@ -108,7 +113,7 @@ export default defineConfig({
       testMatch: /profile-screen\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
-        storageState: 'e2e/.auth/vendor.json',
+        storageState: vendorStorageState,
       },
       dependencies: ['setup'],
     },
@@ -119,7 +124,7 @@ export default defineConfig({
       testMatch: /verification-state-banner\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
-        storageState: 'e2e/.auth/vendor.json',
+        storageState: vendorStorageState,
       },
       dependencies: ['setup'],
     },
@@ -130,7 +135,7 @@ export default defineConfig({
       testMatch: /orders-screen\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
-        storageState: 'e2e/.auth/vendor.json',
+        storageState: vendorStorageState,
       },
       dependencies: ['setup'],
     },
@@ -141,7 +146,7 @@ export default defineConfig({
       testMatch: /vendor-lifecycle\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
-        storageState: 'e2e/.auth/vendor.json',
+        storageState: vendorStorageState,
       },
       dependencies: ['setup'],
     },
@@ -152,7 +157,7 @@ export default defineConfig({
       testMatch: /share-screen\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
-        storageState: 'e2e/.auth/vendor.json',
+        storageState: vendorStorageState,
       },
       dependencies: ['setup'],
     },
@@ -163,7 +168,7 @@ export default defineConfig({
       testMatch: /performance-screen\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
-        storageState: 'e2e/.auth/vendor.json',
+        storageState: vendorStorageState,
       },
       dependencies: ['setup'],
     },
@@ -174,7 +179,7 @@ export default defineConfig({
       testMatch: /account-compliance-screen\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
-        storageState: 'e2e/.auth/vendor.json',
+        storageState: vendorStorageState,
       },
       dependencies: ['setup'],
     },
@@ -186,7 +191,7 @@ export default defineConfig({
       grep: /EV[1-4]|EV6/,
       use: {
         ...devices['Desktop Chrome'],
-        storageState: 'e2e/.auth/vendor.json',
+        storageState: vendorStorageState,
       },
       dependencies: ['setup'],
     },
@@ -198,7 +203,7 @@ export default defineConfig({
         ...devices['iPhone 12'],
         browserName: 'chromium',
         viewport: { width: 375, height: 812 },
-        storageState: 'e2e/.auth/vendor.json',
+        storageState: vendorStorageState,
       },
       dependencies: ['setup'],
     },
@@ -290,7 +295,7 @@ export default defineConfig({
       testMatch: /cross-cutting\.spec\.ts/,
       use: {
         ...devices['Desktop Chrome'],
-        storageState: 'e2e/.auth/vendor.json',
+        storageState: vendorStorageState,
       },
       dependencies: ['setup'],
     },

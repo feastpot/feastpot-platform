@@ -146,6 +146,8 @@ interface Props {
   item: VendorMenuItem;
   /** Full vendor identity passed to the basket store on add. */
   vendor: BasketVendor;
+  /** Render a sample menu illustration without purchase or allergen controls. */
+  readOnlyDemo?: boolean;
 }
 
 /**
@@ -160,7 +162,7 @@ interface Props {
  * triggers a confirm() prompt before clearing - same behaviour as the old
  * card. Replacing the native confirm with a Dialog is a future polish.
  */
-export function MenuItemCard({ item, vendor }: Props) {
+export function MenuItemCard({ item, vendor, readOnlyDemo = false }: Props) {
   const items = useBasketStore((s) => s.items);
   const basketVendor = useBasketStore((s) => s.vendor);
   const basketVendorId = basketVendor?.id ?? null;
@@ -189,6 +191,44 @@ export function MenuItemCard({ item, vendor }: Props) {
   const placeholderGradient =
     CATEGORY_GRADIENTS[item.category] ?? 'linear-gradient(135deg, #00843D, #005C2B)';
   const placeholderEmoji = CATEGORY_EMOJI[item.category] ?? '🍽️';
+
+  if (readOnlyDemo) {
+    return (
+      <article className="fp-card flex gap-3 p-3">
+        {cover ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={cover}
+            alt=""
+            loading="lazy"
+            className="h-24 w-24 shrink-0 rounded-xl object-cover"
+          />
+        ) : (
+          <div
+            className="flex h-24 w-24 shrink-0 items-center justify-center rounded-xl text-3xl"
+            style={{ background: placeholderGradient }}
+            aria-hidden
+          >
+            {placeholderEmoji}
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-bold leading-tight text-charcoal">{item.name}</h3>
+          {item.description && (
+            <p className="mt-1 line-clamp-2 text-[11px] font-medium leading-relaxed text-charcoal-mid">
+              {item.description}
+            </p>
+          )}
+          <p className="mt-2 text-[11px] font-bold text-charcoal-mid">
+            Illustration only · not for sale
+          </p>
+          <p className="mt-1 text-[10px] font-medium text-charcoal-mid">
+            Allergen information undeclared
+          </p>
+        </div>
+      </article>
+    );
+  }
 
   const flashPulse = () => {
     setPulse(true);
