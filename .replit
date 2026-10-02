@@ -34,6 +34,9 @@ args = "Admin"
 name = "API"
 author = "agent"
 
+[workflows.workflow.metadata]
+outputType = "console"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run dev --workspace=@feastpot/api"
@@ -43,13 +46,13 @@ waitForPort = 3001
 name = "Web"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npm run dev --workspace=@feastpot/web"
-waitForPort = 3000
-
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=\"$TEST_STRIPE_PUBLISHABLE_KEY\" npm run dev --workspace=@feastpot/web"
+waitForPort = 3000
 
 [[workflows.workflow]]
 name = "Vendor"
@@ -127,6 +130,9 @@ MENU_AUTO_APPROVE = "false"
 ADMIN_REQUIRE_AAL2 = "true"
 
 [userenv.development]
+ADMIN_E2E_ALLOW_AAL1 = "false"
+ADMIN_REQUIRE_AAL2 = "true"
+NEXT_PUBLIC_ADMIN_REQUIRE_AAL2 = "true"
 
 [postMerge]
 path = "scripts/post-merge.sh"
