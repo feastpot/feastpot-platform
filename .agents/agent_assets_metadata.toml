@@ -90,3 +90,17 @@ mtime_ms = 1788642611896
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/49bf50f6-002c-44db-8e5c-3ca7c2065c91/636e3092-722a-4487-8734-45c9081aaafd"
 storage_version_token = "1788642633692628"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "YhPojYYcXJY9CpxFfoGye"
+uri = "file://docs/legal/vendor-terms-annex-a-alignment.md"
+type = "text"
+title = "Vendor terms rate review"
+description = "Verified Annex A rates, presentation corrections, and a proposed catering deposit clause requiring legal approval before publication."
+logical_id = "c342c9d4-d135-4801-bf6f-98872af05a14"
+content_hash = "sha256:8ffd86824f9ff53be30acd521965fd151deb55c6819a2516f42f13071a261d55"
+size = 2939
+mtime_ms = 1790965107983
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/c342c9d4-d135-4801-bf6f-98872af05a14/6351abe2-8387-474a-9f6a-6d97b1a7b46f"
+storage_version_token = "1790965224507778"
+content_type = "text/markdown"
