@@ -1,19 +1,18 @@
 ---
 name: GitHub PAT and Replit push
-description: How to push from Replit to a GitHub org repo when the embedded PAT is expired.
+description: Use the working GitHub connection when shell credentials reject pushes.
 ---
 
-## The rule
-Classic PATs (`ghp_…`) work for org repos via HTTPS. Fine-grained PATs (`github_pat_…`) are rejected by org repos unless the org admin approves them — don't use them.
+## Authentication fallback
+Git and the GitHub CLI can reject their stored credentials while the installed GitHub connection still works. Prefer that connection over requesting another token.
 
-**Why:** `feastpot/feastpot-platform` is an organisation repo. GitHub rejects fine-grained tokens for org repos without explicit org-level approval.
+**Why:** Shell push and CLI authentication failed independently, but authenticated connector requests successfully uploaded the same changes and opened a pull request.
 
-## ShellExec secret-caching gotcha
-`ShellExec` inherits the agent process environment, which is loaded at session start. If a Replit Secret is updated mid-session, `ShellExec` **does not see the new value** — the old value is served from the cached environment. The only reliable workaround is for the user to paste the token inline in the shell command directly (bypassing the env var), e.g.:
+**How to apply:** Use the connection's authenticated proxy for GitHub Git Data API blob, tree, commit, and branch operations when shell push authentication fails. Preserve the intended base and file scope. Never put credentials into remote URLs, shell arguments, or chat.
 
-```bash
-git remote set-url origin https://x-access-token:ghp_ACTUAL_TOKEN@github.com/feastpot/feastpot-platform.git
-git push origin main
-```
+## Merge restrictions
+This repository does not allow GitHub automatic merging. Required checks still gate a normal merge.
 
-**How to apply:** Any time a secret needs to be used mid-session for a one-off shell command (e.g. git push), ask the user to run the command themselves in the Replit Shell tab with the token inline, rather than relying on the `${SECRET}` env var in ShellExec.
+**Why:** GitHub explicitly rejected enabling auto-merge while required checks were pending.
+
+**How to apply:** Check the current repository capability rather than promising automatic merging. Do not bypass branch protection; report pending checks as an external blocker.

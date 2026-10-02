@@ -27,7 +27,7 @@
 - [Supabase auth hook](supabase-auth-hook.md) - login depends on custom_access_token_hook fn + RLS policy (auth_admin SELECT public.users); missing fn → all logins HTTP 500; missing policy → JWT role=customer for everyone.
 - [DB reset recovery](db-reset-recovery.md) - empty/drifted app DB w/ auth.users intact: migrate diff → db push --accept-data-loss → db:seed (bg, idempotent) → re-apply auth hook+policy.
 - [GitHub push workflow scope](github-push-workflow-scope.md) - PUSH_REJECTED when commits touch .github/workflows/: OAuth token lacks `workflow` scope; user must push via PAT (repo+workflow) or SSH.
-- [GitHub PAT and Replit push](github-pat-replit-push.md) - org repos need classic PAT (ghp_); fine-grained tokens rejected; ShellExec caches secrets from session start so user must paste token inline to push mid-session.
+- [GitHub push authentication](github-pat-replit-push.md) - the connected GitHub proxy can work when shell credentials fail; automatic merging is disabled, so required checks remain a merge blocker.
 - [CI required checks](ci-required-checks.md) - all green as of Jul 2026: test job uses a throwaway postgres service (+ pre-created Supabase roles anon/authenticated/service_role), not TEST_* secrets; lint fails on import/order errors + prettier.
 - [Lockfile malformed URLs](lockfile-malformed-urls.md) - two patterns: Replit firewall URLs (package-firewall.replit.local) AND spurious /npm/ path segment (svix case); both 404 on npm ci; grep "registry.npmjs.org/npm/" to find the second pattern.
 - [Seed order fixtures](seed-order-fixtures.md) - seeded vendorPayoutPence must follow computeCommission (subtotal + delivery − commission); stale fixtures once made the earnings UI look wrong.
