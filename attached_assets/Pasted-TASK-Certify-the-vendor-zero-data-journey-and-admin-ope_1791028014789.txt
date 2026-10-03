@@ -1,0 +1,63 @@
+TASK: Certify the vendor zero-data journey and admin
+operations.
+
+DEPENDS ON: LR-02 and LR-03.
+
+PART 1: ZERO-DATA VENDOR
+A brand new cook IS this case. Using a genuine V4 account with
+zero orders, documents, disputes, payouts and no tax profile,
+visit every one of the 45 vendor routes.
+Every route must render an empty state, never an error
+boundary. An empty dataset is a valid state.
+Specifically certify:
+  /earnings, /compliance, /account-status
+  /referrals, and TIME the QR from page load to visible.
+    Requirement is under 5 seconds.
+  /catering/new, including whether it has navigation
+  onboarding, terms acceptance, Stripe Connect, tax
+  information, menu creation with and without allergens,
+  availability, delivery settings, orders, payouts, disputes
+Report the real coverage number: routes rendering cleanly out
+of 45.
+
+PART 2: ADMIN OPERATIONS
+The audit certified 0 of 49 admin routes. Nothing is currently
+known about whether the admin app works. Visit all 49 and
+exercise the operational workflows:
+  vendor application review, approve, reject, request info
+  suspension and termination: does the system REQUIRE a
+    written reason, and is notice issued at or before effect?
+  termination under 30 days without a serious-cause code must
+    be REJECTED
+  two-stage appeal: stage 2 by the SAME reviewer must be
+    REJECTED
+  compliance documents and expiry handling
+  chargebacks, catering triage, menu and review moderation
+  payouts: run a batch, inspect a statement
+  commission rates: confirm a change cannot bypass the notice
+    flow
+  terms publishing: under 15 days notice must be REJECTED,
+    missing solicitor sign-off must be REJECTED
+  users, roles, audit log, discount codes, push broadcast
+  dead letters, job queues access
+
+PART 3: ROLE MATRIX, RUNTIME NOT SOURCE
+For each of admin, support, finance and compliance, confirm
+both the navigation and the SERVER enforce the matrix
+documented in /user-guide. Then test with real tokens:
+  every admin endpoint with a vendor token must 403
+  every vendor object endpoint with another vendor's token
+    must 403
+Include /platform-facts, which the route map omitted.
+Source inspection is not proof. Use tokens.
+
+COST CONTROL
+Target 75 minutes across both parts. Record defects as you go
+rather than fixing each immediately; batch the fixes at the
+end.
+
+ACCEPTANCE CRITERIA
+- Real coverage numbers: vendor routes of 45, admin of 49.
+- Every P2B guard rejects its non-compliant case at runtime.
+- The full role matrix asserted with real tokens.
+- QR visible under 5 seconds.

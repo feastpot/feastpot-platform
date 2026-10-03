@@ -8,7 +8,13 @@ import {
   NotFoundException,
   Optional,
 } from '@nestjs/common';
-import { AcceptanceMethod, NoticeChannel, RateStatus, TermsDocumentType } from '@prisma/client';
+import {
+  AcceptanceMethod,
+  NoticeChannel,
+  Prisma,
+  RateStatus,
+  TermsDocumentType,
+} from '@prisma/client';
 import type { Queue } from 'bull';
 
 import { PrismaService } from '../../prisma/prisma.service';
@@ -86,6 +92,7 @@ export class TermsService {
   async publishVersion(
     dto: PublishTermsVersionDto,
     rateScheduleEntries: RateScheduleEntryDraft[] = [],
+    withinTransaction?: (tx: Prisma.TransactionClient) => Promise<void>,
   ) {
     const now = new Date();
     if (
@@ -183,6 +190,9 @@ export class TermsService {
         });
       }
 
+      // Financial changes and their canonical legal version commit together.
+      // Any failed rate write also rolls back the version and entry snapshot.
+      await withinTransaction?.(tx);
       return createdVersion;
     });
 
@@ -968,15 +978,18 @@ export class TermsService {
    * versions do not require solicitorSignOff (they are commercial schedule
    * changes, not contractual term changes requiring legal review).
    */
-  async publishRateScheduleVersion(opts: {
-    source: string;
-    isFirstOrder: boolean | null;
-    newRatePct: number;
-    previousRatePct: number;
-    effectiveFrom: Date;
-    createdBy: string;
-    note?: string;
-  }) {
+  async publishRateScheduleVersion(
+    opts: {
+      source: string;
+      isFirstOrder: boolean | null;
+      newRatePct: number;
+      previousRatePct: number;
+      effectiveFrom: Date;
+      createdBy: string;
+      note?: string;
+    },
+    withinTransaction?: (tx: Prisma.TransactionClient) => Promise<void>,
+  ) {
     const { source, isFirstOrder, newRatePct, previousRatePct, effectiveFrom, createdBy, note } =
       opts;
 
@@ -1083,6 +1096,8 @@ export class TermsService {
       sortOrder: entry.sortOrder,
     }));
 
-    return this.publishVersion(dto, nextEntries);
+    return withinTransaction
+      ? this.publishVersion(dto, nextEntries, withinTransaction)
+      : this.publishVersion(dto, nextEntries);
   }
 }

@@ -358,12 +358,7 @@ export class AdminController {
   listVendorApplications(
     @Query('status')
     status:
-      | 'pending'
-      | 'under_review'
-      | 'information_requested'
-      | 'approved'
-      | 'rejected'
-      | undefined,
+      'pending' | 'under_review' | 'information_requested' | 'approved' | 'rejected' | undefined,
     @Query('includeTestData') includeTestData: string | undefined,
     @CurrentUser() user: AuthUser,
   ) {
@@ -1063,24 +1058,13 @@ export class AdminController {
     }
 
     const { Decimal } = await import('@prisma/client/runtime/library');
-    const newRate = await this.commissionService.createRate({
-      source: src,
-      isFirstOrder: dto.isFirstOrder ?? null,
-      ratePercent: new Decimal(dto.ratePercent),
-      effectiveFrom,
-      createdBy: user.id,
-      note: dto.note,
-    });
-
-    // Wire to the legal notice engine (P2B Regulation).
-    // A commission rate change is a change to Annex A (Rate Schedule) of the
-    // Vendor Terms. Publishing a RATE_SCHEDULE version triggers the 15-day
-    // notice flow automatically. We fire-and-forget in a try/catch so a terms
-    // publish failure does not roll back the rate row -- ops can re-trigger
-    // the notice manually if needed.
+    // Legal validation must happen before a financial write. The version,
+    // complete entry snapshot and rate history share the publisher transaction.
+    // In particular, introducing a previously empty slot cannot bypass notice.
     const previousRatePct = currentActive ? parseFloat(currentActive.ratePercent.toString()) : 0;
-    this.termsService
-      .publishRateScheduleVersion({
+    let newRate: Awaited<ReturnType<CommissionService['createRate']>> | undefined;
+    await this.termsService.publishRateScheduleVersion(
+      {
         source: dto.source,
         isFirstOrder: dto.isFirstOrder ?? null,
         newRatePct: dto.ratePercent,
@@ -1088,12 +1072,21 @@ export class AdminController {
         effectiveFrom,
         createdBy: user.id,
         note: dto.note,
-      })
-      .catch((err: unknown) =>
-        this.logger.error(
-          `[commission-rates] terms notice failed for rate=${newRate.id}: ${String(err)}`,
-        ),
-      );
+      },
+      async (tx) => {
+        newRate = await this.commissionService.createRate(
+          {
+            source: src,
+            isFirstOrder: dto.isFirstOrder ?? null,
+            ratePercent: new Decimal(dto.ratePercent),
+            effectiveFrom,
+            createdBy: user.id,
+            note: dto.note,
+          },
+          tx,
+        );
+      },
+    );
 
     return newRate;
   }

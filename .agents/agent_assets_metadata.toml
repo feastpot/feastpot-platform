@@ -272,3 +272,17 @@ mtime_ms = 1791026785836
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/01daab2f-dca5-4084-96d3-4711c4dfe0f5/a75293fd-2d48-43b7-b9d0-2bbf05c42d27"
 storage_version_token = "1791026822022890"
 content_type = "text/html"
+
+[[outputs]]
+id = "w51ZtghEYxeBqL_mF4SzA"
+uri = "file://reports/vendor-admin-runtime-certification.html"
+type = "html"
+title = "Vendor and admin runtime audit"
+description = "Route-by-route evidence, verified fixes, QR timing failure, role checks and explicitly unverified operational workflows."
+logical_id = "da2d577c-793f-4223-b215-0b02128103b7"
+content_hash = "sha256:e398e88c3b60fce9e2f3067d17dea6343072cb9849b056f425febac24c376afc"
+size = 19616
+mtime_ms = 1791032258893
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/da2d577c-793f-4223-b215-0b02128103b7/b687ec26-4680-458a-8858-ba55b33a52c9"
+storage_version_token = "1791032384043220"
+content_type = "text/html"

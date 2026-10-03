@@ -125,6 +125,7 @@ export const VENDOR_PORTAL_ROUTES: readonly VendorRoute[] = [
   { label: 'forgot password', href: () => '/forgot-password', expectsPortalShell: false },
   { label: 'help', href: () => '/help', expectsPortalShell: true },
   { label: 'menu', href: () => '/menu', expectsPortalShell: true },
+  { label: 'menu import', href: () => '/menu/import', expectsPortalShell: true },
   {
     label: 'legacy menu redirect',
     href: () => `/menu/${missingId('menu')}`,
@@ -136,6 +137,7 @@ export const VENDOR_PORTAL_ROUTES: readonly VendorRoute[] = [
     expectsPortalShell: true,
   },
   { label: 'notifications', href: () => '/notifications', expectsPortalShell: true },
+  { label: 'not registered', href: () => '/not-registered', expectsPortalShell: false },
   { label: 'onboarding', href: () => '/onboarding', expectsPortalShell: true },
   {
     label: 'onboarding registration',
@@ -152,6 +154,7 @@ export const VENDOR_PORTAL_ROUTES: readonly VendorRoute[] = [
   },
   { label: 'payouts', href: () => '/payouts', expectsPortalShell: true },
   { label: 'performance', href: () => '/performance', expectsPortalShell: true },
+  { label: 'platform facts', href: () => '/platform-facts', expectsPortalShell: true },
   { label: 'referrals redirect', href: () => '/referrals', expectsPortalShell: true },
   { label: 'close account', href: () => '/settings/close-account', expectsPortalShell: true },
   { label: 'delivery settings', href: () => '/settings/delivery', expectsPortalShell: true },

@@ -58,25 +58,25 @@ waitForPort = 3000
 name = "Vendor"
 author = "agent"
 
+[workflows.workflow.metadata]
+outputType = "console"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run dev --workspace=@feastpot/vendor"
 waitForPort = 3002
 
-[workflows.workflow.metadata]
-outputType = "console"
-
 [[workflows.workflow]]
 name = "Admin"
 author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npm run dev --workspace=@feastpot/admin"
 waitForPort = 3003
-
-[workflows.workflow.metadata]
-outputType = "console"
 
 [[ports]]
 localPort = 3000

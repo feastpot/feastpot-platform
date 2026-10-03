@@ -56,7 +56,11 @@ AND: [
 `runWeeklyBatch` logs a warning if blended take rate is outside [6%, 10%] for the period. This is a log-only alert; Slack integration can be added later.
 
 ## 15-day notice enforcement
-`POST /admin/commission-rates` checks if the new ratePercent > current active rate for the same slot. If yes, enforces `effectiveFrom >= now + 15 days`. Uses listRates() + comparison, not a hook.
+Commission changes must fail closed when the canonical legal publication cannot be made. Never treat legal publication as a best-effort notification after a successful financial write.
+
+**Why:** A runtime audit observed a successful rate change while the legal publisher rejected its notice period. Manual re-triggering later does not make that change compliant.
+
+**How to apply:** Preserve one atomic financial/legal publication boundary. Test the legal rejection with a real token and verify that it creates no financial row, including same-rate and previously empty-slot cases.
 
 ## Backfill
 `CommissionService.calculate(orderId)` upserts OrderCommission for existing orders using their stored OrderAttribution. Orders without attribution default to MARKETPLACE/isFirstOrder=true.

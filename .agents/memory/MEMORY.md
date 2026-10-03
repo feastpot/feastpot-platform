@@ -89,3 +89,4 @@
 - [Onboarding recovery and funnel](onboarding-recovery-funnel.md) - recovery campaigns are immutable and delivery-confirmed; anonymous funnel events resolve to applications within 24 hours.
 - [Rate Schedule version entries](rate-schedule-version-entries.md) - every effective Rate Schedule version must receive a complete entry snapshot atomically; repair empty current versions, never reactivate old ones.
 - [Browser HEIC conversion](upload-conversion-choice.md) - preserve the user's infrastructure-cost choice; dependency fixes do not authorise API-side HEIC decoding.
+- [Runtime audit isolation](runtime-audit-isolation.md) — cold portal sweeps can exhaust 16 GB; snapshot financial rejection probes and verify the intended rejection reason.
