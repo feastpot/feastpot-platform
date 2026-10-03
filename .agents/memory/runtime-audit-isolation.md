@@ -26,3 +26,9 @@ Parallel fixture runners must use random, collision-resistant namespaces, not ti
 **Why:** Two processes initialized in the same millisecond, reused the same vendor identity, and one runner's cleanup deleted the other runner's authenticated caller. Every remaining permission probe consequently returned an irrelevant 401.
 
 **How to apply:** Use a UUID-based namespace per process and verify the caller can access its own resource before making negative ownership probes.
+
+Full production-mode API startup checks require isolated services, a clean environment, and blocked external connections.
+
+**Why:** Booting the API also starts financial workers and crons; read-only database checks alone do not isolate those side effects. Invalid fixture configuration can instead fail a production safety gate and create a misleading startup failure.
+
+**How to apply:** Use throwaway database/queue services and non-working credentials that satisfy configuration-format gates, without weakening application guards. Exclude inherited credentials and workspace dotenv files. Treat successful local startup as code/lifecycle evidence, not proof that a cold published VM meets its readiness deadline.
