@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Loader2, Plus, X } from 'lucide-react';
 import { Button, Card, CardContent } from '@feastpot/ui';
 
@@ -678,12 +678,14 @@ function PoundsInput({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const id = useId();
   return (
     <div className="space-y-1.5">
-      <Label>{label}</Label>
+      <Label htmlFor={id}>{label}</Label>
       <div className="flex items-center rounded-md border border-input bg-background focus-within:ring-2 focus-within:ring-ring">
         <span className="pl-3 text-sm text-muted-foreground">£</span>
         <input
+          id={id}
           type="number"
           inputMode="decimal"
           step="0.01"

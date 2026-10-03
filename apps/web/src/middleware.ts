@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
+import { API_URL } from './lib/env';
 import { safeRedirect } from './lib/safe-redirect';
 import { createClient } from './lib/supabase/middleware';
+import { isMissingVendorProfile } from './lib/vendor-not-found';
 
 /**
  * Edge middleware runs on every matched request and does two jobs:
@@ -43,6 +45,18 @@ export async function middleware(request: NextRequest) {
     www.host = 'www.feastpot.co.uk';
     www.port = '';
     return NextResponse.redirect(www, 308);
+  }
+
+  // Page-level notFound() can run after the streamed loading shell has sent
+  // HTTP 200. Resolve definite missing vendors before rendering starts.
+  if (
+    ['GET', 'HEAD'].includes(request.method) &&
+    (await isMissingVendorProfile(request.nextUrl.pathname, API_URL))
+  ) {
+    const missing = request.nextUrl.clone();
+    missing.pathname = '/_not-found';
+    missing.search = '';
+    return NextResponse.rewrite(missing, { status: 404 });
   }
 
   const { supabase, response } = createClient(request);

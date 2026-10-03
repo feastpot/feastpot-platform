@@ -258,3 +258,17 @@ mtime_ms = 1791024837316
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/c7e05abc-96ba-44d5-956c-c8ac057f1f59/9d71a5ca-5f66-4158-8188-d0c11ffea888"
 storage_version_token = "1791024938570756"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "z9TfHS_hvx6yQY1ptR4Om"
+uri = "file://reports/customer-defect-verification.html"
+type = "html"
+title = "Customer defect verification — partial completion"
+description = "Verified fixes, exact 375px measurements, clearly labelled mocked-screen screenshots, and outstanding Stripe launch blockers."
+logical_id = "01daab2f-dca5-4084-96d3-4711c4dfe0f5"
+content_hash = "sha256:ed70155b7de633b6c1730cef20e315878533ccc685f784f133a34d29e1bec010"
+size = 851824
+mtime_ms = 1791026785836
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/01daab2f-dca5-4084-96d3-4711c4dfe0f5/a75293fd-2d48-43b7-b9d0-2bbf05c42d27"
+storage_version_token = "1791026822022890"
+content_type = "text/html"

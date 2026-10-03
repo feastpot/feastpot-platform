@@ -18,6 +18,7 @@
 - [Prisma baseline / P3005](prisma-baseline-p3005.md) - `db push` on the shared Supabase DB leaves no migration history → prod `migrate deploy` P3005 crash-loop; recover by baselining (resolve --applied + sha256 psql insert).
 - [Order responses have no DTO](order-response-shaping.md) - orders are raw Prisma rows returned untouched across getById/list/createOrder/customerCancel/reorder; any new Order column leaks to customers; sanitize every customer return path.
 - [Service fee & payout](service-fee-payout.md) - service fee is platform revenue, never paid out; payout = total − serviceFee − commission (delivery stays w/ vendor); fix BOTH per-order calc AND weekly batch (batch recomputed from total, didn't use stored vendorPayoutPence).
+- [Mandatory fee disclosure](mandatory-fee-disclosure.md) — fee-inclusive totals must appear at the first pricing display; the user treats this as a legal requirement.
 - [Stripe webhook routing](stripe-webhook-event-routing.md) - controller only enqueues types in HANDLED_STRIPE_EVENT_TYPES (keep in sync with @Process names); others recorded + Sentry-warned, never enqueued.
 - [Stripe webhook execution leases](stripe-webhook-execution-leases.md) - worker ownership must use a per-execution token, not stable Bull job IDs, so stalled redeliveries cannot share completion ownership.
 - [Notification outbox](notification-outbox.md) - always send events via NotificationsService.enqueue (durable outbox fallback), never the raw queue; drainer dedupes via outbox:<rowId> jobId.
