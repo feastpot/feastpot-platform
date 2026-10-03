@@ -63,7 +63,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "NEXT_PUBLIC_API_URL=http://localhost:3101 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=\"$TEST_STRIPE_PUBLISHABLE_KEY\" npm run dev --workspace=@feastpot/vendor"
+args = "npm run dev --workspace=@feastpot/vendor"
 waitForPort = 3002
 
 [[workflows.workflow]]
@@ -75,7 +75,7 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "NEXT_PUBLIC_API_URL=http://localhost:3101 ADMIN_REQUIRE_AAL2=true NEXT_PUBLIC_ADMIN_REQUIRE_AAL2=true npm run dev --workspace=@feastpot/admin"
+args = "npm run dev --workspace=@feastpot/admin"
 waitForPort = 3003
 
 [[ports]]
