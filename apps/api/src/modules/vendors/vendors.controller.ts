@@ -548,8 +548,7 @@ export class VendorsController {
   @Roles(UserRole.vendor, UserRole.admin)
   @ApiOperation({ summary: 'Return live, approved menu items for the featured-dishes picker' })
   getLiveMenuItems(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() user: AuthUser | null) {
-    requireUser(user);
-    return this.vendors.getLiveMenuItems(id);
+    return this.vendors.getLiveMenuItems(id, requireUser(user));
   }
 
   // ⚠ See DECLARATION-ORDER HAZARD comment above the class. Every literal-segment

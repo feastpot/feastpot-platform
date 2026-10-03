@@ -3,6 +3,7 @@ import { createHash } from 'crypto';
 import { InjectQueue } from '@nestjs/bull';
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
@@ -906,9 +907,9 @@ export class TermsService {
    */
   async acknowledgeNotice(noticeId: string, vendorId: string) {
     const notice = await this.prisma.termsNotice.findUnique({ where: { id: noticeId } });
-    if (!notice || notice.vendorId !== vendorId) {
-      throw new NotFoundException('Notice not found.');
-    }
+    if (!notice) throw new NotFoundException('Notice not found.');
+    if (notice.vendorId !== vendorId)
+      throw new ForbiddenException('Cannot acknowledge another vendor notice.');
     return this.prisma.termsNotice.update({
       where: { id: noticeId },
       data: { acknowledgedAt: new Date() },

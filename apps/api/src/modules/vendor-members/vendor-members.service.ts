@@ -392,9 +392,13 @@ export class VendorMembersService {
       });
     }
     const row = await this.prisma.vendorMember.findUnique({ where: { id: memberId } });
-    if (!row || row.vendorId !== vendorId) {
+    if (!row)
       throw new NotFoundException({ code: 'MEMBER_NOT_FOUND', message: 'Member not found' });
-    }
+    if (row.vendorId !== vendorId)
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Cannot manage another vendor member',
+      });
     return this.prisma.vendorMember.update({
       where: { id: memberId },
       data: { role: dto.role },
@@ -404,9 +408,13 @@ export class VendorMembersService {
   async remove(user: AuthUser, memberId: string) {
     const vendorId = await this.requireOwner(user);
     const row = await this.prisma.vendorMember.findUnique({ where: { id: memberId } });
-    if (!row || row.vendorId !== vendorId) {
+    if (!row)
       throw new NotFoundException({ code: 'MEMBER_NOT_FOUND', message: 'Member not found' });
-    }
+    if (row.vendorId !== vendorId)
+      throw new ForbiddenException({
+        code: 'FORBIDDEN',
+        message: 'Cannot manage another vendor member',
+      });
     return this.prisma.vendorMember.update({
       where: { id: memberId },
       data: { status: VendorMemberStatus.removed, removedAt: new Date() },

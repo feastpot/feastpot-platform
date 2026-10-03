@@ -1700,7 +1700,12 @@ export class VendorsService {
   /** All live, approved menu items for a vendor. Used by the featured-dishes picker. */
   async getLiveMenuItems(
     vendorId: string,
+    user: AuthUser,
   ): Promise<{ id: string; name: string; imageUrls: string[] }[]> {
+    const vendor = await this.prisma.vendor.findUniqueOrThrow({ where: { id: vendorId } });
+    if (vendor.userId !== user.id && user.role !== UserRole.admin) {
+      throw new ForbiddenException({ code: 'FORBIDDEN', message: 'Cannot access another vendor' });
+    }
     return this.prisma.menuItem.findMany({
       where: {
         vendorId,
@@ -2375,6 +2380,12 @@ export class VendorsService {
       where: { id: blackoutId, vendorId: vendor.id },
     });
     if (res.count === 0) {
+      if (await this.prisma.blackoutDate.findUnique({ where: { id: blackoutId } })) {
+        throw new ForbiddenException({
+          code: 'FORBIDDEN',
+          message: 'Cannot remove another vendor blackout',
+        });
+      }
       throw new NotFoundException({ code: 'BLACKOUT_NOT_FOUND', message: 'Blackout not found' });
     }
     return this.getAvailabilityById(vendor.id);
@@ -2517,6 +2528,12 @@ export class VendorsService {
       where: { id: capacityId, vendorId: vendor.id },
     });
     if (res.count === 0) {
+      if (await this.prisma.vendorCapacity.findUnique({ where: { id: capacityId } })) {
+        throw new ForbiddenException({
+          code: 'FORBIDDEN',
+          message: 'Cannot remove another vendor capacity',
+        });
+      }
       throw new NotFoundException({ code: 'CAPACITY_NOT_FOUND', message: 'Capacity not found' });
     }
     return this.getMyCapacity(userId);

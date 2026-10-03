@@ -5,6 +5,7 @@ import { PrismaModule } from '../../prisma/prisma.module';
 import { StripeModule } from '../../stripe/stripe.module';
 import { PaymentsModule } from '../payments/payments.module';
 
+import { CateringBookingVendorAccessGuard } from './catering-booking-vendor-access.guard';
 import { CateringBookingsController } from './catering-bookings.controller';
 import { CateringBookingsService } from './catering-bookings.service';
 import { CateringCronService } from './catering-cron.service';
@@ -16,7 +17,7 @@ import { CateringCronService } from './catering-cron.service';
 @Module({
   imports: [PrismaModule, AuthModule, StripeModule, PaymentsModule],
   controllers: [CateringBookingsController],
-  providers: [CateringBookingsService, CateringCronService],
+  providers: [CateringBookingsService, CateringCronService, CateringBookingVendorAccessGuard],
   exports: [CateringBookingsService],
 })
 export class CateringBookingsModule {}

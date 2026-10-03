@@ -16,6 +16,7 @@ import { RolesGuard } from '../../auth/guards/roles.guard';
 import { SupabaseAuthGuard } from '../../auth/guards/supabase-auth.guard';
 import type { AuthUser } from '../../auth/types';
 
+import { CateringBookingVendorAccessGuard } from './catering-booking-vendor-access.guard';
 import { CateringBookingsService } from './catering-bookings.service';
 import { CancelCateringBookingDto } from './dto/cancel-catering-booking.dto';
 import { ConfirmBalanceDto } from './dto/confirm-balance.dto';
@@ -25,6 +26,7 @@ import { DeclineCateringBookingDto } from './dto/decline-catering-booking.dto';
 import { FillCateringQuoteDto } from './dto/fill-catering-quote.dto';
 
 @Controller({ path: 'catering-bookings', version: '1' })
+@UseGuards(CateringBookingVendorAccessGuard)
 export class CateringBookingsController {
   constructor(private readonly service: CateringBookingsService) {}
 
