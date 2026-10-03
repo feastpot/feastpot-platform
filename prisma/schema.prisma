@@ -17,6 +17,7 @@ model StorageReconciliationReport {
 
   @@map("storage_reconciliation_reports")
 }
+
 // Feastpot Prisma schema
 // UK diaspora bulk food marketplace
 

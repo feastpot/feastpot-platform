@@ -1,4 +1,11 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpStatus, Logger , HttpException } from '@nestjs/common';
+import {
+  ArgumentsHost,
+  Catch,
+  ExceptionFilter,
+  HttpStatus,
+  Logger,
+  HttpException,
+} from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 
 import { ErrorIncidentsService } from '../../modules/error-incidents/error-incidents.service';

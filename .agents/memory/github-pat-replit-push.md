@@ -47,3 +47,10 @@ This repository does not allow GitHub automatic merging. Required checks still g
 **Why:** GitHub explicitly rejected enabling auto-merge while required checks were pending.
 
 **How to apply:** Check the current repository capability rather than promising automatic merging. Do not bypass branch protection; report pending checks as an external blocker.
+
+## Failure logs before the whole CI run finishes
+Completed job logs can be available through GitHub's job-log API while the overall run is still active.
+
+**Why:** The CLI's run-log reader refused an unfinished run even though the failed jobs had already completed. Direct job-log responses also required explicit acceptance of terminal escape sequences.
+
+**How to apply:** Retrieve the completed job's logs rather than waiting for unrelated jobs; strip terminal control sequences and redact credentials before presenting output.
