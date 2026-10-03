@@ -10,6 +10,12 @@ Git and the GitHub CLI can reject their stored credentials while the installed G
 
 **How to apply:** Use the connection's authenticated proxy for GitHub Git Data API blob, tree, commit, and branch operations when shell push authentication fails. Preserve the intended base and file scope. Never put credentials into remote URLs, shell arguments, or chat.
 
+An existing PAT can be consumed by GitHub CLI through a process-scoped `GH_TOKEN`, without displaying or persisting the secret. Resolve the CLI's absolute executable path when invoking it from a Git credential helper.
+
+**Why:** The default CLI credential was invalid and a nested Git helper could not find `gh`, while the existing PAT worked with an explicit process-scoped CLI credential and absolute helper path.
+
+**How to apply:** Keep credentials inside the consuming process, never in remote URLs or logs. A PAT that can push may still lack permission to read branch protection; use the working connection for that read, and never bypass the required checks.
+
 Repository permission flags describe the account's access, not necessarily the connection's ability to write.
 
 **Why:** Repository reads reported admin and push permissions while a Git Data tree creation returned HTTP 404.

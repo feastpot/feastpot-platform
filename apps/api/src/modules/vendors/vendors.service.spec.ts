@@ -520,7 +520,12 @@ describe('VendorsService', () => {
     interface CapacityPrismaMock {
       $transaction: jest.Mock;
       $queryRaw: jest.Mock;
-      vendorCapacity: { findMany: jest.Mock; upsert: jest.Mock; deleteMany: jest.Mock };
+      vendorCapacity: {
+        findMany: jest.Mock;
+        findUnique: jest.Mock;
+        upsert: jest.Mock;
+        deleteMany: jest.Mock;
+      };
     }
     let capPrisma: CapacityPrismaMock;
 
@@ -539,6 +544,7 @@ describe('VendorsService', () => {
       capPrisma = (service as unknown as { prisma: CapacityPrismaMock }).prisma;
       capPrisma.vendorCapacity = {
         findMany: jest.fn().mockResolvedValue([]),
+        findUnique: jest.fn().mockResolvedValue(null),
         upsert: jest.fn().mockResolvedValue({}),
         deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
       };
@@ -608,14 +614,20 @@ describe('VendorsService', () => {
       expect(capPrisma.vendorCapacity.upsert).not.toHaveBeenCalled();
     });
 
-    it('scopes deletes to the resolved vendor and 404s on foreign ids', async () => {
+    it('scopes deletes to the resolved vendor, forbids foreign ids and 404s missing ids', async () => {
       await service.removeMyCapacity('u-1', 'cap-1');
       expect(capPrisma.vendorCapacity.deleteMany).toHaveBeenCalledWith({
         where: { id: 'cap-1', vendorId: 'v-1' },
       });
 
       capPrisma.vendorCapacity.deleteMany.mockResolvedValue({ count: 0 });
+      capPrisma.vendorCapacity.findUnique.mockResolvedValue({ id: 'someone-elses' });
       await expect(service.removeMyCapacity('u-1', 'someone-elses')).rejects.toMatchObject({
+        response: { code: 'FORBIDDEN' },
+      });
+
+      capPrisma.vendorCapacity.findUnique.mockResolvedValue(null);
+      await expect(service.removeMyCapacity('u-1', 'missing')).rejects.toMatchObject({
         response: { code: 'CAPACITY_NOT_FOUND' },
       });
     });
