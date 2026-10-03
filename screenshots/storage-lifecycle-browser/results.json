@@ -1,0 +1,16 @@
+{
+  "phase": "admin report-only refresh",
+  "results": [
+    "Vendor UI upload persists after reload",
+    "Replacement uses PUT, preserves row ID, resets pending, removes old object and persists on desktop/mobile",
+    "Cancelling deletion preserves both row and actual file",
+    "Confirmed deletion removes row/file, shows accurate toast and remains deleted after reload",
+    "Vendor cannot access the admin report in the browser or through the API",
+    "Real staff sign-in and TOTP verification issued AAL2 without bypass",
+    "Admin report authenticates, refreshes, displays seeded orphan, persists on reload and deletes nothing"
+  ],
+  "errors": [
+    "GET /v1/catering-bookings/mine: net::ERR_ABORTED",
+    "GET /v1/terms/acceptance-status: net::ERR_ABORTED"
+  ]
+}

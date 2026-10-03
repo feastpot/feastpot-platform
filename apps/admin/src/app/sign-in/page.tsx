@@ -103,7 +103,7 @@ function SignInForm() {
 
   return (
     <SignInChrome>
-      <form onSubmit={submit} className="space-y-4" autoComplete="off">
+      <form method="post" onSubmit={submit} className="space-y-4" autoComplete="off">
         {/* Honeypot fields - some browsers will autofill the first
             email/password pair they see; sacrificing hidden ones here
             keeps the real inputs clean. */}

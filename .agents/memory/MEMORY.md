@@ -92,3 +92,4 @@
 - [Browser HEIC conversion](upload-conversion-choice.md) - preserve the user's infrastructure-cost choice; dependency fixes do not authorise API-side HEIC decoding.
 - [Runtime audit isolation](runtime-audit-isolation.md) — cold portal sweeps can exhaust 16 GB; snapshot financial rejection probes and verify the intended rejection reason.
 - [Storage lifecycle privacy](storage-lifecycle-privacy.md) — privacy outranks storage cost; inventories stay report-only, and ambiguous Supabase HEAD responses need structured absence verification.
+- [Auth form fallbacks](auth-form-fallbacks.md) — native authentication submissions must remain credential-safe; browser tests need hydrated controls, not readonly bypasses.

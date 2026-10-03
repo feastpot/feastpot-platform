@@ -468,7 +468,7 @@ function SignInForm() {
           )}
 
           {mfa && !showRecovery && (
-            <form onSubmit={submitMfa} className="mt-6 space-y-4" noValidate>
+            <form method="post" onSubmit={submitMfa} className="mt-6 space-y-4" noValidate>
               <p className="text-center text-sm" style={{ color: C.inkMid }}>
                 Enter the 6-digit code from your authenticator app.
               </p>
@@ -534,7 +534,7 @@ function SignInForm() {
           )}
 
           {mfa && showRecovery && (
-            <form onSubmit={submitRecovery} className="mt-6 space-y-4" noValidate>
+            <form method="post" onSubmit={submitRecovery} className="mt-6 space-y-4" noValidate>
               <p className="text-sm" style={{ color: C.inkMid }}>
                 Enter one of the recovery codes you saved when you enabled 2FA. Using a recovery
                 code will remove 2FA from your account; you can re-enrol from the security page once
@@ -583,7 +583,13 @@ function SignInForm() {
           )}
 
           {!mfa && (
-            <form onSubmit={submit} className="mt-6 space-y-4" noValidate autoComplete="off">
+            <form
+              method="post"
+              onSubmit={submit}
+              className="mt-6 space-y-4"
+              noValidate
+              autoComplete="off"
+            >
               {/* Honeypot pair: most autofill engines target the first
                 email + password they see in document order. We offer
                 them these throwaway fields (visually hidden, never
