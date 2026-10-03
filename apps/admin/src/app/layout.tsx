@@ -11,6 +11,7 @@ import './globals.css';
 export const metadata: Metadata = {
   title: 'Feastpot Admin',
   description: 'Operations console for Feastpot staff.',
+  icons: { icon: '/feastpot-logo-mark.png', apple: '/feastpot-logo-mark.png' },
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

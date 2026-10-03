@@ -1,4 +1,4 @@
-# Dependabot — keeps the monorepo's npm deps and CI actions current.
+# Dependabot - keeps the monorepo's npm deps and CI actions current.
 # Limit of 5 open PRs per ecosystem so the queue stays reviewable.
 
 version: 2

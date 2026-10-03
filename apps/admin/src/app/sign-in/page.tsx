@@ -104,24 +104,9 @@ function SignInForm() {
   return (
     <SignInChrome>
       <form method="post" onSubmit={submit} className="space-y-4" autoComplete="off">
-        {/* Honeypot fields - some browsers will autofill the first
-            email/password pair they see; sacrificing hidden ones here
-            keeps the real inputs clean. */}
-        <input
-          type="text"
-          name="fakeusernameremembered"
-          className="hidden"
-          tabIndex={-1}
-          aria-hidden
-        />
-        <input
-          type="password"
-          name="fakepasswordremembered"
-          className="hidden"
-          tabIndex={-1}
-          aria-hidden
-        />
-
+        {/* Keep one credential pair: hidden decoy passwords confuse Chrome's
+            form classification. Read-only-on-focus and autocomplete controls
+            below retain the shared-workstation autofill protection. */}
         <div className="space-y-1.5">
           <label htmlFor="email" className="text-sm font-medium">
             Email

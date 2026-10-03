@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# apply-branch-protection.sh — push the committed branch-protection
+# apply-branch-protection.sh - push the committed branch-protection
 # config at .github/branch-protection.main.json to GitHub, then read
 # it back and verify it landed.
 #
@@ -7,7 +7,7 @@
 # Branch protection drifts: someone toggles a setting in the GitHub
 # UI, the JSON in the repo silently disagrees, and nobody notices
 # until something breaks. This script is the only blessed way to
-# apply the policy — running it is idempotent and self-verifying.
+# apply the policy - running it is idempotent and self-verifying.
 #
 # USAGE
 #   bash scripts/apply-branch-protection.sh
@@ -44,7 +44,7 @@ if [[ ! -f "${PAYLOAD_FILE}" ]]; then
   exit 3
 fi
 
-# Validate JSON before we ship it to GitHub — a stray comma here
+# Validate JSON before we ship it to GitHub - a stray comma here
 # would otherwise produce a confusing 422.
 if ! python3 -c "import json,sys; json.load(open('${PAYLOAD_FILE}'))" 2>/dev/null; then
   err "Payload file is not valid JSON: ${PAYLOAD_FILE}"
@@ -67,7 +67,7 @@ if [[ "${http_code}" != "200" ]]; then
 fi
 log "Apply OK (HTTP 200). Reading back to verify..."
 
-# Readback — compare every field we set against what GitHub now reports.
+# Readback - compare every field we set against what GitHub now reports.
 curl -sS -o /tmp/apply-bp-readback.json \
   -H "Authorization: Bearer ${GITHUB_TOKEN}" \
   -H "Accept: application/vnd.github+json" \

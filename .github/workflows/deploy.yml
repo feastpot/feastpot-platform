@@ -1,8 +1,8 @@
-# Production deploy — triggered on push to `main`.
+# Production deploy - triggered on push to `main`.
 #
 # IMPORTANT: this pipeline does NOT deploy the API. The API runs as an always-on
 # Replit VM deployment and must be (re)published manually from the Replit
-# "Publish" UI — there is no public Replit API to trigger it from CI. So the
+# "Publish" UI - there is no public Replit API to trigger it from CI. So the
 # rollout is NOT atomic: this workflow migrates the prod DB, build-verifies the
 # API, fires the three Vercel front-end deploy hooks, then smoke-tests whatever
 # API is currently live. If you ship an API change, republish it on Replit.
@@ -88,7 +88,7 @@ jobs:
 
   # ----------------------------------------------------------------------------
   # 1. Apply pending Prisma migrations to the production Supabase database.
-  #    This is the gating step — if migrations fail, nothing else runs.
+  #    This is the gating step - if migrations fail, nothing else runs.
   # ----------------------------------------------------------------------------
   deploy-database:
     name: Migrate production DB
@@ -104,7 +104,7 @@ jobs:
       # NOT the direct host `db.<project-ref>.supabase.co`. The direct host is
       # IPv6-only and GitHub-hosted runners are IPv4-only, so direct-host URLs
       # fail here with `P1001: Can't reach database server`. Use the Session
-      # pooler (port 5432) for PROD_DIRECT_URL — migrations need session mode —
+      # pooler (port 5432) for PROD_DIRECT_URL - migrations need session mode -
       # and the Transaction pooler (port 6543) for PROD_DATABASE_URL.
       # PROD_DIRECT_URL (session pooler, port 5432) is used for both url and
       # directUrl here because:
@@ -132,7 +132,7 @@ jobs:
   #    NOTE: the API is intentionally NOT deployed from this pipeline. It runs
   #    as an always-on Replit VM deployment (the BullMQ queue workers and the
   #    @Cron jobs run in-process, so it cannot scale to zero). Replit VM
-  #    deployments are (re)published from the Replit "Publish" UI — there is no
+  #    deployments are (re)published from the Replit "Publish" UI - there is no
   #    public Replit API to trigger a deployment from external CI, so the old
   #    `curl https://api.replit.com/v0/deployments` step could never succeed.
   #    The API rollout is therefore a manual Replit republish; see
@@ -190,7 +190,7 @@ jobs:
         run: curl -fsS -X POST "${{ secrets.VERCEL_DEPLOY_HOOK_ADMIN }}"
 
   # ----------------------------------------------------------------------------
-  # 6. Smoke tests — wait for Vercel to settle, then ping every public surface.
+  # 6. Smoke tests - wait for Vercel to settle, then ping every public surface.
   # ----------------------------------------------------------------------------
   smoke-test:
     name: Smoke tests
@@ -200,7 +200,7 @@ jobs:
       - name: Wait for Vercel deployments
         run: sleep 60
       - name: API health
-        # The API exposes /healthz (liveness, returns {status,db}) — there is
+        # The API exposes /healthz (liveness, returns {status,db}) - there is
         # no plain /health route, so the old path always 404'd.
         run: curl -fsS https://api.feastpot.co.uk/healthz
       - name: Customer web
@@ -227,16 +227,16 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          [ -z "${SLACK_WEBHOOK_URL}" ] && { echo "::warning::SLACK_WEBHOOK_URL not set — skipping Slack notify"; exit 0; }
+          [ -z "${SLACK_WEBHOOK_URL}" ] && { echo "::warning::SLACK_WEBHOOK_URL not set - skipping Slack notify"; exit 0; }
           curl -fsS -X POST -H 'Content-type: application/json' \
-            --data "{\"text\":\":white_check_mark: Feastpot deployed successfully — commit: ${GITHUB_SHA} — by: ${GITHUB_ACTOR}\"}" \
+            --data "{\"text\":\":white_check_mark: Feastpot deployed successfully - commit: ${GITHUB_SHA} - by: ${GITHUB_ACTOR}\"}" \
             "${SLACK_WEBHOOK_URL}" || echo "::warning::Slack notify failed (check SLACK_WEBHOOK_URL)"
       - name: Failure notification
         if: needs.smoke-test.result != 'success'
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          [ -z "${SLACK_WEBHOOK_URL}" ] && { echo "::warning::SLACK_WEBHOOK_URL not set — skipping Slack notify"; exit 0; }
+          [ -z "${SLACK_WEBHOOK_URL}" ] && { echo "::warning::SLACK_WEBHOOK_URL not set - skipping Slack notify"; exit 0; }
           curl -fsS -X POST -H 'Content-type: application/json' \
-            --data "{\"text\":\":x: Feastpot deploy FAILED — commit: ${GITHUB_SHA} — actor: ${GITHUB_ACTOR} — run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" \
+            --data "{\"text\":\":x: Feastpot deploy FAILED - commit: ${GITHUB_SHA} - actor: ${GITHUB_ACTOR} - run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" \
             "${SLACK_WEBHOOK_URL}" || echo "::warning::Slack notify failed (check SLACK_WEBHOOK_URL)"

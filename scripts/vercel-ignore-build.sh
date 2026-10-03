@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Vercel "Ignored Build Step" — exit 0 to SKIP build, exit 1 to PROCEED.
+# Vercel "Ignored Build Step" - exit 0 to SKIP build, exit 1 to PROCEED.
 #
 # Configure per-project in Vercel:
 #   Project → Settings → Git → Ignored Build Step:
@@ -17,7 +17,7 @@ set -e
 
 APP="${1:-web}"
 
-# Paths shared by every Next.js app — any change here must rebuild all.
+# Paths shared by every Next.js app - any change here must rebuild all.
 SHARED_PATHS=(
   packages
   prisma
@@ -33,7 +33,7 @@ case "$APP" in
   vendor) APP_PATHS=(apps/vendor) ;;
   admin)  APP_PATHS=(apps/admin) ;;
   *)
-    echo "vercel-ignore: unknown app '$APP' — building to be safe."
+    echo "vercel-ignore: unknown app '$APP' - building to be safe."
     exit 1
     ;;
 esac
@@ -46,16 +46,16 @@ if [ -n "$BASE" ] && git cat-file -e "$BASE" 2>/dev/null; then
   echo "vercel-ignore[$APP]: diffing against last successful deploy $BASE"
 elif git rev-parse HEAD^ >/dev/null 2>&1; then
   BASE="HEAD^"
-  echo "vercel-ignore[$APP]: no previous deploy SHA — falling back to HEAD^"
+  echo "vercel-ignore[$APP]: no previous deploy SHA - falling back to HEAD^"
 else
-  echo "vercel-ignore[$APP]: no parent commit — building."
+  echo "vercel-ignore[$APP]: no parent commit - building."
   exit 1
 fi
 
 if git diff --quiet "$BASE" HEAD -- "${PATHS[@]}"; then
-  echo "vercel-ignore[$APP]: no relevant changes in ${PATHS[*]} — skipping build."
+  echo "vercel-ignore[$APP]: no relevant changes in ${PATHS[*]} - skipping build."
   exit 0
 fi
 
-echo "vercel-ignore[$APP]: relevant changes detected — building."
+echo "vercel-ignore[$APP]: relevant changes detected - building."
 exit 1

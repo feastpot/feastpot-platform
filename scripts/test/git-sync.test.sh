@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Smoke tests for scripts/git-sync.sh.
 #
-# Pure-local tests — no network, no GITHUB_TOKEN required. We exercise
+# Pure-local tests - no network, no GITHUB_TOKEN required. We exercise
 # only the script's pre-push decision logic by stubbing the
 # token-validation curl and the actual `git push`. We verify:
 #

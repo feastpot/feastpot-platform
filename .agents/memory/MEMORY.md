@@ -62,7 +62,7 @@
 - [Config CJS runtime entries](config-cjs-runtime.md) - packages/config exports .ts by default; Node prod can't load .ts → crash-loop; fix is require condition → .cjs.js files; changes to the 3 .ts files MUST mirror the .cjs.js copies.
 - [Image upload fix](image-upload-fix.md) — next.config.ts remotePatterns for Supabase URLs; ImageSlot uses <img> for blob preview; feastpot-media bucket auto-created in onModuleInit.
 - [Account compliance merge](account-compliance-merge.md) — /compliance + /account-status + /terms merged into /account-and-compliance; old routes redirect; embedded prop on ComplianceClient suppresses h1.
-- [CI guard exclusions](ci-guard-exclusions.md) — em-dash and FeastPot guards must exclude .agents (committed memory files legitimately use both); split test literals to avoid grep matches.
+- [CI guard exclusions](ci-guard-exclusions.md) — retain root report/agent exemptions without hiding workspace docs; preserve applied migration checksums during typography cleanup.
 - [db push missing migrations](db-push-missing-migrations.md) — db push banned on shared DBs; CI drift gate (prisma-validate job, migrate diff --exit-code) catches this at PR time; checksum repair pattern inside.
 - [Prettier full-repo formatting](prettier-full-repo.md) — must cover all workspaces (admin, vendor e2e, web e2e, docs); verification-banner-mocks.ts is in .prettierignore (JSDoc parse error).
 - [Admin panel audit](admin-panel-audit.md) — live findings: 2FA not enforced; no debounce on search; commission-rates used wrong API URL (fixed); platform defaults 12%/weekly/GBP; admin client components must import API_URL from @/lib/env.

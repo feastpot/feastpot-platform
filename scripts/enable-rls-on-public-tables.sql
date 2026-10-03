@@ -8,7 +8,7 @@
 -- without any policies = deny-by-default for anon/authenticated
 -- without affecting our API.
 --
--- Idempotent — safe to run on every deploy. Skips `_prisma_migrations`
+-- Idempotent - safe to run on every deploy. Skips `_prisma_migrations`
 -- (Prisma manages that table and may use it under its own role).
 DO $$
 DECLARE
