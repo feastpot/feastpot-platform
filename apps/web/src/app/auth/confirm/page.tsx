@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 /**
  * Scanner-proof email confirmation interstitial.
@@ -102,9 +103,12 @@ export default function AuthConfirm() {
 
     if (error) {
       setErrorMessage(
-        error.message.includes('expired') || error.message.includes('invalid')
-          ? 'This link has expired or has already been used. Please request a new one.'
-          : 'Something went wrong. Please try again or request a new link.',
+        await userErrorMessage(
+          error,
+          error.code === 'otp_expired'
+            ? 'This link has expired or has already been used. Please request a new one.'
+            : 'Could not confirm this link. Please try again or request a new link.',
+        ),
       );
       setState('error');
       return;

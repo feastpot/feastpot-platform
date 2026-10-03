@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import {
   Button,
@@ -312,7 +313,7 @@ export function AdminShell({
       await request('/admin/payouts/run-batch', { method: 'POST' });
       setFeedback('Payout batch started successfully.');
     } catch (error) {
-      setFeedback(`Payout batch failed: ${(error as Error).message}`);
+      setFeedback(await userErrorMessage(error, 'Could not create the payout batch.'));
     }
   }
   function runAuditExport() {

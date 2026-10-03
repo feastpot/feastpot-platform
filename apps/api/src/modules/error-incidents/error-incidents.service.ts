@@ -28,6 +28,7 @@ const MAX_REF_INSERT_ATTEMPTS = 5;
 @Injectable()
 export class ErrorIncidentsService {
   private readonly logger = new Logger(ErrorIncidentsService.name);
+  private readonly pendingDigests = new Map<string, Promise<ErrorIncidentRow>>();
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -70,6 +71,10 @@ export class ErrorIncidentsService {
           /\b(password|passwd|secret|token|authorization|cookie|api[_-]?key)\s*([:=])\s*[^\s,;]+/gi,
           '$1$2[REDACTED]',
         )
+        .replace(
+          /("(?:password|passwd|secret|token|access_token|refresh_token|client_secret|authorization|cookie|api[_-]?key)"\s*:\s*)"(?:\\.|[^"\\])*"/gi,
+          '$1"[REDACTED]"',
+        )
         // Diagnostic text must not persist terminal/control characters.
         // eslint-disable-next-line no-control-regex
         .replace(/[\u0000-\u001F\u007F]/g, ' ')
@@ -83,6 +88,54 @@ export class ErrorIncidentsService {
     principal: AuthUser | null,
     userAgent?: string,
   ): Promise<ErrorIncidentRow> {
+    if (!dto.digest) return this.persist(dto, principal, userAgent);
+    const key = `${dto.app}|${dto.route}|${dto.digest}`;
+    const pending = this.pendingDigests.get(key);
+    if (pending) {
+      const incident = await pending;
+      this.logDiagnostic(incident, dto);
+      return incident;
+    }
+    const insertion = this.persist(dto, principal, userAgent).finally(() =>
+      this.pendingDigests.delete(key),
+    );
+    this.pendingDigests.set(key, insertion);
+    return insertion;
+  }
+
+  private logDiagnostic(incident: ErrorIncidentRow, dto: CreateErrorIncidentDto): void {
+    this.logger.error({
+      event: 'user_error_incident',
+      ref: incident.ref,
+      app: dto.app,
+      route: dto.route,
+      detail: this.redactSensitiveValues(dto.detail ?? dto.message, 20000),
+    });
+  }
+
+  private async persist(
+    dto: CreateErrorIncidentDto,
+    principal: AuthUser | null,
+    userAgent?: string,
+  ): Promise<ErrorIncidentRow> {
+    // A server-rendering hook records the full exception before Next sanitizes
+    // it. The browser boundary then receives only its digest; link that report
+    // to the original persisted reference rather than a second generic entry.
+    if (dto.digest) {
+      const original = await this.prisma.errorIncident.findFirst({
+        where: {
+          app: dto.app,
+          route: dto.route,
+          digest: dto.digest,
+          createdAt: { gte: new Date(Date.now() - 5 * 60 * 1000) },
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+      if (original) {
+        this.logDiagnostic(original, dto);
+        return original;
+      }
+    }
     const vendor =
       principal?.role === UserRole.vendor
         ? await this.prisma.vendor.findUnique({
@@ -121,9 +174,7 @@ export class ErrorIncidentsService {
       throw new InternalServerErrorException('Could not allocate incident reference');
     }
 
-    this.logger.warn(
-      `Error incident ${incident.ref}: [${dto.app}] ${dto.route} : ${data.message.slice(0, 120)}`,
-    );
+    this.logDiagnostic(incident, dto);
 
     Sentry.captureMessage(`Error incident ${incident.ref}`, {
       level: 'error',
@@ -141,14 +192,26 @@ export class ErrorIncidentsService {
   }
 
   async findByRef(ref: string): Promise<ErrorIncidentRow | null> {
-    return this.prisma.errorIncident.findUnique({ where: { ref } });
+    const incident = await this.prisma.errorIncident.findUnique({ where: { ref } });
+    return incident
+      ? {
+          ...incident,
+          message:
+            'An operation could not be completed. Use the reference to find the private diagnostic log.',
+        }
+      : null;
   }
 
   async listRecent(limit = 50): Promise<ErrorIncidentRow[]> {
-    return this.prisma.errorIncident.findMany({
+    const incidents = await this.prisma.errorIncident.findMany({
       orderBy: { createdAt: 'desc' },
       take: limit,
     });
+    return incidents.map((incident) => ({
+      ...incident,
+      message:
+        'An operation could not be completed. Use the reference to find the private diagnostic log.',
+    }));
   }
 
   /**

@@ -1,6 +1,7 @@
 'use client';
 
 import { useToast } from '@/components/ui/toaster';
+import { userErrorMessage } from '@/lib/user-error-message';
 import { useApi } from '@/hooks/use-api';
 import { apiUrl } from '@/lib/api/client';
 
@@ -41,7 +42,7 @@ export function useDownloadCsv() {
     } catch (err) {
       toast({
         title: 'CSV download failed',
-        description: (err as Error).message,
+        description: await userErrorMessage(err, 'Could not download the CSV.'),
         variant: 'destructive',
       });
     }

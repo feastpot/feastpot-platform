@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import {
   Button,
@@ -179,10 +180,10 @@ export function VendorDetailClient({
         setEnforcementOpen(false);
         toast({ title: 'Enforcement action created' });
       },
-      onError: (err) =>
+      onError: async (err) =>
         toast({
           title: 'Failed to create action',
-          description: (err as Error).message,
+          description: await userErrorMessage(err),
           variant: 'destructive',
         }),
     });
@@ -198,10 +199,10 @@ export function VendorDetailClient({
           setLiftNote('');
           toast({ title: 'Enforcement action lifted' });
         },
-        onError: (err) =>
+        onError: async (err) =>
           toast({
             title: 'Lift failed',
-            description: (err as Error).message,
+            description: await userErrorMessage(err),
             variant: 'destructive',
           }),
       },
@@ -272,10 +273,10 @@ export function VendorDetailClient({
         setVerificationOpen(false);
         toast({ title: verification ? 'Verification updated' : 'Verification record created' });
       },
-      onError: (err) =>
+      onError: async (err) =>
         toast({
           title: 'Save failed',
-          description: (err as Error).message,
+          description: await userErrorMessage(err),
           variant: 'destructive',
         }),
     });
@@ -296,10 +297,10 @@ export function VendorDetailClient({
           setSignalEvidence('');
           toast({ title: 'Trust signal verified' });
         },
-        onError: (err) =>
+        onError: async (err) =>
           toast({
             title: 'Verify failed',
-            description: (err as Error).message,
+            description: await userErrorMessage(err),
             variant: 'destructive',
           }),
       },
@@ -311,10 +312,10 @@ export function VendorDetailClient({
       { signalType, status: 'expired' },
       {
         onSuccess: () => toast({ title: 'Trust signal expired' }),
-        onError: (err) =>
+        onError: async (err) =>
           toast({
             title: 'Expire failed',
-            description: (err as Error).message,
+            description: await userErrorMessage(err),
             variant: 'destructive',
           }),
       },
@@ -326,10 +327,10 @@ export function VendorDetailClient({
       { documentId, status: 'verified' },
       {
         onSuccess: () => toast({ title: 'Document verified' }),
-        onError: (err) =>
+        onError: async (err) =>
           toast({
             title: 'Verify failed',
-            description: (err as Error).message,
+            description: await userErrorMessage(err),
             variant: 'destructive',
           }),
       },
@@ -346,10 +347,10 @@ export function VendorDetailClient({
           setRejectReason('');
           toast({ title: 'Document rejected' });
         },
-        onError: (err) =>
+        onError: async (err) =>
           toast({
             title: 'Reject failed',
-            description: (err as Error).message,
+            description: await userErrorMessage(err),
             variant: 'destructive',
           }),
       },
@@ -364,10 +365,10 @@ export function VendorDetailClient({
           toast({ title: `Vendor → ${status}` });
           router.refresh();
         },
-        onError: (err) =>
+        onError: async (err) =>
           toast({
             title: 'Status update failed',
-            description: (err as Error).message,
+            description: await userErrorMessage(err),
             variant: 'destructive',
           }),
       },
@@ -569,10 +570,10 @@ export function VendorDetailClient({
                   setComplianceOpen(false);
                   toast({ title: 'FSA compliance status updated' });
                 },
-                onError: (err) =>
+                onError: async (err) =>
                   toast({
                     title: 'Update failed',
-                    description: (err as Error).message,
+                    description: await userErrorMessage(err),
                     variant: 'destructive',
                   }),
               })
@@ -1583,8 +1584,10 @@ function TaxProfilePanel({ vendorId, canReview }: { vendorId: string; canReview:
                         },
                         {
                           onSuccess: () => setFormOpen(false),
-                          onError: (err) =>
-                            setSubmitError(err instanceof Error ? err.message : 'Save failed'),
+                          onError: async (err) =>
+                            setSubmitError(
+                              await userErrorMessage(err, 'Could not save the changes.'),
+                            ),
                         },
                       );
                     }}

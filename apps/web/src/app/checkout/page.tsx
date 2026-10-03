@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { CardElement, Elements, useElements, useStripe } from '@stripe/react-stripe-js';
 import type { StripeCardElementOptions } from '@stripe/stripe-js';
@@ -492,7 +493,7 @@ function CheckoutInner() {
       } catch (err) {
         complete('fail');
         setPaidButUnconfirmed(paidOrderIdRef.current);
-        setServerError(err instanceof Error ? err.message : 'Could not finalise your order.');
+        setServerError(await userErrorMessage(err, 'Could not finalise your order.'));
       }
       return;
     }
@@ -554,7 +555,8 @@ function CheckoutInner() {
         );
         complete('fail');
         paidOrderIdRef.current = null;
-        if (released) setServerError(stripeErr.message ?? 'Payment failed.');
+        if (released)
+          setServerError(await userErrorMessage(stripeErr, 'Could not complete your payment.'));
         setSubmitting(false);
         return;
       }
@@ -570,7 +572,12 @@ function CheckoutInner() {
         const next = await stripe.confirmCardPayment(clientSecret);
         if (next.error) {
           setPaidButUnconfirmed(order.id);
-          setServerError(next.error.message ?? 'Payment authentication failed.');
+          setServerError(
+            await userErrorMessage(
+              next.error,
+              'Could not authenticate your payment. Please try again.',
+            ),
+          );
           setSubmitting(false);
           return;
         }
@@ -595,8 +602,10 @@ function CheckoutInner() {
     } catch (err) {
       complete('fail'); // no-op if the sheet was already dismissed
       if (paidOrderIdRef.current) setPaidButUnconfirmed(paidOrderIdRef.current);
-      if (err instanceof ApiError) setServerError(err.message);
-      else if (err instanceof Error) setServerError(err.message);
+      if (err instanceof ApiError)
+        setServerError(await userErrorMessage(err, 'Could not complete checkout.'));
+      else if (err instanceof Error)
+        setServerError(await userErrorMessage(err, 'Could not complete checkout.'));
       else setServerError('Checkout failed. Please try again.');
       setSubmitting(false);
     }
@@ -728,7 +737,8 @@ function CheckoutInner() {
           'Payment authorisation failed during checkout',
         );
         paidOrderIdRef.current = null;
-        if (released) setServerError(stripeErr.message ?? 'Payment failed.');
+        if (released)
+          setServerError(await userErrorMessage(stripeErr, 'Could not complete your payment.'));
         setSubmitting(false);
         submittingRef.current = false;
         return;
@@ -771,9 +781,9 @@ function CheckoutInner() {
         setPaidButUnconfirmed(paidOrderIdRef.current);
       }
       if (err instanceof ApiError) {
-        setServerError(err.message);
+        setServerError(await userErrorMessage(err, 'Could not complete checkout.'));
       } else if (err instanceof Error) {
-        setServerError(err.message);
+        setServerError(await userErrorMessage(err, 'Could not complete checkout.'));
       } else {
         setServerError('Checkout failed. Please try again.');
       }

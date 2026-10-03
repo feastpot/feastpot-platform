@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { safeRedirect } from '@/lib/safe-redirect';
 import { createClient } from '@/lib/supabase/middleware';
@@ -27,7 +28,11 @@ export async function GET(request: NextRequest) {
   const errorParam = url.searchParams.get('error');
 
   if (errorParam) {
-    const back = new URL(`/sign-in?error=${encodeURIComponent(errorParam)}`, url.origin);
+    const message = await userErrorMessage(
+      new Error(errorParam),
+      'Could not complete sign-in. Please try again.',
+    );
+    const back = new URL(`/sign-in?error=${encodeURIComponent(message)}`, url.origin);
     return NextResponse.redirect(back);
   }
 
@@ -39,7 +44,8 @@ export async function GET(request: NextRequest) {
   const { error } = await supabase.auth.exchangeCodeForSession(code);
 
   if (error) {
-    const back = new URL(`/sign-in?error=${encodeURIComponent(error.message)}`, url.origin);
+    const message = await userErrorMessage(error, 'Could not complete sign-in. Please try again.');
+    const back = new URL(`/sign-in?error=${encodeURIComponent(message)}`, url.origin);
     const setCookies = response.headers.getSetCookie();
     const redirect = NextResponse.redirect(back);
     setCookies.forEach((sc) => redirect.headers.append('set-cookie', sc));

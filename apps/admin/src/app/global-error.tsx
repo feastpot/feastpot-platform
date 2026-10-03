@@ -17,6 +17,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   const [incidentRef, setIncidentRef] = useState<string | null>(null);
+  const [reporting, setReporting] = useState(true);
   const hasReported = useRef(false);
 
   useEffect(() => {
@@ -27,8 +28,12 @@ export default function GlobalError({
       app: 'admin',
       route: window.location.pathname,
       message: error.message || 'Root layout error',
+      detail: error.stack,
       digest: error.digest,
-    }).then(setIncidentRef);
+    }).then((ref) => {
+      setIncidentRef(ref);
+      setReporting(false);
+    });
   }, [error]);
 
   return (
@@ -51,7 +56,7 @@ export default function GlobalError({
             Something went wrong
           </h1>
           <p style={{ fontSize: '14px', color: '#6b6b66', margin: '0 0 8px', lineHeight: 1.6 }}>
-            We hit an unexpected error. It&rsquo;s been logged and we&rsquo;ll look into it.
+            Please try again. If the problem continues, contact support.
           </p>
           <p
             style={{
@@ -61,7 +66,11 @@ export default function GlobalError({
               margin: '0 0 24px',
             }}
           >
-            {incidentRef ? `Ref: ${incidentRef}` : 'Logging error...'}
+            {incidentRef
+              ? `Ref: ${incidentRef}`
+              : reporting
+                ? 'Logging error...'
+                : 'Support reference unavailable. Please contact support.'}
           </p>
           <button
             type="button"

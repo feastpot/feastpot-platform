@@ -116,13 +116,7 @@ export function mapSignUpError(error: SupabaseAuthError): string {
   if (mapping) return mapping.userMessage;
 
   // Final safety net: if we reach here the error code is not in AUTH_ERROR_MAP.
-  // The modern Supabase SDK guarantees human-readable strings in error.message
-  // for all documented error types; surface it if it is a non-empty plain string.
-  // The legacy GoTrue JSON-guard (startsWith '{') has been removed -- the modern
-  // SDK no longer wraps messages in JSON objects.
-  const raw = (error.message ?? '').trim();
-  if (raw && raw !== '{}') return raw;
-
+  // Unknown provider messages are never suitable for display.
   // Truly undocumented error with no usable message. The caller will have already
   // logged a console.error via shouldAlertOps(); show a neutral service notice.
   return 'Something went wrong. Please try again in a moment.';

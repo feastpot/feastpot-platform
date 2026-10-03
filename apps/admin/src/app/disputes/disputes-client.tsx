@@ -1,4 +1,5 @@
 'use client';
+import { UserError } from '@/lib/user-error';
 
 import {
   Badge,
@@ -368,7 +369,7 @@ export function DisputesClient() {
       {error && (
         <Card className="mb-4 border-destructive/40 bg-destructive/5">
           <CardContent className="py-3 text-sm text-destructive">
-            Failed to load disputes: {(error as Error).message}
+            <UserError error={error} message="Could not load disputes." />
           </CardContent>
         </Card>
       )}

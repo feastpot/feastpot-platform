@@ -1,4 +1,5 @@
 import { API_URL } from '@/lib/env';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 /**
  * Lightweight typed fetch wrapper for the Feastpot API. Mirrors apps/web/src/lib/api/client.ts.
@@ -77,13 +78,13 @@ export async function apiRequest<T>(path: string, opts: ApiRequestOptions = {}):
     const parsed = (body && typeof body === 'object' ? body : {}) as {
       code?: string;
       message?: string;
+      ref?: string;
     };
-    throw new ApiError(
-      res.status,
-      parsed.message ?? `Request failed: ${res.status}`,
-      body,
-      parsed.code,
-    );
+    const error = new ApiError(res.status, parsed.message ?? 'Request failed', body, parsed.code);
+    userErrorMessage.acknowledge(error, parsed.ref);
+    error.message = await userErrorMessage(error);
+    throw error;
   }
+  userErrorMessage.acknowledgeResponse(body);
   return body as T;
 }

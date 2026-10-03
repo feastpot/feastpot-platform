@@ -1,4 +1,5 @@
 'use client';
+import { UserError } from '@/lib/user-error';
 
 import {
   Badge,
@@ -122,7 +123,7 @@ export function VendorsClient({ canIncludeTestData }: { canIncludeTestData: bool
       {error && (
         <Card className="mb-4 border-destructive/40 bg-destructive/5">
           <CardContent className="py-3 text-sm text-destructive">
-            Failed to load vendors: {(error as Error).message}
+            <UserError error={error} message="Could not load vendors." />
           </CardContent>
         </Card>
       )}

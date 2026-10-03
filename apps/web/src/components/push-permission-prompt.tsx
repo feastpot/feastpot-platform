@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { Bell, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
@@ -69,7 +70,7 @@ export function PushPermissionPrompt({ forceShow = false }: Props) {
       dismissPrompt();
       setVisible(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not enable notifications.');
+      setError(await userErrorMessage(e, 'Could not enable notifications.'));
     } finally {
       setBusy(false);
     }

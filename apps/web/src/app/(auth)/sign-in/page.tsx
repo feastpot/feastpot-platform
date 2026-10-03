@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { zodResolver } from '@hookform/resolvers/zod';
 import { LoginSchema, RegisterSchema, type LoginDto } from '@feastpot/types';
@@ -260,7 +261,14 @@ function SignInPane({ onSwitchToRegister }: { onSwitchToRegister: () => void }) 
   const errorParam = params?.get('error') ?? null;
 
   const [hydrated, setHydrated] = useState(false);
-  const [serverError, setServerError] = useState<string | null>(errorParam);
+  const [serverError, setServerError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!errorParam) return;
+    void userErrorMessage(
+      new Error(errorParam),
+      'Could not complete sign-in. Please try again.',
+    ).then(setServerError);
+  }, [errorParam]);
   const [submitting, setSubmitting] = useState(false);
   const [showPwd, setShowPwd] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
@@ -336,7 +344,7 @@ function SignInPane({ onSwitchToRegister }: { onSwitchToRegister: () => void }) 
     });
     setMagicSending(false);
     if (error) {
-      setServerError(error.message);
+      setServerError(await userErrorMessage(error, 'Could not sign you in. Please try again.'));
       return;
     }
     setMagicSentTo(email);
@@ -352,7 +360,7 @@ function SignInPane({ onSwitchToRegister }: { onSwitchToRegister: () => void }) 
         queryParams: { access_type: 'offline', prompt: 'consent' },
       },
     });
-    if (error) setServerError(error.message);
+    if (error) setServerError(await userErrorMessage(error, 'Could not send the sign-in link.'));
   };
 
   const onApple = async () => {
@@ -364,7 +372,8 @@ function SignInPane({ onSwitchToRegister }: { onSwitchToRegister: () => void }) 
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(redirect)}`,
       },
     });
-    if (error) setServerError(error.message);
+    if (error)
+      setServerError(await userErrorMessage(error, 'Could not start sign-in. Please try again.'));
   };
 
   return (
@@ -633,7 +642,12 @@ function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
           status: error.status,
         });
       }
-      setServerError(mapSignUpError(error as Parameters<typeof mapSignUpError>[0]));
+      setServerError(
+        await userErrorMessage(
+          error,
+          mapSignUpError(error as Parameters<typeof mapSignUpError>[0]),
+        ),
+      );
       return;
     }
 
@@ -688,7 +702,10 @@ function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
         setResendError('Too many attempts. Please wait a minute before trying again.');
       } else {
         setResendError(
-          error.message || 'Could not resend the confirmation email. Please try again.',
+          await userErrorMessage(
+            error,
+            'Could not resend the confirmation email. Please try again.',
+          ),
         );
       }
       setResendStatus('error');
@@ -713,7 +730,8 @@ function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
           : {}),
       },
     });
-    if (error) setServerError(error.message);
+    if (error)
+      setServerError(await userErrorMessage(error, 'Could not start sign-in. Please try again.'));
   };
 
   const fieldError = (k: keyof RegisterFormValues) =>

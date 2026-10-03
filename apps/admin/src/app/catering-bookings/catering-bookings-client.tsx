@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { useState } from 'react';
 
@@ -104,7 +105,7 @@ export function CateringBookingsClient({ accessToken, apiUrl }: Props) {
       setHasMore(data.length === 30);
       setCursor(data[data.length - 1]?.id);
     } catch (e) {
-      setError((e as Error).message);
+      setError(await userErrorMessage(e, 'Could not update the booking.'));
     } finally {
       setLoading(false);
     }

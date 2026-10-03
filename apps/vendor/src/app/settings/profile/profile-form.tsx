@@ -1,4 +1,5 @@
 'use client';
+import { UserError, userErrorMessage } from '@/lib/user-error';
 
 import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Check, ImageOff, Info, Loader2, Upload, X } from 'lucide-react';
@@ -243,8 +244,8 @@ export function ProfileForm() {
           : 'Customers see your changes next time the storefront refreshes.',
       });
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '';
-      const isSlugTaken = msg.includes('SLUG_TAKEN') || msg.toLowerCase().includes('in use');
+      const msg = await userErrorMessage(err, 'Could not save your profile.');
+      const isSlugTaken = (err as { code?: string })?.code === 'SLUG_TAKEN';
       toast({
         title: isSlugTaken ? 'That slug is already taken' : 'Could not save profile',
         description: isSlugTaken
@@ -1012,19 +1013,8 @@ function TextInput({
 }
 
 /** Convert a raw mutation error into a short, vendor-readable sentence. */
-function humanizeUploadError(err: unknown): string {
-  const msg = err instanceof Error ? err.message : '';
-  if (msg.includes('413') || /too.?large/i.test(msg)) {
-    return 'File too large. Please upload an image under 10 MB.';
-  }
-  if (msg.includes('415') || /unsupported|file.?type/i.test(msg)) {
-    return 'Unsupported file type. Use JPEG, PNG, or WebP.';
-  }
-  if (msg.includes('401') || msg.includes('403')) {
-    return 'Upload failed: your session may have expired. Please refresh and try again.';
-  }
-  if (msg) return msg;
-  return 'Upload failed. Please try again.';
+function humanizeUploadError(err: unknown) {
+  return <UserError error={err} message="Could not upload this image. Please try again." />;
 }
 
 function ImageSlot({
@@ -1047,7 +1037,7 @@ function ImageSlot({
   uploading: boolean;
   onPick: (file: File) => void;
   /** Inline error message shown below the slot (e.g. upload failure). */
-  error?: string | null;
+  error?: React.ReactNode;
 }) {
   const ref = useRef<HTMLInputElement | null>(null);
   // Immediate preview while the server upload is in flight. We use a blob:

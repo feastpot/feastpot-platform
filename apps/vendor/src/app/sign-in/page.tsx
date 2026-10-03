@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import {
   ArrowRight,
@@ -279,7 +280,9 @@ function SignInForm() {
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => null)) as { message?: string } | null;
-        setError(body?.message ?? 'That recovery code is not recognised or has already been used.');
+        setError(
+          await userErrorMessage(body, 'Could not verify that recovery code. Please try again.'),
+        );
         return;
       }
       // Factor removed. Re-sign-in once more; this time getAuthenticatorAssuranceLevel

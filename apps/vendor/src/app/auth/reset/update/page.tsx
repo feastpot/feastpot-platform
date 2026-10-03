@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import Image from 'next/image';
 import Link from 'next/link';
@@ -60,7 +61,7 @@ export default function VendorResetUpdate() {
     const { error: updateError } = await supabase.auth.updateUser({ password });
 
     if (updateError) {
-      setError(updateError.message);
+      setError(await userErrorMessage(updateError, 'Could not update your password.'));
       setBusy(false);
       return;
     }

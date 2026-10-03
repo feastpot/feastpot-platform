@@ -1,4 +1,5 @@
 'use client';
+import { UserError } from '@/lib/user-error';
 
 import {
   Button,
@@ -164,7 +165,7 @@ export function ChargebacksClient() {
       {error && (
         <Card className="mb-4 border-destructive/40 bg-destructive/5">
           <CardContent className="py-3 text-sm text-destructive">
-            Failed to load chargebacks: {(error as Error).message}
+            <UserError error={error} message="Could not load chargebacks." />
           </CardContent>
         </Card>
       )}

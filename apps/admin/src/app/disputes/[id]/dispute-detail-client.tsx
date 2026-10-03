@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import {
   Badge,
@@ -95,10 +96,10 @@ export function DisputeDetailClient({ disputeId }: { disputeId: string }) {
       { resolution, resolutionNote: resolutionNote || undefined, refundAmountPence },
       {
         onSuccess: () => toast({ title: 'Dispute closed' }),
-        onError: (err) =>
+        onError: async (err) =>
           toast({
             title: 'Close failed',
-            description: (err as Error).message,
+            description: await userErrorMessage(err, 'Could not close the dispute.'),
             variant: 'destructive',
           }),
       },
@@ -464,8 +465,11 @@ function AppealPanel({
                   { outcome: s1Outcome, reasons: s1Reasons },
                   {
                     onSuccess: () => toast({ title: 'Stage 1 decision recorded' }),
-                    onError: (err) =>
-                      toast({ title: (err as Error).message, variant: 'destructive' }),
+                    onError: async (err) =>
+                      toast({
+                        title: await userErrorMessage(err, 'Could not record the decision.'),
+                        variant: 'destructive',
+                      }),
                   },
                 );
               }}
@@ -538,8 +542,11 @@ function AppealPanel({
                               ? 'Appeal upheld - payout credit queued'
                               : 'Stage 2 decision recorded',
                         }),
-                      onError: (err) =>
-                        toast({ title: (err as Error).message, variant: 'destructive' }),
+                      onError: async (err) =>
+                        toast({
+                          title: await userErrorMessage(err, 'Could not record the decision.'),
+                          variant: 'destructive',
+                        }),
                     },
                   );
                 }}

@@ -16,6 +16,7 @@ interface CreateIncidentPayload {
   app: string;
   route: string;
   message: string;
+  detail?: string;
   digest?: string;
 }
 
@@ -30,21 +31,28 @@ interface IncidentResponse {
  */
 export async function reportErrorIncident(payload: CreateIncidentPayload): Promise<string | null> {
   try {
-    const {
-      data: { session },
-    } = await createClient().auth.getSession();
+    let accessToken: string | undefined;
+    if (typeof window !== 'undefined') {
+      try {
+        accessToken = (await createClient().auth.getSession()).data.session?.access_token;
+      } catch {
+        /* Anonymous reporting must still work when auth fails. */
+      }
+    }
     const res = await fetch(`${API_BASE}/v1/error-incidents`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       },
       body: JSON.stringify(payload),
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
     const data = (await res.json()) as IncidentResponse;
-    return data.ref ?? null;
+    return typeof data.ref === 'string' && /^FP-[A-F0-9]{4}-[A-F0-9]{4}$/.test(data.ref)
+      ? data.ref
+      : null;
   } catch {
     return null;
   }

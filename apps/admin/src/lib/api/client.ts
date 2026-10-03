@@ -1,4 +1,5 @@
 import { API_URL } from '../env';
+import { userErrorMessage } from '../user-error-message';
 
 /**
  * Thin fetch wrapper that surfaces structured error envelopes from the API
@@ -48,22 +49,30 @@ export async function apiRequest<T>(path: string, init: ApiRequestInit = {}): Pr
         code?: string;
         message?: string;
         details?: unknown;
+        ref?: string;
       } | null;
-      throw new ApiError(
+      const error = new ApiError(
         res.status,
         payload?.code ?? `HTTP_${res.status}`,
-        payload?.message ?? res.statusText,
-        payload?.details,
+        payload?.message ?? 'Request failed',
+        payload,
       );
+      userErrorMessage.acknowledge(error, payload?.ref);
+      error.message = await userErrorMessage(error);
+      throw error;
     }
     const text = await res.text().catch(() => res.statusText);
-    throw new ApiError(res.status, `HTTP_${res.status}`, text || res.statusText);
+    const error = new ApiError(res.status, `HTTP_${res.status}`, text || res.statusText);
+    error.message = await userErrorMessage(error);
+    throw error;
   }
 
   if (!contentType.includes('application/json')) {
     return (await res.text()) as unknown as T;
   }
-  return (await res.json()) as T;
+  const body = (await res.json()) as T;
+  userErrorMessage.acknowledgeResponse(body);
+  return body;
 }
 
 /**

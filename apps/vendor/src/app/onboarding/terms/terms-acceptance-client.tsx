@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 /**
  * TermsAcceptanceClient -- click-wrap acceptance for Vendor Terms of Agreement.
@@ -112,7 +113,7 @@ export function TermsAcceptanceClient({ accessToken, version, alreadyAccepted }:
       router.push('/onboarding?terms=accepted');
       router.refresh();
     } catch (err) {
-      const msg = err instanceof ApiError ? err.message : 'Something went wrong. Please try again.';
+      const msg = await userErrorMessage(err, 'Could not accept the terms. Please try again.');
       setError(msg);
       setSubmitting(false);
     }

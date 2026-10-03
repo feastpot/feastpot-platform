@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { Download, Loader2 } from 'lucide-react';
 import { useState } from 'react';
@@ -53,7 +54,7 @@ export function DownloadCsvButton({
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 0);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Download failed');
+      setError(await userErrorMessage(e, 'Download failed.'));
     } finally {
       setBusy(false);
     }

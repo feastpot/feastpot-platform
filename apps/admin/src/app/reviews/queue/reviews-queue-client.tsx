@@ -1,4 +1,5 @@
 'use client';
+import { UserError } from '@/lib/user-error';
 
 import {
   Button,
@@ -389,7 +390,7 @@ export function ReviewsQueueClient() {
       {list.error && (
         <Card className="mb-4 border-destructive/40 bg-destructive/5">
           <CardContent className="py-3 text-sm text-destructive">
-            Failed to load reviews: {(list.error as Error).message}
+            <UserError error={list.error} message="Could not load reviews." />
           </CardContent>
         </Card>
       )}

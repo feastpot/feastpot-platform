@@ -1,4 +1,5 @@
 'use client';
+import { UserError } from '@/lib/user-error';
 
 import { useState } from 'react';
 import {
@@ -72,7 +73,7 @@ export function NotificationsClient({ embedded = false }: { embedded?: boolean }
       {error && (
         <Card className="mb-4 border-destructive/40 bg-destructive/5">
           <CardContent className="py-3 text-sm text-destructive">
-            Failed to load outbox: {(error as Error).message}
+            <UserError error={error} message="Could not load the notification outbox." />
           </CardContent>
         </Card>
       )}
@@ -183,7 +184,11 @@ export function NotificationsClient({ embedded = false }: { embedded?: boolean }
                     {row.attempts}
                   </TableCell>
                   <TableCell className="max-w-xs truncate text-xs text-muted-foreground">
-                    {row.lastError ?? '–'}
+                    {row.lastError ? (
+                      <UserError error={row} message="Could not send this notification." />
+                    ) : (
+                      '–'
+                    )}
                   </TableCell>
                   <TableCell className="text-sm">{formatDate(row.createdAt)}</TableCell>
                   <TableCell>

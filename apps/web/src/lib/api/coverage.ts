@@ -26,7 +26,7 @@ export async function checkCoverage(
       status: 'error',
       message:
         err instanceof Error
-          ? err.message
+          ? 'Could not check delivery availability. Please try again.'
           : "We couldn't check coverage just now. Please try again.",
     };
   }

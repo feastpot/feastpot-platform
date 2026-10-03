@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { Button, Card, CardContent, Input } from '@feastpot/ui';
 import { Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
@@ -90,7 +91,7 @@ function SignInForm() {
       const supabase = createClient();
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) {
-        setError(signInError.message);
+        setError(await userErrorMessage(signInError, 'Could not sign you in. Please try again.'));
         return;
       }
       router.push(next);

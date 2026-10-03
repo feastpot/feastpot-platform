@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import {
   DndContext,
@@ -555,7 +556,7 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
 
       onClose();
     } catch (err) {
-      const msg = (err as { message?: string }).message ?? 'Something went wrong';
+      const msg = await userErrorMessage(err, 'Could not save this dish.');
       toast({ title: 'Could not save dish', description: msg, variant: 'destructive' });
     } finally {
       setSaving(false);
@@ -1142,7 +1143,7 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
         await updateItem.mutateAsync({ itemId: item.id, isAvailable: true, soldOut: false });
       }
     } catch (err) {
-      const msg = (err as { message?: string }).message;
+      const msg = await userErrorMessage(err, 'Could not update the status.');
       toast({ title: 'Could not update status', description: msg, variant: 'destructive' });
     }
   }

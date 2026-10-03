@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { useToast } from '@/components/ui/toaster';
 import { apiRequest, ApiError } from '@/lib/api/client';
@@ -31,10 +32,10 @@ export function useProposeAmendment() {
       qc.invalidateQueries({ queryKey: ['vendor', 'orders'] });
       toast({ title: 'Change sent', description: 'Customer has 30 minutes to respond.' });
     },
-    onError: (err) => {
+    onError: async (err) => {
       toast({
         title: 'Could not send change',
-        description: err instanceof Error ? err.message : 'Please try again.',
+        description: await userErrorMessage(err, 'Please try again.'),
         variant: 'destructive',
       });
     },

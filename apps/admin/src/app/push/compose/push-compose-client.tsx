@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { Button } from '@feastpot/ui';
 import { Bell } from 'lucide-react';
@@ -72,7 +73,7 @@ export function PushComposeClient() {
       setResult(res);
       setConfirmText('');
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Broadcast failed');
+      setError(await userErrorMessage(e, 'Could not send the broadcast.'));
     } finally {
       setSubmitting(false);
     }

@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { Card, CardContent, CardHeader, CardTitle, Input, Button } from '@feastpot/ui';
 import { CheckCircle2, Clock, FileText, Lock, Plus, XCircle } from 'lucide-react';
@@ -81,7 +82,8 @@ export function DocumentsClient() {
         setFormOpen(false);
         setForm((p) => ({ ...p, version: '', contentMdx: '', changeSummary: '' }));
       },
-      onError: (err) => setError(err instanceof Error ? err.message : 'Publish failed'),
+      onError: async (err) =>
+        setError(await userErrorMessage(err, 'Could not publish the document.')),
     });
   }
 

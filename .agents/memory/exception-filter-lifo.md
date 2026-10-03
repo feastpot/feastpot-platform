@@ -20,8 +20,7 @@ app.useGlobalFilters(
 
 **How to apply:** Any time a new `ExceptionFilter` is added, put it closer to the end of the array than the catch-all. The catch-all stays at index 0 forever.
 
-## Non-HttpException sanitisation
-For errors that are not `HttpException` instances (Prisma, unknown library errors):
-- Log `exception.constructor.name + exception.message + exception.stack` server-side, keyed by a `correlationId` (16-hex `randomBytes(8).toString('hex')`).
-- Return only `{ message: 'An unexpected error occurred', correlationId, statusCode: 500, ... }` to the caller.
-- The `correlationId` appears in both the log entry and the HTTP response body so engineers can locate the log without any internal detail escaping.
+## Sanitisation and references
+An `HttpException` can also wrap a raw provider message, so all exception classes require sanitization. Preserve machine-readable application codes and HTTP status, never raw messages or stacks.
+
+Log original diagnostics privately against a genuinely persisted incident reference. A random correlation ID can assist tracing, but is not a saved support reference. See [User-facing error references](user-error-references.md).

@@ -1,4 +1,5 @@
 'use client';
+import { UserError } from '@/lib/user-error';
 
 import { useMemo } from 'react';
 import {
@@ -53,7 +54,7 @@ export function AnalyticsClient() {
   if (error) {
     return (
       <div className="fp-card border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-        {error instanceof Error ? error.message : 'Could not load analytics.'}
+        <UserError error={error} message="Could not load analytics." />
       </div>
     );
   }

@@ -1,4 +1,5 @@
 'use client';
+import { UserError } from '@/lib/user-error';
 
 import { cn } from '@feastpot/ui';
 import { AlertTriangle, Clock } from 'lucide-react';
@@ -94,7 +95,7 @@ export function DisputesClient() {
 
       {isError ? (
         <div className="fp-card border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {error instanceof ApiError ? error.message : 'Could not load disputes. Please try again.'}
+          <UserError error={error} message="Could not load disputes. Please try again." />
         </div>
       ) : isLoading ? (
         <div className="fp-card border border-border bg-white p-6 text-center text-sm text-mid">

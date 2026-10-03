@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { useCallback, useEffect, useState } from 'react';
 
@@ -95,7 +96,7 @@ function QrBackfillCard({ token }: { token: string | null }) {
       if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
       setResult((await res.json()) as BackfillResult);
     } catch (e) {
-      setErr(e instanceof Error ? e.message : 'Request failed');
+      setErr(await userErrorMessage(e, 'Could not load analytics.'));
     } finally {
       setBusy(false);
     }

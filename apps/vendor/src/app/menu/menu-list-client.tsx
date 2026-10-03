@@ -1,4 +1,5 @@
 'use client';
+import { UserError, userErrorMessage } from '@/lib/user-error';
 
 import {
   DndContext,
@@ -135,10 +136,10 @@ export function MenuListClient({ vendorId }: { vendorId: string }) {
     reorder.mutate(
       nextOrder.map((m) => m.id),
       {
-        onError: (err) =>
+        onError: async (err) =>
           toast({
             title: 'Could not save the new order',
-            description: err instanceof Error ? err.message : '',
+            description: await userErrorMessage(err),
             variant: 'destructive',
           }),
       },
@@ -209,7 +210,7 @@ export function MenuListClient({ vendorId }: { vendorId: string }) {
       {error && (
         <Card>
           <CardContent className="p-4 text-sm text-destructive">
-            Could not load menus. {error instanceof Error ? error.message : ''}
+            <UserError error={error} message="Could not load menus." />
           </CardContent>
         </Card>
       )}
@@ -409,10 +410,13 @@ function MenuRow({
                 update.mutate(
                   { menuId: menu.id, isActive: checked },
                   {
-                    onError: (err) =>
+                    onError: async (err) =>
                       toast({
                         title: 'Could not update menu',
-                        description: err instanceof Error ? err.message : 'Try again',
+                        description: await userErrorMessage(
+                          err,
+                          'Could not update menu. Please try again.',
+                        ),
                         variant: 'destructive',
                       }),
                   },
@@ -436,10 +440,13 @@ function MenuRow({
             onClick={() => {
               if (!confirm(`Delete menu "${menu.name}"? This cannot be undone.`)) return;
               del.mutate(menu.id, {
-                onError: (err) =>
+                onError: async (err) =>
                   toast({
                     title: 'Could not delete menu',
-                    description: err instanceof Error ? err.message : 'Try again',
+                    description: await userErrorMessage(
+                      err,
+                      'Could not delete menu. Please try again.',
+                    ),
                     variant: 'destructive',
                   }),
               });
@@ -477,10 +484,10 @@ function CreateMenuDialog({ vendorId, onClose }: { vendorId: string; onClose: ()
                   toast({ title: 'Menu created' });
                   onClose();
                 },
-                onError: (err) =>
+                onError: async (err) =>
                   toast({
                     title: 'Could not create menu',
-                    description: err instanceof Error ? err.message : '',
+                    description: await userErrorMessage(err),
                     variant: 'destructive',
                   }),
               },
@@ -538,10 +545,10 @@ function EditMenuDialog({
                   toast({ title: 'Menu updated' });
                   onClose();
                 },
-                onError: (err) =>
+                onError: async (err) =>
                   toast({
                     title: 'Could not update menu',
-                    description: err instanceof Error ? err.message : '',
+                    description: await userErrorMessage(err),
                     variant: 'destructive',
                   }),
               },

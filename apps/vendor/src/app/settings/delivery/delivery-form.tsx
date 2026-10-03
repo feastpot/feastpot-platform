@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Loader2, Plus, X } from 'lucide-react';
@@ -353,7 +354,7 @@ export function DeliveryForm() {
     } catch (err) {
       toast({
         title: 'Could not save',
-        description: err instanceof Error ? err.message : '',
+        description: await userErrorMessage(err, 'Could not save your delivery settings.'),
         variant: 'destructive',
       });
     }

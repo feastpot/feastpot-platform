@@ -1,6 +1,7 @@
 'use client';
 
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { useToast } from '@/components/ui/toaster';
 import { apiRequest, ApiError } from '@/lib/api/client';
@@ -44,8 +45,8 @@ export function useUpdateOrderStatus() {
         description: `Order ${order.orderNumber} is now ${order.status}`,
       });
     },
-    onError: (err) => {
-      const message = err instanceof Error ? err.message : 'Failed to update order';
+    onError: async (err) => {
+      const message = await userErrorMessage(err, 'Failed to update order');
       toast({ title: 'Update failed', description: message, variant: 'destructive' });
     },
   });

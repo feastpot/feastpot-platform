@@ -1,6 +1,9 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpStatus, Logger } from '@nestjs/common';
+import { ArgumentsHost, Catch, ExceptionFilter, HttpStatus, Logger , HttpException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import type { Request, Response } from 'express';
+
+import { ErrorIncidentsService } from '../../modules/error-incidents/error-incidents.service';
+
+import { HttpExceptionFilter } from './http-exception.filter';
 
 /**
  * D22: catches every Prisma `KnownRequestError` that isn't already
@@ -15,12 +18,9 @@ import type { Request, Response } from 'express';
 @Catch(Prisma.PrismaClientKnownRequestError)
 export class PrismaExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(PrismaExceptionFilter.name);
+  constructor(private readonly incidents?: ErrorIncidentsService) {}
 
-  catch(exception: Prisma.PrismaClientKnownRequestError, host: ArgumentsHost): void {
-    const ctx = host.switchToHttp();
-    const res = ctx.getResponse<Response>();
-    const req = ctx.getRequest<Request>();
-
+  async catch(exception: Prisma.PrismaClientKnownRequestError, host: ArgumentsHost): Promise<void> {
     let status: HttpStatus = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = 'An unexpected error occurred';
     let code = 'INTERNAL_ERROR';
@@ -59,14 +59,10 @@ export class PrismaExceptionFilter implements ExceptionFilter {
         });
     }
 
-    res.status(status).json({
-      statusCode: status,
-      code,
-      message,
-      error: HttpStatus[status],
-      timestamp: new Date().toISOString(),
-      path: req.url,
-    });
+    await new HttpExceptionFilter(this.incidents).catch(
+      new HttpException({ code, message }, status, { cause: exception }),
+      host,
+    );
   }
 }
 
@@ -78,21 +74,18 @@ export class PrismaExceptionFilter implements ExceptionFilter {
 @Catch(Prisma.PrismaClientValidationError)
 export class PrismaValidationFilter implements ExceptionFilter {
   private readonly logger = new Logger(PrismaValidationFilter.name);
+  constructor(private readonly incidents?: ErrorIncidentsService) {}
 
-  catch(exception: Prisma.PrismaClientValidationError, host: ArgumentsHost): void {
-    const ctx = host.switchToHttp();
-    const res = ctx.getResponse<Response>();
-    const req = ctx.getRequest<Request>();
-
+  async catch(exception: Prisma.PrismaClientValidationError, host: ArgumentsHost): Promise<void> {
     this.logger.error(`[Prisma] Validation error: ${exception.message}`);
 
-    res.status(HttpStatus.BAD_REQUEST).json({
-      statusCode: HttpStatus.BAD_REQUEST,
-      code: 'BAD_REQUEST',
-      message: 'Invalid request data',
-      error: 'Bad Request',
-      timestamp: new Date().toISOString(),
-      path: req.url,
-    });
+    await new HttpExceptionFilter(this.incidents).catch(
+      new HttpException(
+        { code: 'BAD_REQUEST', message: 'Please check your information.' },
+        HttpStatus.BAD_REQUEST,
+        { cause: exception },
+      ),
+      host,
+    );
   }
 }

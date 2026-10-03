@@ -5,6 +5,10 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "exports": {
+    "./user-error": {
+      "types": "./src/lib/user-error.ts",
+      "default": "./src/lib/user-error.ts"
+    },
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"

@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { Button, Card, CardContent, CardHeader, CardTitle, RateCard } from '@feastpot/ui';
 import type { RateRow } from '@feastpot/ui';
@@ -124,7 +125,7 @@ export function SettingsClient({ user, mfaEnforced }: SettingsClientProps) {
     } catch (err) {
       toast({
         title: 'Failed to queue payout batch',
-        description: (err as Error).message,
+        description: await userErrorMessage(err, 'Could not queue the payout batch.'),
         variant: 'destructive',
       });
     } finally {

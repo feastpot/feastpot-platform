@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { cn } from '@feastpot/ui';
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
@@ -223,10 +224,10 @@ export function ComplianceClient({
                     { file, type: d.type, expiresAt },
                     {
                       onSuccess: () => toast({ title: `${d.label} uploaded` }),
-                      onError: (err) =>
+                      onError: async (err) =>
                         toast({
                           title: 'Upload failed',
-                          description: err instanceof Error ? err.message : '',
+                          description: await userErrorMessage(err),
                           variant: 'destructive',
                         }),
                     },

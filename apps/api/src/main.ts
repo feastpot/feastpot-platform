@@ -113,6 +113,8 @@ import {
   PrismaValidationFilter,
 } from './common/filters/prisma-exception.filter';
 import { ThrottlerExceptionFilter } from './common/filters/throttler-exception.filter';
+import { UserErrorFieldsInterceptor } from './common/interceptors/user-error-fields.interceptor';
+import { ErrorIncidentsService } from './modules/error-incidents/error-incidents.service';
 
 const ALLOWED_ORIGINS = [
   'https://feastpot.co.uk',
@@ -301,11 +303,12 @@ async function bootstrap(): Promise<void> {
   // before the Prisma-specific filters, making them dead code and causing raw
   // Prisma error messages (table names, file paths) to appear in 500 responses.
   app.useGlobalFilters(
-    new HttpExceptionFilter(),
-    new PrismaValidationFilter(),
-    new PrismaExceptionFilter(),
-    new ThrottlerExceptionFilter(),
+    new HttpExceptionFilter(app.get(ErrorIncidentsService)),
+    new PrismaValidationFilter(app.get(ErrorIncidentsService)),
+    new PrismaExceptionFilter(app.get(ErrorIncidentsService)),
+    new ThrottlerExceptionFilter(app.get(ErrorIncidentsService)),
   );
+  app.useGlobalInterceptors(new UserErrorFieldsInterceptor(app.get(ErrorIncidentsService)));
 
   if (env !== 'production') {
     const swaggerConfig = new DocumentBuilder()

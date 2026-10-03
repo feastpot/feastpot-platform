@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import Link from 'next/link';
 import { useState } from 'react';
@@ -33,7 +34,7 @@ export default function AddressesListPage() {
           'This address is used by an active order. Wait for that order to be delivered before deleting it.',
         );
       } else if (err instanceof Error) {
-        setActionError(err.message);
+        setActionError(await userErrorMessage(err, 'Could not update your address.'));
       } else {
         setActionError('Failed to delete address.');
       }

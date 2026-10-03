@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -175,7 +176,7 @@ export function PerformanceClient() {
           setAllowance(summaryJson);
         }
       } catch (e) {
-        if (!cancelled) setEarningsError((e as Error).message);
+        if (!cancelled) setEarningsError(await userErrorMessage(e, 'Could not load earnings.'));
       } finally {
         if (!cancelled) setEarningsLoading(false);
       }

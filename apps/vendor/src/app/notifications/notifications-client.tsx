@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { cn } from '@feastpot/ui';
 import {
@@ -72,7 +73,7 @@ export function NotificationsClient() {
     } catch (err) {
       toast({
         title: 'Could not mark all as read',
-        description: err instanceof Error ? err.message : '',
+        description: await userErrorMessage(err, 'Could not mark notifications as read.'),
         variant: 'destructive',
       });
     }

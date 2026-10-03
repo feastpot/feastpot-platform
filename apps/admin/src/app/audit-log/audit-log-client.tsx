@@ -1,4 +1,5 @@
 'use client';
+import { UserError, userErrorMessage } from '@/lib/user-error';
 
 import {
   Button,
@@ -64,7 +65,7 @@ export function AuditLogClient() {
     } catch (err) {
       toast({
         title: 'CSV download failed',
-        description: (err as Error).message,
+        description: await userErrorMessage(err, 'Could not download the audit log.'),
         variant: 'destructive',
       });
     }
@@ -165,7 +166,7 @@ export function AuditLogClient() {
       {error && (
         <Card className="mb-4 border-destructive/40 bg-destructive/5">
           <CardContent className="py-3 text-sm text-destructive">
-            Failed to load audit log: {(error as Error).message}
+            <UserError error={error} message="Could not load the audit log." />
           </CardContent>
         </Card>
       )}

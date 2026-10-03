@@ -134,7 +134,11 @@ export class ComplianceService {
         contentType: file.mimetype,
         upsert: false,
       });
-      if (error) throw new BadRequestException({ code: 'UPLOAD_FAILED', message: error.message });
+      if (error)
+        throw new BadRequestException(
+          { code: 'UPLOAD_FAILED', message: 'Could not upload this document. Please try again.' },
+          { cause: error },
+        );
       publicUrl = storage.getPublicUrl(path).data.publicUrl;
     }
 

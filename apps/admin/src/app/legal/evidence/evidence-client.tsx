@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@feastpot/ui';
 import { Download, FileJson, Info } from 'lucide-react';
@@ -44,10 +45,13 @@ export function EvidenceExportClient() {
             description: `${name} - ${date}`,
           });
         },
-        onError: (err) =>
+        onError: async (err) =>
           toast({
             title: 'Export failed',
-            description: err instanceof Error ? err.message : 'Unknown error',
+            description: await userErrorMessage(
+              err,
+              'Could not export the evidence. Please try again.',
+            ),
             variant: 'destructive',
           }),
       },
