@@ -211,6 +211,16 @@ export function isVendorTransitionAllowed(from: OrderStatus, to: OrderStatus): b
 export class OrdersService {
   private readonly logger = new Logger(OrdersService.name);
 
+  private async requireCurrentVendorTerms(vendorId: string): Promise<void> {
+    if (!this.terms) {
+      throw new ServiceUnavailableException({
+        code: 'TERMS_GATE_UNAVAILABLE',
+        message: 'Vendor Terms eligibility could not be checked.',
+      });
+    }
+    await this.terms.assertAcceptedCurrentVersion(vendorId);
+  }
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly repo: OrdersRepository,
@@ -237,7 +247,7 @@ export class OrdersService {
     // AnalyticsModule is @Global: fire-and-forget order_attribution_source
     // events server-side so attribution reporting is never lost to ad-blockers.
     private readonly analytics: AnalyticsService,
-    @Optional() private readonly terms?: TermsService,
+    private readonly terms?: TermsService,
   ) {}
 
   // Best-effort BullMQ wrappers. When REDIS_URL is unset (dev/CI), the
@@ -409,6 +419,8 @@ export class OrdersService {
         message: 'This vendor is not currently accepting orders',
       });
     }
+
+    await this.requireCurrentVendorTerms(vendor.id);
 
     const interruptedCancellation = await this.prisma.order.findFirst({
       where: {
@@ -1270,8 +1282,8 @@ export class OrdersService {
         message: 'Only the owning vendor (or admin) may update this order',
       });
     }
-    if (!isAdmin) {
-      await this.terms?.assertAcceptedCurrentVersion(order.vendorId);
+    if (!isAdmin || dto.status === OrderStatus.accepted) {
+      await this.requireCurrentVendorTerms(order.vendorId);
     }
     if (!isVendorTransitionAllowed(order.status, dto.status)) {
       throw new BadRequestException({
@@ -1934,7 +1946,7 @@ export class OrdersService {
       if (!allowed) {
         throw new ForbiddenException({ code: 'NOT_ORDER_VENDOR', message: 'Not your order' });
       }
-      await this.terms?.assertAcceptedCurrentVersion(order.vendorId);
+      await this.requireCurrentVendorTerms(order.vendorId);
     }
 
     const PROPOSABLE: OrderStatus[] = [

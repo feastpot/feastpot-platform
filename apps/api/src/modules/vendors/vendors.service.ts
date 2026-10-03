@@ -1470,11 +1470,12 @@ export class VendorsService {
 
   async search(dto: SearchVendorsDto) {
     const limit = dto.limit ?? 20;
+    const currentTerms = await this.terms.getCurrentVersion('VENDOR_TERMS');
     // Cache key includes the entire DTO so each filter combo is its own
     // bucket. Logged search rows are intentionally written below on EVERY
     // call (including cache hits) so the analytics pipeline still sees
     // real customer demand even when the response was served from Redis.
-    const cacheKey = `vendors:search:${RedisCacheService.stableKey(dto)}`;
+    const cacheKey = `vendors:search:terms-v1:${currentTerms?.id ?? 'none'}:${RedisCacheService.stableKey(dto)}`;
     const cached = await this.cache.get<{
       data: ReturnType<VendorsService['mapSearchRows']>;
       nextCursor: string | null;
@@ -1928,6 +1929,7 @@ export class VendorsService {
     // Publication eligibility is derived from fresh source evidence. It is
     // deliberately not stored on Vendor, so it cannot drift from its inputs.
     if (dto.status === VendorStatus.live) {
+      await this.terms.assertAcceptedCurrentVersion(vendorId);
       await this.onboarding.assertCanProfileGoLive(vendorId);
     }
 

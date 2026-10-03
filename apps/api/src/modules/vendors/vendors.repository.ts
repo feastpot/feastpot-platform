@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ModerationStatus, Prisma, VendorStatus } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { currentVendorTermsAcceptanceSql } from '../terms/current-terms';
 
 import { SearchVendorsDto, VendorSortBy } from './dto/search-vendors.dto';
 import {
@@ -400,6 +401,7 @@ export class VendorRepository {
         ${publicFixtureClause}
         AND (v.approved_at IS NOT NULL OR ${publicDemoScope})
         AND v.suspended_at IS NULL
+        AND (${currentVendorTermsAcceptanceSql()} OR ${publicDemoScope})
         -- Food-business registration is the publication gate. A vendor awaiting
         -- their first FHRS inspection may publish; once a rating exists it must
         -- be at least 3, as required by Vendor Terms clauses 2 and 10.

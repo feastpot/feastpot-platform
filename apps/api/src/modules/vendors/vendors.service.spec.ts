@@ -112,6 +112,7 @@ describe('VendorsService', () => {
     const queue = { add: jest.fn().mockResolvedValue(undefined) } as unknown as Queue;
     const terms = {
       assertAcceptedCurrentVersion: jest.fn().mockResolvedValue(undefined),
+      getCurrentVersion: jest.fn().mockResolvedValue({ id: 'current-terms' }),
     } as unknown as TermsService;
     const onboarding = {
       getReadiness: jest.fn(),

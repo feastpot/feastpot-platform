@@ -99,7 +99,7 @@ export interface CoverageData {
   liveVersion: { id: string; version: string; effectiveAt: string } | null;
   totalActive: number;
   onCurrentCount: number;
-  coveragePct: number;
+  coveragePct: number | null;
   vendors: CoverageVendorRow[];
 }
 
@@ -179,7 +179,7 @@ export function useResendNotice() {
 export interface LegalAlerts {
   coverageGap: {
     count: number;
-    coveragePct: number;
+    coveragePct: number | null;
     liveVersion: { id: string; version: string; effectiveAt: string } | null;
   };
   bouncedNotices: {
