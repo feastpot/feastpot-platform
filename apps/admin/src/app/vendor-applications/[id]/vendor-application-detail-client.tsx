@@ -198,6 +198,9 @@ export function VendorApplicationDetailClient({
                   <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
                     Menu photo
                   </div>
+                  {/* Private, expiring menu URL: do not cache it in the public
+                      image optimiser. This staff-only review is not a listing. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={app.menuPhotoUrl}
                     alt={`Menu supplied by ${app.kitchenName}`}

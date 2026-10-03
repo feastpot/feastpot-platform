@@ -1135,5 +1135,9 @@ jobs:
           restore-keys: turbo-${{ runner.os }}-
       - name: Generate Prisma client
         run: npm run db:generate
+      - name: Sitemap contract regression tests
+        run: npm run test:sitemap --workspace=@feastpot/web
       - name: Build (api, web, vendor, admin)
+        # Web postbuild always queries and verifies the complete live catalogue.
+        # Never turn a missing vendor catalogue into a green release.
         run: npx turbo run build

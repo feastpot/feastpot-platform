@@ -10,17 +10,6 @@ import { RoleThrottlerGuard } from '../common/guards/role-throttler.guard';
 import { AdminController } from '../modules/admin/admin.controller';
 import { STRIPE_CLIENT } from '../stripe/stripe.service';
 
-const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? process.env.SUPABASE_ANON_KEY;
-const REQUIRED_ENV = [
-  'SUPABASE_DB_URL',
-  'SUPABASE_URL',
-  'SUPABASE_SERVICE_ROLE_KEY',
-  'TEST_FACTORY_PASSWORD',
-] as const;
-const missing = [
-  ...REQUIRED_ENV.filter((key) => !process.env[key]),
-  ...(ANON_KEY ? [] : ['SUPABASE_ANON_KEY']),
-];
 const d = describe;
 
 type AdminRoute = { method: RequestMethod; path: string; roles: string[] };

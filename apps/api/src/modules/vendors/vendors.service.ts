@@ -1180,7 +1180,7 @@ export class VendorsService {
     } else {
       try {
         account = await this.stripe.retrieveAccount(accountId);
-      } catch (e) {
+      } catch {
         throw new BadRequestException({
           code: 'STRIPE_ACCOUNT_FETCH_FAILED',
           message: 'Could not retrieve your Stripe account details - try again in a moment',
@@ -1225,7 +1225,7 @@ export class VendorsService {
         throw new Error('Stripe returned an Account Session without a client secret');
       }
       return { accountId, clientSecret: session.client_secret, businessType, payoutsEnabled };
-    } catch (e) {
+    } catch {
       throw new BadRequestException({
         code: 'STRIPE_SESSION_FAILED',
         message: 'Could not start Stripe onboarding - try again in a moment',

@@ -6,8 +6,9 @@ import { HttpException, Logger } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
 import { Prisma } from '@prisma/client';
 import type { ReactElement } from 'react';
+import * as jsxRuntime from 'react/jsx-runtime';
 import { renderToStaticMarkup } from 'react-dom/server';
-import ts from 'typescript';
+import * as ts from 'typescript';
 
 import {
   createUserErrorMapper,
@@ -61,7 +62,7 @@ function errorRenderer(
         };
       if (path.includes('user-error-message')) return { userErrorMessage: mapper };
       if (path.includes('ui/user-error')) return { DEFAULT_ERROR_MESSAGE };
-      if (path === 'react/jsx-runtime') return require('react/jsx-runtime');
+      if (path === 'react/jsx-runtime') return jsxRuntime;
       throw new Error(`Unexpected component import ${path}`);
     },
   });

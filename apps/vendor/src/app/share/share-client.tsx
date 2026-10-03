@@ -287,6 +287,9 @@ export function ShareAndCustomersClient({
           {/* Preview */}
           <div className="shrink-0">
             {qrSrc ? (
+              // Preserve the printable QR pixels and native fallback before
+              // hydration; this generated image needs no server optimisation.
+              // eslint-disable-next-line @next/next/no-img-element
               <img
                 src={qrSrc}
                 alt={`QR code for ${link.referralUrl}`}

@@ -44,6 +44,10 @@ const withPWA = withPWAInit({
   // SW state (no offline mutation queue yet). The <SWUpdatePrompt> in the
   // root layout still surfaces a toast so users can opt to reload.
   workboxOptions: {
+    // HEIC decoding is only needed after a user selects a HEIC upload.
+    // Do not precache its multi-MB lazy chunk for every customer. It was
+    // already skipped by Workbox's size limit; make that choice explicit.
+    exclude: [/\.map$/, /^manifest.*\.js$/, /heic-converter/],
     skipWaiting: true,
     clientsClaim: true,
     importScripts: ['/sw-custom.js'],
@@ -144,6 +148,24 @@ const API_PROXY_TARGET = process.env.API_PROXY_TARGET ?? 'http://localhost:3001'
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  webpack(config, { dev, isServer }) {
+    // Production build artefacts are cached by the build runner; keep webpack's
+    // intermediate cache in memory instead of serialising oversized strings
+    // into filesystem packs. Development retains Next's normal HMR cache.
+    if (!dev) config.cache = { type: 'memory' };
+    if (!isServer && config.optimization.splitChunks) {
+      // Give the lazy HEIC codec a stable asset name so Workbox can exclude
+      // only this optional converter, not arbitrary large customer bundles.
+      config.optimization.splitChunks.cacheGroups.heicConverter = {
+        test: /[\\/]node_modules[\\/]heic-to[\\/]/,
+        name: 'heic-converter',
+        chunks: 'all',
+        enforce: true,
+        priority: 100,
+      };
+    }
+    return config;
+  },
   env: {
     // Exposed to the browser so the deployed bundle can be identified from
     // the HTML source or the browser console without platform metadata.

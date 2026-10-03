@@ -193,6 +193,9 @@ function StorefrontPreview({ draft, localImage }: { draft: Draft; localImage: st
       </div>
       <div className="mt-4 overflow-hidden rounded-2xl bg-[#fffaf1] text-[#26231f]">
         {image ? (
+          // Blob/data URL preview must remain local; next/image optimisation
+          // cannot fetch browser-owned files and would delay preview feedback.
+          // eslint-disable-next-line @next/next/no-img-element
           <img src={image} alt="Your uploaded menu" className="h-36 w-full object-cover" />
         ) : (
           <div className="flex h-36 items-center justify-center bg-[#ead6b8] text-sm text-[#6c665d]">

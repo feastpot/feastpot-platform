@@ -119,7 +119,7 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
     }
   }
 
-  const draftRows = data?.data ?? [];
+  const draftRows = useMemo(() => data?.data ?? [], [data?.data]);
   const totalSelectedPence = useMemo(
     () => draftRows.filter((r) => selected.has(r.id)).reduce((sum, r) => sum + r.amountPence, 0),
     [draftRows, selected],

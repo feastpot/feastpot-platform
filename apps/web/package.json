@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev --port 3000 --hostname 0.0.0.0",
     "build": "next build",
-    "postbuild": "next-sitemap --config next-sitemap.config.js",
+    "postbuild": "node scripts/generate-sitemap.cjs",
+    "test:sitemap": "node --test scripts/sitemap-vendors.test.cjs",
     "start": "next start --port 3000 --hostname 0.0.0.0",
     "typecheck": "tsc --noEmit",
     "test": "jest",
@@ -13,7 +14,7 @@
     "test:e2e:discovery": "node ../../scripts/check-playwright-discovery.mjs --app .",
     "test:e2e:auth": "playwright test --config playwright.config.ts e2e/auth/",
     "test:e2e:ui": "playwright test --config playwright.config.ts --ui",
-    "lint": "next lint",
+    "lint": "eslint src --ext .ts,.tsx --max-warnings=0",
     "clean": "rm -rf .next .turbo"
   },
   "dependencies": {

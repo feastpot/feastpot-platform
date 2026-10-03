@@ -39,9 +39,28 @@
     "RESEND_FROM_EMAIL"
   ],
   "tasks": {
+    "@feastpot/web#build": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "env": ["NEXT_PUBLIC_API_URL", "NEXT_PUBLIC_SITE_URL", "SITEMAP_API_URL"],
+      "outputs": [
+        "dist/**",
+        ".next/**",
+        "!.next/cache/**",
+        "public/sitemap*.xml",
+        "public/robots.txt"
+      ]
+    },
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+      "env": ["NEXT_PUBLIC_API_URL", "NEXT_PUBLIC_SITE_URL", "SITEMAP_API_URL"],
+      "outputs": [
+        "dist/**",
+        ".next/**",
+        "!.next/cache/**",
+        "public/sitemap*.xml",
+        "public/robots.txt"
+      ]
     },
     "dev": {
       "cache": false,

@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'fs';
 import { resolve } from 'path';
 
-import ts from 'typescript';
+import * as ts from 'typescript';
 
 import {
   NOTIFICATION_EVENT_NAMES,

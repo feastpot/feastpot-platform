@@ -10,7 +10,7 @@ import {
 type Mock<T = unknown> = jest.Mock<T>;
 
 function makePrisma() {
-  const prisma: Record<string, unknown> = {
+  const prisma = {
     order: { findUnique: jest.fn() as Mock, update: jest.fn().mockResolvedValue({}) as Mock },
     payment: {
       findFirst: jest.fn() as Mock,
@@ -24,6 +24,7 @@ function makePrisma() {
     payout: { findFirst: jest.fn().mockResolvedValue(null) as Mock },
     // pg_advisory_xact_lock inside the refund transaction.
     $executeRaw: jest.fn().mockResolvedValue(1) as Mock,
+    $transaction: jest.fn() as Mock,
   };
   // Interactive $transaction: run the callback with the same prisma mock so the
   // payment.create calls inside the txn are recorded on the same spy.
@@ -32,20 +33,7 @@ function makePrisma() {
       ? (arg as (tx: unknown) => unknown)(prisma)
       : Promise.all(arg as Promise<unknown>[]),
   ) as Mock;
-  return prisma as ReturnType<typeof makePrismaShape>;
-}
-function makePrismaShape() {
-  return {
-    order: { findUnique: jest.fn() as Mock },
-    payment: {
-      findFirst: jest.fn() as Mock,
-      create: jest.fn() as Mock,
-      findMany: jest.fn() as Mock,
-      aggregate: jest.fn() as Mock,
-    },
-    auditLog: { create: jest.fn() as Mock },
-    $transaction: jest.fn() as Mock,
-  };
+  return prisma;
 }
 function makeStripe() {
   return { capture: jest.fn() as Mock, refund: jest.fn() as Mock };

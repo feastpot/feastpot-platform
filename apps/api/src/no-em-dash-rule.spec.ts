@@ -1,5 +1,7 @@
 import { Linter } from 'eslint';
 
+// This fixture intentionally exercises the exported CommonJS ESLint rule.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
 import noEmDashRule = require('../../../packages/config/no-em-dash');
 
 const rule: import('eslint').Rule.RuleModule = noEmDashRule;

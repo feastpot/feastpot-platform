@@ -1,6 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  webpack(config, { dev }) {
+    // Avoid oversized-string filesystem pack warnings in one-shot production
+    // builds. Turbo caches complete outputs; dev keeps Next's usual HMR cache.
+    if (!dev) config.cache = { type: 'memory' };
+    return config;
+  },
   // Transpile workspace packages so their TS sources compile through Next's
   // SWC pipeline (they ship raw .ts/.tsx, not pre-built dist/).
   transpilePackages: ['@feastpot/ui', '@feastpot/types'],
