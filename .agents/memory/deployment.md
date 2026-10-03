@@ -92,17 +92,23 @@ resource or its stable production URL.
 blocked until the user explicitly approves publishing.
 
 **Keep pre-listener deployment work within the VM health-check budget.**
-**Why:** Replit health checking starts before the synchronous `db:deploy` step
-finishes. Observed VM startup deadlines allow roughly 60 seconds for the entire
-run command, including npm launch overhead and migrations, not 60 seconds from
-the Node entry point. On the 0.5-vCPU VM, successful migration startup can leave
-only about 20 seconds for Node. Fast workspace startup does not establish that
-the published VM can meet this deadline. Cold production dependency loading
-(including monitoring SDK imports) can consume the remaining window before
-Nest starts, even when the same imports take milliseconds in the workspace.
+**Why:** Replit health checking can run before the synchronous `db:deploy` step
+finishes. Migrations and cold dependency loading both consume startup time.
+On the small VM, monitoring SDK and application imports dominated startup,
+despite fast warm workspace checks. Startup windows vary; do not assume a
+universal 60-second deadline. A successful publish status was reported before
+the API listener actually became ready, with temporary HTTP 500 responses.
 **How to apply:** keep `db:deploy` limited to connectivity preflight, `prisma
 migrate deploy`, and RLS lockdown. Run exceptional migration-history repairs
 separately instead of adding them to every VM start. Compare platform startup,
 Node entry, lifecycle initialization and listener timings before choosing a
 fix; do not blame Redis/Storage initialization unless startup has reached those
-hooks. Never bypass migration or security gates just to make the probe pass.
+hooks. Verify live HTTP health and the affected behavior, not just publish
+status. Never bypass migration or security gates just to make the probe pass.
+
+**Deployment history listings are not sufficient proof that no publish started.**
+**Why:** Repeated listings appeared unchanged while a new build was being
+created; later direct build details and live checks established its progress.
+**How to apply:** treat unchanged polling results cautiously. Cross-check
+the known build's details and live HTTP behavior rather than telling the user
+their publish has not started solely from a repeated history response.
