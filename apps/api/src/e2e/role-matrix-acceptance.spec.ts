@@ -21,7 +21,7 @@ const missing = [
   ...REQUIRED_ENV.filter((key) => !process.env[key]),
   ...(ANON_KEY ? [] : ['SUPABASE_ANON_KEY']),
 ];
-const d = missing.length ? describe.skip : describe;
+const d = describe;
 
 type AdminRoute = { method: RequestMethod; path: string; roles: string[] };
 

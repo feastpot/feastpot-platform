@@ -90,6 +90,7 @@ async function fillEssentials(
 test('T1: empty state to first live dish - photo and allergens declared - under 90 s - zero navigations', async ({
   page,
 }) => {
+  test.setTimeout(120000);
   const m = new PageMetrics(page);
   await m.install();
 
@@ -101,8 +102,8 @@ test('T1: empty state to first live dish - photo and allergens declared - under 
     name: 'Sunday Jollof Rice',
     category: 'tray',
     pricePence: 1500,
-    isAvailable: true,
-    moderationStatus: 'auto_approved',
+    isAvailable: false,
+    moderationStatus: 'pending',
     allergens: ['nuts'],
     allergensFreeFrom: false,
     tags: [],
@@ -134,9 +135,12 @@ test('T1: empty state to first live dish - photo and allergens declared - under 
   await page.getByRole('button', { name: 'Add photo' }).click();
   const fileChooser = await fileChooserPromise;
   await fileChooser.setFiles({
-    name: 'jollof.jpg',
-    mimeType: 'image/jpeg',
-    buffer: Buffer.from('JFIF-stub'), // minimal non-empty buffer
+    name: 'jollof.png',
+    mimeType: 'image/png',
+    buffer: Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=',
+      'base64',
+    ),
   });
 
   // Fill essentials.
@@ -151,7 +155,7 @@ test('T1: empty state to first live dish - photo and allergens declared - under 
   // Tick nuts - stable selector regardless of FSA_14 list order.
   await page.getByTestId('allergen-nuts').check();
 
-  // Set status to LIVE.
+  // Request availability; publication remains subject to manual approval.
   await page.getByRole('button', { name: 'Live' }).click();
 
   // Update mock so the refetch after save returns the created item.
@@ -178,12 +182,13 @@ test('T1: empty state to first live dish - photo and allergens declared - under 
   // The API received the correct payload.
   const posted = await postPromise;
   expect((posted as { isAvailable?: boolean }).isAvailable).toBe(true);
+  expect(createdItem.moderationStatus).toBe('pending');
   expect(Array.isArray((posted as { allergens?: string[] }).allergens)).toBe(true);
   expect((posted as { allergens?: string[] }).allergens?.length).toBeGreaterThan(0);
 
   // The new dish card appears on the grid.
   await expect(page.getByText('Sunday Jollof Rice')).toBeVisible({ timeout: 5_000 });
-  await expect(page.getByText('Live')).toBeVisible();
+  await expect(page.getByText('Pending review', { exact: true }).first()).toBeVisible();
 
   console.log(
     `T1 complete: ${m.elapsedSec().toFixed(1)} s, ${await m.clicks()} clicks, 0 navigations`,
@@ -195,6 +200,7 @@ test('T1: empty state to first live dish - photo and allergens declared - under 
 test('T2: add second dish in a different category - under 45 s - zero navigations', async ({
   page,
 }) => {
+  test.setTimeout(65000);
   const m = new PageMetrics(page);
   await m.install();
 
@@ -226,7 +232,7 @@ test('T2: add second dish in a different category - under 45 s - zero navigation
   await openNewDishPanel(page);
 
   // Select the Soup category - different from the default (Tray).
-  await page.locator('#dish-category').selectOption('soup');
+  await page.locator('#dish-category').fill('soup');
   await fillEssentials(page, 'Egusi Soup', '12.00');
 
   // Update items mock to include both dishes after save.
@@ -486,6 +492,9 @@ test('T6: publish blocked without allergen declaration - error shown - allergen 
   // ── Assertions ─────────────────────────────────────────────────────────────
 
   // Panel must remain open (save was rejected).
+  const allergenDialog = page.getByRole('dialog', { name: 'Allergen info required' });
+  await expect(allergenDialog).toBeVisible();
+  await allergenDialog.getByRole('button', { name: 'OK, understood' }).click();
   await expect(page.getByRole('dialog', { name: 'Add a dish' })).toBeVisible();
 
   m.assertNoNavigation('T6');

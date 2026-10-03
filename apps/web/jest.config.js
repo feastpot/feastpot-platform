@@ -5,6 +5,9 @@ module.exports = {
   rootDir: '.',
   testMatch: ['**/*.test.ts'],
   testPathIgnorePatterns: ['/node_modules/', '/e2e/'],
+  maxWorkers: 2,
+  coverageReporters: ['text-summary', 'json-summary', 'lcov', 'html'],
+  reporters: ['default', '<rootDir>/../../scripts/no-skipped-tests.cjs'],
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts'],
   moduleFileExtensions: ['ts', 'js', 'json'],
   transform: {
@@ -17,12 +20,11 @@ module.exports = {
   },
   coverageThreshold: {
     global: {
-      // Measured full-suite baseline on 2 September 2026:
-      // 0.86 statements / 1.37 branches / 0.43 functions / 0.59 lines.
-      statements: 0.8,
-      branches: 1.3,
-      functions: 0.4,
-      lines: 0.5,
+      // Measured current full source surface, 3 October 2026.
+      statements: 5.13,
+      branches: 3.95,
+      functions: 5.17,
+      lines: 4.8,
     },
   },
 };

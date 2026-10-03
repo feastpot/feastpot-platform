@@ -43,7 +43,7 @@ const missing = [
   ...REQUIRED_ENV.filter((k) => !process.env[k]),
   ...(ANON_KEY ? [] : ['NEXT_PUBLIC_SUPABASE_ANON_KEY']),
 ];
-const d = missing.length > 0 ? describe.skip : describe;
+const d = describe;
 if (missing.length > 0) {
   // eslint-disable-next-line no-console
   console.warn(`[vendor-onboarding-smoke] skipping: missing env ${missing.join(', ')}`);

@@ -62,12 +62,13 @@ test.describe('G6: unconfigured provider fails gracefully', () => {
   test('G6: Google button that fails signInWithOAuth shows an error, not a white screen', async ({
     page,
   }) => {
-    // Block the Supabase /authorize redirect; simulate an error response.
+    let callbackUrl = '';
+    // OAuth errors are delivered through the callback, not an SDK fetch of
+    // the provider's authorize page.
     await page.route('**/auth/v1/authorize*', (route) => {
       route.fulfill({
-        status: 400,
-        contentType: 'application/json',
-        body: JSON.stringify({ error: 'provider_disabled', message: 'Provider not enabled' }),
+        status: 302,
+        headers: { location: callbackUrl },
       });
     });
 
@@ -75,6 +76,10 @@ test.describe('G6: unconfigured provider fails gracefully', () => {
     page.on('pageerror', (e) => errors.push(e.message));
 
     await page.goto(URLS.signIn);
+    callbackUrl = new URL(
+      '/auth/callback?error=provider_disabled&error_description=Provider+not+enabled',
+      page.url(),
+    ).toString();
     await page.click('button:has-text("Continue with Google")');
 
     // Wait briefly for any error to surface.
@@ -83,8 +88,10 @@ test.describe('G6: unconfigured provider fails gracefully', () => {
     // No unhandled JS exception (white screen).
     expect(errors.filter((e) => !/ResizeObserver/.test(e))).toHaveLength(0);
 
-    // Still on /sign-in (not navigated to a raw error page).
-    await expect(page).toHaveURL(/\/sign-in/);
+    await expect(page).toHaveURL(/\/sign-in\?error=Provider/);
+    await expect(
+      page.getByRole('region', { name: 'Sign in', exact: true }).getByRole('alert'),
+    ).toContainText('Provider not enabled');
   });
 
   test('G6: Apple button renders and is clickable even when provider is unconfigured', async ({

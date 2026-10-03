@@ -127,7 +127,9 @@ test('3. breached password shows specific data-breach message', async ({ page })
   await fillAndSubmit(page, { password: 'Password123!' });
 
   // The specific breach message, not the generic banner.
-  await expect(page.getByRole('alert')).toContainText(/data breach/i);
+  await expect(
+    page.getByRole('region', { name: 'Create account', exact: true }).getByRole('alert'),
+  ).toContainText(/data breach/i);
   // "Check your email" must NOT appear.
   await expect(page.getByRole('heading', { name: 'Check your email' })).not.toBeVisible();
 });
@@ -177,7 +179,9 @@ test('5. rate-limit response shows honest wait message', async ({ page }) => {
   await page.goto(REGISTER_URL);
   await fillAndSubmit(page);
 
-  const alert = page.getByRole('alert');
+  const alert = page
+    .getByRole('region', { name: 'Create account', exact: true })
+    .getByRole('alert');
   await expect(alert).toBeVisible();
   // Must be the transient-rate-limit message, not the generic password banner.
   await expect(alert).toContainText(/too many attempts/i);
@@ -208,7 +212,9 @@ test('6. server error shows maintenance message', async ({ page }) => {
   await page.goto(REGISTER_URL);
   await fillAndSubmit(page);
 
-  const alert = page.getByRole('alert');
+  const alert = page
+    .getByRole('region', { name: 'Create account', exact: true })
+    .getByRole('alert');
   await expect(alert).toBeVisible();
   await expect(alert).toContainText(/try again/i);
   // "Check your email" must NOT appear.

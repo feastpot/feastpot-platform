@@ -2,6 +2,7 @@
   "$schema": "https://turbo.build/schema.json",
   "globalDependencies": ["tsconfig.json", "turbo.json", ".env"],
   "globalEnv": [
+    "FEASTPOT_TEST_ENVIRONMENT",
     "NODE_ENV",
     "PORT",
     "DATABASE_URL",

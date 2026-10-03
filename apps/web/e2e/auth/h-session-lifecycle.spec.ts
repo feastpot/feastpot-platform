@@ -11,6 +11,7 @@
  */
 
 import { expect, test } from '@playwright/test';
+import { TestDataFactory } from '../../../../scripts/test-factory';
 import { URLS, SB } from './helpers/selectors';
 import { mockSession, mockSignin, mockUsersSync } from './helpers/supabase-mock';
 
@@ -172,72 +173,44 @@ test.describe('H3: sign-out', () => {
 // ---------------------------------------------------------------------------
 
 test.describe('H4: multi-tab sign-out', () => {
+  test.use({ trace: 'off', video: 'off', screenshot: 'off' });
   /**
-   * supabase-js listens to storage events (localStorage) and BroadcastChannel
-   * to propagate auth state changes across tabs. When tab 1 signs out, tab 2
-   * should receive the SIGNED_OUT event via onAuthStateChange.
-   *
-   * We simulate two tabs using two Playwright pages in the same browser context
-   * (same shared storage, which is the production behaviour).
+   * The SSR browser client persists a session in shared cookies, not fabricated
+   * localStorage keys. Exercise a real sign-in/sign-out and protected navigation
+   * from two pages in one browser context.
    */
-  test('H4: sign-out in one page triggers SIGNED_OUT in a second page', async ({ browser }) => {
-    // Use a shared context so both pages have the same localStorage.
+  test('H4: real sign-out invalidates the shared cookie session in a second page', async ({
+    browser,
+  }) => {
+    test.setTimeout(90000);
+    const factory = TestDataFactory.fromEnvironment({ namespace: `h4-cookie-${Date.now()}` });
+    const customer = await factory.create('C1');
     const ctx = await browser.newContext();
     const page1 = await ctx.newPage();
     const page2 = await ctx.newPage();
-
-    // Stub auth endpoints for both pages.
-    for (const p of [page1, page2]) {
-      await p.route(SB.user, (route) =>
-        route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify(mockSession().user),
-        }),
-      );
-      await p.route('**/auth/v1/logout*', (route) => route.fulfill({ status: 204, body: '' }));
+    try {
+      await page1.goto(URLS.signIn);
+      await page1.fill('#signin-email', customer.credentials.email);
+      await page1.fill('#signin-password', customer.credentials.password!);
+      await page1.click('button[type=submit]');
+      await expect(page1).not.toHaveURL(/\/sign-in/);
+      await page1.goto('/account');
+      await page2.goto('/account');
+      await expect(page2.getByRole('button', { name: 'Sign out', exact: true })).toBeVisible();
+      await page1.getByRole('button', { name: 'Sign out', exact: true }).click();
+      await page1
+        .getByRole('dialog')
+        .getByRole('button', { name: 'Sign out', exact: true })
+        .click();
+      await expect(page1).toHaveURL(/\/sign-in/);
+      // A protected navigation must read the cookies actually cleared by SDK signOut.
+      // No fabricated localStorage events or imaginary exposed SDK global.
+      await page2.reload();
+      await expect(page2).toHaveURL(/\/sign-in/);
+    } finally {
+      await ctx.close();
+      await factory.teardown(customer);
+      await factory.prisma.$disconnect();
     }
-
-    await page1.goto(URLS.signIn);
-    await page2.goto(URLS.signIn);
-
-    // Listen for the SIGNED_OUT event on page2.
-    const signedOut = page2.evaluate(
-      () =>
-        new Promise<string>((resolve) => {
-          // supabase-js re-broadcasts via localStorage; listen for the key change.
-          window.addEventListener('storage', (e) => {
-            if (e.key && e.key.includes('supabase') && (e.newValue === null || e.newValue === '')) {
-              resolve('signed_out');
-            }
-          });
-          // Timeout fallback.
-          setTimeout(() => resolve('timeout'), 5_000);
-        }),
-    );
-
-    // Sign out on page1 by removing the supabase auth token from localStorage.
-    await page1.evaluate(() => {
-      for (const key of Object.keys(localStorage)) {
-        if (key.includes('supabase') || key.includes('sb-')) {
-          localStorage.removeItem(key);
-          // Dispatch storage event manually to trigger cross-tab notification
-          // (same-origin pages share localStorage but don't auto-fire storage events
-          // within the same tab; cross-tab events fire in other tabs).
-          window.dispatchEvent(
-            new StorageEvent('storage', {
-              key,
-              newValue: null,
-              storageArea: localStorage,
-            }),
-          );
-        }
-      }
-    });
-
-    const result = await signedOut;
-    expect(result).toBe('signed_out');
-
-    await ctx.close();
   });
 });

@@ -7,6 +7,11 @@
 
 name: CI
 
+env:
+  FEASTPOT_TEST_ENVIRONMENT: authoritative
+  ADMIN_REQUIRE_AAL2: 'true'
+  ADMIN_E2E_ALLOW_AAL1: 'false'
+
 on:
   pull_request:
     branches: [main, develop]
@@ -300,9 +305,8 @@ jobs:
     name: Test (coverage thresholds)
     needs: [setup]
     runs-on: ubuntu-latest
-    # Throwaway Postgres service — no external secrets needed. DB-gated
-    # integration tests skip themselves when they detect a non-seeded DB;
-    # the nightly workflow covers those against a real database.
+    # Throwaway Postgres runs unit and database tests; externally authenticated
+    # acceptance suites run in their explicitly credentialed jobs, not as skips.
     services:
       postgres:
         image: postgres:16
@@ -322,6 +326,7 @@ jobs:
       # Prisma datasource reads SUPABASE_DB_URL / SUPABASE_DIRECT_URL (see
       # prisma/schema.prisma), NOT DATABASE_URL / DIRECT_URL.
       SUPABASE_DB_URL: postgresql://feastpot:feastpot@localhost:5432/feastpot_test
+      FEASTPOT_TEST_ENVIRONMENT: database
       SUPABASE_DIRECT_URL: postgresql://feastpot:feastpot@localhost:5432/feastpot_test
     steps:
       - uses: actions/checkout@v5
@@ -356,6 +361,15 @@ jobs:
         # The vendor workspace has an e2e-only echo script, so including it
         # would make test discovery appear healthy without running assertions.
         run: npx turbo run test --filter=@feastpot/api --filter=@feastpot/web -- --coverage --ci
+      - name: Publish complete coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-coverage
+          path: |
+            apps/api/coverage/
+            apps/web/coverage/
+          if-no-files-found: error
       - name: Upload coverage to Codecov (optional)
         if: always()
         uses: codecov/codecov-action@v4
@@ -424,7 +438,7 @@ jobs:
   # ----------------------------------------------------------------------------
   e2e-vendor:
     name: E2E (vendor authoritative lifecycle)
-    needs: [setup, e2e-customer]
+    needs: [setup, cross-surface-consistency]
     runs-on: ubuntu-latest
     env:
       # Vendor dev server origin consumed by Playwright.
@@ -616,7 +630,7 @@ jobs:
       SESSION_SECRET: admin-e2e-test-only-session-secret-34125348434
       ADMIN_REQUIRE_AAL2: 'true'
       NEXT_PUBLIC_ADMIN_REQUIRE_AAL2: 'true'
-      ADMIN_E2E_ALLOW_AAL1: 'true'
+      ADMIN_E2E_ALLOW_AAL1: 'false'
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -900,7 +914,7 @@ jobs:
   # --------------------------------------------------------------------------
   cross-surface-consistency:
     name: Cross-surface consistency (Parts A-D)
-    needs: [setup]
+    needs: [setup, e2e-customer]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     services:

@@ -26,7 +26,7 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
     let orderId: string | undefined;
     let payoutId: string | undefined;
     try {
-      admin = await factory.create('A1');
+      admin = await factory.create('A2');
       const runId = Date.now().toString(36);
       const applicationEmail = `tf-${namespace}-lifecycle-${runId}@test.feastpot.co.uk`;
       const applicationPhone = `07000${Date.now().toString().slice(-6)}`;
@@ -52,7 +52,8 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
       applicationId = created.id;
       expect(created.status).toBe('pending');
 
-      const adminToken = await factory.issueAccessToken(admin);
+      if (!admin.accessToken) throw new Error('LIFECYCLE_REAL_AAL2_TOKEN_REQUIRED');
+      const adminToken = admin.accessToken;
       const approval = await request.patch(
         `${API_URL}/v1/admin/vendor-applications/${applicationId}`,
         {
