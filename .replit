@@ -115,7 +115,7 @@ externalPort = 4200
 [deployment]
 deploymentTarget = "vm"
 run = ["bash", "-c", "bash scripts/db-deploy.sh && NODE_ENV=production node apps/api/dist/main.js"]
-build = ["bash", "-c", "npm ci && npm run db:generate && npm run build:api"]
+build = ["bash", "-c", "npm ci && npm run db:generate && npm run build:api && node scripts/trim-api-deployment.cjs --apply"]
 
 [userenv]
 
