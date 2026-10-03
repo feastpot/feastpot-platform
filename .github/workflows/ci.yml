@@ -424,7 +424,6 @@ jobs:
   # ----------------------------------------------------------------------------
   e2e-vendor:
     name: E2E (vendor authoritative lifecycle)
-    needs: [setup, e2e-customer]
     runs-on: ubuntu-latest
     env:
       # Vendor dev server origin consumed by Playwright.
@@ -452,6 +451,10 @@ jobs:
       TEST_FACTORY_PASSWORD: ${{ secrets.TEST_FACTORY_PASSWORD }}
       TEST_FACTORY_NAMESPACE: vendor-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
+      - name: Deliberate vendor gate failure - disposable branch only
+        run: |
+          echo "Intentional failure to prove the live vendor required check blocks merge."
+          exit 1
       - uses: actions/checkout@v5
 
       - uses: actions/setup-node@v5
