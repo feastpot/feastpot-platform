@@ -27,19 +27,8 @@ module.exports = {
   coverageThreshold: {
     // All production TypeScript is in the denominator. Separate measured
     // unit/database surfaces; authenticated acceptance is not coverage.
-    global:
-      process.env.FEASTPOT_TEST_ENVIRONMENT === 'database'
-        ? {
-            statements: 40.27,
-            branches: 36.35,
-            functions: 33.82,
-            lines: 41.14,
-          }
-        : {
-            statements: 40.18,
-            branches: 36.14,
-            functions: 33.51,
-            lines: 41.08,
-          },
+    global: require('../../scripts/coverage-baselines.json').api[
+      process.env.FEASTPOT_TEST_ENVIRONMENT === 'database' ? 'database' : 'unit'
+    ],
   },
 };

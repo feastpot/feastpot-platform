@@ -17,3 +17,9 @@ test('an entirely unexecuted suite also fails', () => {
   reporter.onRunComplete(null, { numPendingTests: 0, numPendingTestSuites: 1 });
   assert.match(reporter.getLastError().message, /1 suites did not run/);
 });
+test('a subsequent clean watch run clears the previous error', () => {
+  const reporter = new Reporter();
+  reporter.onRunComplete(null, { numPendingTests: 1, numPendingTestSuites: 0 });
+  reporter.onRunComplete(null, { numPendingTests: 0, numPendingTestSuites: 0 });
+  assert.equal(reporter.getLastError(), undefined);
+});

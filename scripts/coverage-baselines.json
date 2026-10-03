@@ -1,0 +1,7 @@
+{
+  "api": {
+    "unit": { "statements": 40.18, "branches": 36.14, "functions": 33.51, "lines": 41.08 },
+    "database": { "statements": 40.27, "branches": 36.35, "functions": 33.82, "lines": 41.14 }
+  },
+  "web": { "statements": 0.85, "branches": 0.46, "functions": 0.89, "lines": 0.8 }
+}

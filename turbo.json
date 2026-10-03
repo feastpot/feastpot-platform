@@ -1,8 +1,17 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": ["tsconfig.json", "turbo.json", ".env"],
+  "globalDependencies": [
+    "tsconfig.json",
+    "turbo.json",
+    ".env",
+    "scripts/coverage-baselines.json",
+    "scripts/no-skipped-tests.cjs",
+    "scripts/test-factory/**/*.ts"
+  ],
   "globalEnv": [
     "FEASTPOT_TEST_ENVIRONMENT",
+    "ADMIN_REQUIRE_AAL2",
+    "ADMIN_E2E_ALLOW_AAL1",
     "NODE_ENV",
     "PORT",
     "DATABASE_URL",

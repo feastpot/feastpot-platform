@@ -4,6 +4,12 @@ description: Use the working GitHub connection when shell credentials reject pus
 ---
 
 ## Authentication fallback
+Resolve the GitHub CLI path with `command -v gh` at the time of use; do not retain an absolute Nix-store path across workspace restarts.
+
+**Why:** A previously working Nix-store executable path disappeared after an environment restart even though `gh` was still available.
+
+**How to apply:** Resolve the executable dynamically when configuring a process-scoped Git credential helper.
+
 Git and the GitHub CLI can reject their stored credentials while the installed GitHub connection still works. Prefer that connection over requesting another token, but successful reads do not prove write access.
 
 **Why:** Shell push and CLI authentication failed independently, but authenticated connector requests successfully uploaded the same changes and opened a pull request.

@@ -15,6 +15,8 @@ import { TestDataFactory } from '../../../../scripts/test-factory';
 import { URLS, SB } from './helpers/selectors';
 import { mockSession, mockSignin, mockUsersSync } from './helpers/supabase-mock';
 
+test.use({ trace: 'off', video: 'off', screenshot: 'off' });
+
 /** Plant a mock session by intercepting the token endpoint and then signing in. */
 async function establishMockSession(page: Parameters<Parameters<typeof test>[1]>[0]) {
   const session = mockSession('h@example.com');
@@ -173,7 +175,6 @@ test.describe('H3: sign-out', () => {
 // ---------------------------------------------------------------------------
 
 test.describe('H4: multi-tab sign-out', () => {
-  test.use({ trace: 'off', video: 'off', screenshot: 'off' });
   /**
    * The SSR browser client persists a session in shared cookies, not fabricated
    * localStorage keys. Exercise a real sign-in/sign-out and protected navigation
@@ -195,8 +196,9 @@ test.describe('H4: multi-tab sign-out', () => {
       await page1.click('button[type=submit]');
       await expect(page1).not.toHaveURL(/\/sign-in/);
       await page1.goto('/account');
-      await page2.goto('/account');
-      await expect(page2.getByRole('button', { name: 'Sign out', exact: true })).toBeVisible();
+      // /account itself is an intentionally public guest hub.
+      await page2.goto('/account/orders');
+      await expect(page2).not.toHaveURL(/\/sign-in/);
       await page1.getByRole('button', { name: 'Sign out', exact: true }).click();
       await page1
         .getByRole('dialog')

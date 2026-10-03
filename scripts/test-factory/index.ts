@@ -384,7 +384,7 @@ export class TestDataFactory {
     if (this.ownsPrisma) await this.prisma.$disconnect();
   }
 
-  /** Issue a normal Supabase password-session token for a factory identity. */
+  /** Complete real MFA. Call serially because enrollment shares an auth client. */
   async issueAal2AccessToken(identity: TestIdentity): Promise<string> {
     if (identity.state === 'A2' && identity.accessToken) return identity.accessToken;
     return this.enrolAal2({
@@ -394,6 +394,7 @@ export class TestDataFactory {
     });
   }
 
+  /** A password sign-in yields AAL1, even for an identity that previously completed MFA. */
   async issueAccessToken(identity: TestIdentity): Promise<string> {
     if (!this.anon || !identity.credentials.password) {
       throw new Error(

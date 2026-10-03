@@ -7,11 +7,6 @@
 
 name: CI
 
-env:
-  FEASTPOT_TEST_ENVIRONMENT: authoritative
-  ADMIN_REQUIRE_AAL2: 'true'
-  ADMIN_E2E_ALLOW_AAL1: 'false'
-
 on:
   pull_request:
     branches: [main, develop]
@@ -22,6 +17,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  FEASTPOT_TEST_ENVIRONMENT: authoritative
+  ADMIN_REQUIRE_AAL2: 'true'
+  ADMIN_E2E_ALLOW_AAL1: 'false'
   # Force colour output and a stable Turbo cache location.
   FORCE_COLOR: 1
   TURBO_TELEMETRY_DISABLED: 1
@@ -358,9 +356,11 @@ jobs:
         run: npx prisma migrate deploy --schema=./prisma/schema.prisma
       - name: Run tests with coverage
         # Only workspaces with real Jest suites belong in this coverage gate.
-        # The vendor workspace has an e2e-only echo script, so including it
-        # would make test discovery appear healthy without running assertions.
+        # Vendor has no unit suite. Its removed echo script was not a test;
+        # the separate required Playwright job is its current release gate.
         run: npx turbo run test --filter=@feastpot/api --filter=@feastpot/web -- --coverage --ci
+      - name: Verify complete production source denominator
+        run: node scripts/coverage-guard.cjs database
       - name: Publish complete coverage reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -433,7 +433,7 @@ jobs:
   #    fails loudly if D3 is skipped, ensuring this can never pass silently.
   #
   #    BRANCH PROTECTION: after this job appears in the Checks tab for the
-  #    first time, add "e2e-vendor" to the required status checks for `main`
+  #    first time, add "E2E (vendor authoritative lifecycle)" for `main`
   #    in GitHub > Settings > Branches > Branch protection rules.
   # ----------------------------------------------------------------------------
   e2e-vendor:

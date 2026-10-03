@@ -11,7 +11,7 @@ const API_URL = process.env.TEST_API_URL ?? 'http://localhost:3001';
  * provisioned vendor, then reconciled below; no browser routes are mocked.
  */
 test.describe.serial('factory vendor lifecycle evidence chain', () => {
-  test('public application → A1 approval → vendor tax/document/menu/order/payout chain', async ({
+  test('public application → A2 approval → vendor tax/document/menu/order/payout chain', async ({
     request,
   }) => {
     test.setTimeout(360_000);
