@@ -15,6 +15,18 @@ mapping and listener. System health-check failures establish unavailability,
 not its cause; use Application startup phases to distinguish slow initialization
 from a crash.
 
+A failed VM promotion may have build logs but no application logs available
+through the deployment-log callback or log refresh. Cached runtime log files
+can belong to the previous healthy VM.
+
+**Why:** A publish completed compilation and image upload, then failed readiness
+without exposing the new VM's application output; the previous API still served.
+
+**How to apply:** Match runtime timestamps to the failed attempt. If its startup
+output is unavailable, request the failed attempt's Application/System logs
+rather than guessing a port/configuration fix or starting production workers
+locally against shared queues.
+
 Replit publishes **one service per repl**. This monorepo has 4 deployable apps
 (API + web + vendor + admin), so this repl deploys the **API**; the three Next.js
 frontends deploy from their own repls.
