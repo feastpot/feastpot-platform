@@ -32,7 +32,7 @@ function requireUser(user: AuthUser | null): AuthUser {
 
 /**
  * Admin-only moderation surface for vendor menu items. Mirrors the reviews
- * moderation queue: read (admin/support), act (admin). Kept on its own
+ * moderation queue: read and act (admin). Kept on its own
  * non-vendor-scoped path so it sits outside the vendor-ownership guard that
  * protects the `vendors/:vendorId/...` catalogue routes.
  */
@@ -43,14 +43,14 @@ export class MenuModerationController {
   constructor(private readonly items: MenuItemsService) {}
 
   @Get('moderation-queue')
-  @Roles(UserRole.admin, UserRole.support)
-  @ApiOperation({ summary: 'List menu items by moderation status (admin/support)' })
+  @Roles(UserRole.admin)
+  @ApiOperation({ summary: 'List menu items by moderation status (admin)' })
   queue(@Query() dto: ListMenuModerationDto) {
     return this.items.listModerationQueue(dto);
   }
 
   @Get('moderation-queue/counts')
-  @Roles(UserRole.admin, UserRole.support)
+  @Roles(UserRole.admin)
   @ApiOperation({
     summary: 'Counts per moderation status honouring current filters (admin/support)',
   })

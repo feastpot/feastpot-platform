@@ -29,9 +29,12 @@
  * is not set.
  */
 
-import { DeliveryType, UserRole, VendorStatus } from '@prisma/client';
+import { createHash } from 'node:crypto';
+
+import { DeliveryType, TermsDocumentType, UserRole, VendorStatus } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { currentTermsQuery } from '../terms/current-terms';
 
 import { VendorSortBy } from './dto/search-vendors.dto';
 import { VendorRepository } from './vendors.repository';
@@ -76,10 +79,52 @@ d('Delivery chip-set governs vendor search discoverability (integration, real DB
 
   let vendorUserId: string;
   let vendorId: string;
+  let currentTerms: { id: string; contentHash: string };
+  let createdTermsVersionId: string | undefined;
+
+  async function acceptCurrentTerms(acceptedVendorId: string) {
+    await prisma.termsAcceptance.create({
+      data: {
+        vendorId: acceptedVendorId,
+        termsVersionId: currentTerms.id,
+        contentHash: currentTerms.contentHash,
+        scrolledToEnd: true,
+        acceptanceText: 'Integration fixture accepts the current vendor terms.',
+        ipAddress: '127.0.0.1',
+        userAgent: 'delivery-search-integration-test',
+      },
+    });
+  }
 
   beforeAll(async () => {
     prisma = new PrismaService({ datasourceUrl: process.env.SUPABASE_DB_URL });
     repo = new VendorRepository(prisma);
+
+    // Reuse the global current version: a namespaced replacement would change
+    // eligibility for vendors owned by other suites using the same database.
+    const existingTerms = await prisma.termsVersion.findFirst({
+      ...currentTermsQuery(TermsDocumentType.VENDOR_TERMS),
+      select: { id: true, contentHash: true },
+    });
+    if (existingTerms) {
+      currentTerms = existingTerms;
+    } else {
+      const contentMdx = '# Delivery search integration test terms';
+      currentTerms = await prisma.termsVersion.create({
+        data: {
+          documentType: TermsDocumentType.VENDOR_TERMS,
+          version: `delivery-search-${RUN}`,
+          contentMdx,
+          contentHash: createHash('sha256').update(contentMdx).digest('hex'),
+          changeSummary: 'Test-only initial fixture, not a material policy change.',
+          isMaterial: false,
+          publishedAt: new Date('2000-01-01'),
+          effectiveAt: new Date('2000-01-02'),
+        },
+        select: { id: true, contentHash: true },
+      });
+      createdTermsVersionId = currentTerms.id;
+    }
 
     // ---- Vendor owner ----
     const vendorUser = await prisma.user.create({
@@ -95,7 +140,8 @@ d('Delivery chip-set governs vendor search discoverability (integration, real DB
     // ---- Vendor ----
     // Must satisfy every WHERE-clause gate in vendors.repository.ts search():
     //   status = live, approved_at IS NOT NULL, suspended_at IS NULL,
-    //   compliance_status = 'RATED', fsa_hygiene_rating >= 3.
+    //   compliance_status = 'RATED', fsa_hygiene_rating >= 3,
+    //   acceptance of the current effective vendor terms.
     const vendor = await prisma.vendor.create({
       data: {
         userId: vendorUserId,
@@ -108,6 +154,7 @@ d('Delivery chip-set governs vendor search discoverability (integration, real DB
       },
     });
     vendorId = vendor.id;
+    await acceptCurrentTerms(vendorId);
 
     // ---- DeliveryConfig ----
     // Geocode is fixed (no postcodes.io call needed): we insert the vendor's
@@ -133,8 +180,19 @@ d('Delivery chip-set governs vendor search discoverability (integration, real DB
   afterAll(async () => {
     // Delete in FK dependency order.
     await prisma.deliveryConfig.deleteMany({ where: { vendorId } });
+    await prisma.termsAcceptance.deleteMany({ where: { vendorId } });
     await prisma.vendor.deleteMany({ where: { id: vendorId } });
     await prisma.user.deleteMany({ where: { id: vendorUserId } });
+    if (createdTermsVersionId) {
+      await prisma.termsVersion.deleteMany({
+        where: {
+          id: createdTermsVersionId,
+          acceptances: { none: {} },
+          notices: { none: {} },
+          rateScheduleEntries: { none: {} },
+        },
+      });
+    }
     await prisma.$disconnect();
   });
 
@@ -358,6 +416,7 @@ d('Delivery chip-set governs vendor search discoverability (integration, real DB
         },
       });
       noGeoVendorId = vendor.id;
+      await acceptCurrentTerms(noGeoVendorId);
 
       await prisma.deliveryConfig.create({
         data: {
@@ -382,6 +441,7 @@ d('Delivery chip-set governs vendor search discoverability (integration, real DB
 
     afterAll(async () => {
       await prisma.deliveryConfig.deleteMany({ where: { vendorId: noGeoVendorId } });
+      await prisma.termsAcceptance.deleteMany({ where: { vendorId: noGeoVendorId } });
       await prisma.vendor.deleteMany({ where: { id: noGeoVendorId } });
       await prisma.user.deleteMany({ where: { id: noGeoVendorUserId } });
     });

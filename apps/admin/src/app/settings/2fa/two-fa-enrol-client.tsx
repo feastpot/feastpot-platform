@@ -54,8 +54,7 @@ export function TwoFaEnrolClient({ next, user: _user }: { next: string; user: St
         return;
       }
       const active = (data?.totp ?? []).find((f) => f.status === 'verified') as
-        | FactorRow
-        | undefined;
+        FactorRow | undefined;
       if (active) {
         setFactor(active);
         setPageState('challenge');

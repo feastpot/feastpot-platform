@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  SecureDownload,
 } from '@feastpot/ui';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -19,6 +20,8 @@ import { useState } from 'react';
 import { PageHeader } from '@/components/layout/page-header';
 import { StatusPill, type StatusTone } from '@/components/ui/status-pill';
 import { useToast } from '@/components/ui/toaster';
+import { useAccessToken } from '@/lib/auth/use-access-token';
+import { API_URL } from '@/lib/env';
 import {
   useAdminVendors,
   useUpdateVendorStatus,
@@ -119,6 +122,7 @@ export function VendorDetailClient({
   canReviewSignals?: boolean;
 }) {
   const router = useRouter();
+  const token = useAccessToken();
   const { toast } = useToast();
   const { data: vendor, isLoading } = useVendorDetail(vendorId);
   const { data: docs } = useVendorDocuments(vendorId);
@@ -505,14 +509,14 @@ export function VendorDetailClient({
                   )}
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <a
-                    href={d.fileUrl}
-                    target="_blank"
-                    rel="noreferrer"
+                  <SecureDownload
+                    url={`${API_URL}/v1/vendors/${vendorId}/documents/${d.id}/download`}
+                    token={token}
+                    filename={d.fileName ?? 'document'}
                     className="text-xs font-medium text-primary hover:underline"
                   >
                     Open
-                  </a>
+                  </SecureDownload>
                   {d.status !== 'verified' && (
                     <Button
                       size="sm"

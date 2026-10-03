@@ -17,4 +17,14 @@ In this npm-workspaces + Turborepo monorepo, `overrides` in root package.json do
 
 **Override reaching `next`'s nested dep:** a root override (e.g. `postcss`) only collapses `next`'s own nested copy (`apps/*/node_modules/next/node_modules/postcss`) when the lockfile is regenerated from a CLEAN tree. A full `npm install` over a partly-populated tree can leave `next` pinned to its declared exact dep; verify the nested dir is gone, not just that root resolved.
 
-**multer HIGH without a NestJS major bump:** the `multer`→`@nestjs/platform-express` HIGH advisories (GHSA-72gw-mp4g-v24j, GHSA-3p4h-7m6x-2hcm) cover multer ≤2.1.1 only. `npm audit` says "no fix" because platform-express still requires `multer@2.1.1`, but multer `2.2.0` is patched and same-major - add `"multer": "2.2.0"` to root overrides; platform-express stays on 11.x, no breaking upgrade. Upload routes use `FileInterceptor(..., { limits: { fileSize, files } })` as defense-in-depth.
+**Do not infer required framework majors from audit fix suggestions.**
+
+**Why:** npm can propose a Nest, Swagger or Next major upgrade even when a compatible leaf dependency patch/minor fixes the advisory. Previously safe Multer versions also acquire new advisories; never reuse an old fixed-version claim without a fresh check.
+
+**How to apply:** inspect installed dependency majors, current fixed versions and parent peer/dependency ranges. Keep compatible framework majors, pin the patched leaf exactly, and verify loaded copies.
+
+**Freeze deferred breaking transitive branches before a clean reinstall.**
+
+**Why:** a framework may declare an optional dependency range covering both sides of a breaking pre-1.0 release. Regenerating the lockfile selects the newer branch even if the framework itself remains pinned, bypassing a pending approval unless the leaf is constrained.
+
+**How to apply:** when a breaking dependency is awaiting approval, explicitly constrain its approved baseline before deleting the lockfile. Treat the temporary vulnerable pin as a documented approval gate, not a security fix.

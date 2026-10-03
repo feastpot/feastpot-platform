@@ -1,5 +1,8 @@
 // Utilities
 export { cn } from './lib/cn';
+export { SecureDownload, SecureImage } from './components/secure-download';
+export { SafeImage } from './components/safe-image';
+export { SafePhoto } from './components/safe-photo';
 
 // shadcn/ui-style primitives
 export * from './components/badge';

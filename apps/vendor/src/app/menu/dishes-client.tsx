@@ -31,7 +31,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
-import Image from 'next/image';
+import { SafeImage as Image } from '@feastpot/ui';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useToast } from '@/components/ui/toaster';
@@ -682,7 +682,7 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/jpeg,image/png,image/webp"
+                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
                 multiple
                 className="sr-only"
                 onChange={handleFileSelect}

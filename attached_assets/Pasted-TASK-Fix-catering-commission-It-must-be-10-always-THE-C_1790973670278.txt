@@ -1,0 +1,51 @@
+TASK: Fix catering commission. It must be 10%, always.
+
+THE CONFIRMED DEFECT
+apps/api/src/modules/catering-bookings/catering-bookings.service.ts:148-165
+sets OrderSource.MARKETPLACE with isFirstOrder=true before
+calculating commission. The rate engine therefore resolves the
+marketplace first-order rate of 8% instead of the canonical
+catering rate of 10% defined at
+packages/config/src/commission-rates.ts:21-25.
+
+Every catering quote created through this path records the
+wrong platform commission and the wrong vendor payout.
+
+REQUIRED
+1. Route catering commission through the catering rate source.
+   Catering is its own segment. It must never resolve a
+   marketplace rate, first-order or repeat.
+2. Check BOTH quote paths. An earlier audit found catering
+   quote logic duplicated in two places that drifted apart.
+   Find every catering commission calculation and route them
+   all through one shared function.
+3. Confirm the vendor-referred case. If a vendor brings their
+   own catering client, confirm with me what rate applies
+   before implementing. My understanding is the referred rate,
+   but do not assume.
+4. Integer pence throughout. No floating point.
+
+RECONCILE EXISTING DATA
+Query every catering quote and booking created through the
+defective path. Report how many exist, their totals, and the
+commission recorded against each. If any are real rather than
+test data, report them individually before changing anything.
+Do not silently rewrite financial records.
+
+THE TEST THAT MATTERS
+Add a test that FAILS if a catering calculation ever receives
+OrderSource.MARKETPLACE, VENDOR_REFERRED-as-marketplace, or
+any first-order or repeat marketplace rate. Assert the
+resolved rate is exactly the catering rate.
+Then assert the end-to-end figures: on a £700 event, platform
+commission is £70.00 and the vendor receives £630.00, in
+integer pence.
+
+COST CONTROL
+Targeted fix. No broad refactor. Target 30 minutes.
+
+ACCEPTANCE CRITERIA
+- Every catering path resolves 10%.
+- One shared calculation, no duplicates.
+- A test fails if a marketplace rate reaches catering.
+- Existing affected records reported before any change.

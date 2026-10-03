@@ -97,7 +97,7 @@ export function useDisputeStats(filters: Omit<DisputeFilters, 'cursor' | 'limit'
 
 export interface Evidence {
   id: string;
-  type: 'image' | 'video' | 'pdf' | 'document';
+  type: 'image' | 'photo' | 'screenshot' | 'video' | 'pdf' | 'document';
   fileUrl: string;
   caption: string | null;
   uploadedAt: string;

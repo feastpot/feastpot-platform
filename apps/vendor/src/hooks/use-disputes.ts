@@ -1,4 +1,5 @@
 'use client';
+import { prepareUpload } from '@feastpot/ui/upload';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -9,11 +10,7 @@ import { API_URL } from '@/lib/env';
 export type DisputeStatus = 'open' | 'vendor_contacted' | 'escalated' | 'resolved' | 'closed';
 
 export type DisputeIssueType =
-  | 'not_delivered'
-  | 'missing_items'
-  | 'wrong_order'
-  | 'quality'
-  | 'other';
+  'not_delivered' | 'missing_items' | 'wrong_order' | 'quality' | 'other';
 
 export type DisputeSeverity = 'low' | 'medium' | 'high';
 
@@ -213,14 +210,18 @@ export function useUploadEvidence(id: string) {
       if (input.file.size > MAX_EVIDENCE_BYTES) {
         throw new Error('File exceeds 10 MB');
       }
+      const prepared = await prepareUpload(input.file, {
+        allowPdf: true,
+        maxBytes: 10 * 1024 * 1024,
+      });
       if (
         (input.type === 'photo' || input.type === 'screenshot') &&
-        !input.file.type.startsWith('image/')
+        !prepared.type.startsWith('image/')
       ) {
         throw new Error(`${input.type} evidence must be an image file`);
       }
       const fd = new FormData();
-      fd.append('file', input.file);
+      fd.append('file', prepared);
       fd.append('type', input.type);
       if (input.caption) fd.append('caption', input.caption);
 

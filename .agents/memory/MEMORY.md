@@ -12,11 +12,13 @@
 - [WhatsApp template slots](whatsapp-template-slots.md) - approved templates have 1-2 slots (no order-total slot); Meta enforces exact counts; builders keyed by whatsappTemplate name.
 - [WhatsApp Content SID naming](whatsapp-content-sid-naming.md) - Twilio env var is `TWILIO_CONTENT_SID_<whatsappTemplate>`, NOT the registry key (they diverge, e.g. payout_batch_ready→payout_statement); enumerate by whatsappTemplate.
 - [Redis / Upstash for BullMQ](redis-upstash.md) - must be paid Upstash (free 500K cmd/mo cap fails); `rediss://` TLS; queues tuned to 5-min polls - don't revert.
+- [Redis queue isolation](redis-queue-isolation.md) - workspace Redis can share production queues despite separate SQL databases; isolate tests before changing queue state.
 - [Bull lock vs stalled invariant](bull-lock-vs-stalled.md) - 5-min stalledInterval needs lockDuration>stalledInterval or jobs falsely fail "stalled"; stalled failures bypass the attempts-based Sentry gate.
 - [Deployment](deployment.md) - 1 service/repl so this repl deploys the API; API MUST be VM (workers+crons in-process); placeholder STRIPE_WEBHOOK_SECRET to break webhook chicken-and-egg.
 - [Prisma baseline / P3005](prisma-baseline-p3005.md) - `db push` on the shared Supabase DB leaves no migration history → prod `migrate deploy` P3005 crash-loop; recover by baselining (resolve --applied + sha256 psql insert).
 - [Order responses have no DTO](order-response-shaping.md) - orders are raw Prisma rows returned untouched across getById/list/createOrder/customerCancel/reorder; any new Order column leaks to customers; sanitize every customer return path.
 - [Service fee & payout](service-fee-payout.md) - service fee is platform revenue, never paid out; payout = total − serviceFee − commission (delivery stays w/ vendor); fix BOTH per-order calc AND weekly batch (batch recomputed from total, didn't use stored vendorPayoutPence).
+- [Mandatory fee disclosure](mandatory-fee-disclosure.md) — fee-inclusive totals must appear at the first pricing display; the user treats this as a legal requirement.
 - [Stripe webhook routing](stripe-webhook-event-routing.md) - controller only enqueues types in HANDLED_STRIPE_EVENT_TYPES (keep in sync with @Process names); others recorded + Sentry-warned, never enqueued.
 - [Stripe webhook execution leases](stripe-webhook-execution-leases.md) - worker ownership must use a per-execution token, not stable Bull job IDs, so stalled redeliveries cannot share completion ownership.
 - [Notification outbox](notification-outbox.md) - always send events via NotificationsService.enqueue (durable outbox fallback), never the raw queue; drainer dedupes via outbox:<rowId> jobId.
@@ -24,7 +26,7 @@
 - [Chargeback reconciliation](chargeback-reconciliation.md) - lost disputes write the refund+credit ledger pair; ALL refund writers must take the per-order advisory lock and re-check the ceiling in-tx.
 - [Stripe money idempotency](stripe-idempotency.md) - every money-moving Stripe call must pass a deterministic idempotencyKey keyed on the business id; createTransfer lacked one → double-pay on re-approval.
 - [Queue-infra crons](queue-module-crons.md) - host @InjectQueue cron services in a separate module, NOT queues.module (circular import → queue-name const resolves undefined).
-- [Supabase auth hook](supabase-auth-hook.md) - login depends on custom_access_token_hook fn + RLS policy (auth_admin SELECT public.users); missing fn → all logins HTTP 500; missing policy → JWT role=customer for everyone.
+- [Supabase auth hook](supabase-auth-hook.md) — JWT role is PostgreSQL authenticated; signed app_role holds Feastpot permissions. Wrong role causes Storage 500; auth-admin RLS is required.
 - [DB reset recovery](db-reset-recovery.md) - empty/drifted app DB w/ auth.users intact: migrate diff → db push --accept-data-loss → db:seed (bg, idempotent) → re-apply auth hook+policy.
 - [GitHub push workflow scope](github-push-workflow-scope.md) - PUSH_REJECTED when commits touch .github/workflows/: OAuth token lacks `workflow` scope; user must push via PAT (repo+workflow) or SSH.
 - [GitHub push authentication](github-pat-replit-push.md) - the connected GitHub proxy can work when shell credentials fail; automatic merging is disabled, so required checks remain a merge blocker.
@@ -68,11 +70,13 @@
 - [Allergen publication boundary](allergen-publication-boundary.md) — declaration checks must cover every customer embed/search path and direct RLS, not only catalogue endpoints.
 - [Payout statement snapshots](payout-statement-snapshots.md) — persist one immutable canonical statement; every vendor-facing format renders it, and legacy unknowns stay unavailable.
 - [Next build/dev isolation](next-build-dev-isolation.md) — never run next build alongside a live Next dev workflow; both mutate .next and can corrupt manifests, causing misleading browser-test failures.
+- [API deployment image size](api-deployment-size.md) — trim frontend caches and test browsers only in the API publish snapshot; never delete live workspace Next output.
 - [Checkout cancellation saga](checkout-cancellation-saga.md) — persist cancellation_pending before touching Stripe; finalize payment, order, and capacity atomically after release.
 - [Shared order refund ledger](shared-order-refund-ledger.md) — manual refunds and lost chargebacks must use one cumulative, locked ledger writer with explicit fee provenance.
 - [Payout debt carry-forward](payout-debt-carry-forward.md) — preserve signed vendor debt separately; Stripe-facing payout amounts must always be non-negative.
 - [Stripe financial reconciliation](stripe-financial-reconciliation.md) — hourly scans create durable de-duplicated findings; never auto-repair money discrepancies.
 - [Transactional SQL from shell](transactional-sql-shell.md) — quote heredocs containing PostgreSQL dollar blocks; bind large document bodies via psql variables.
+- [Libpq environment targets](libpq-environment-targets.md) — PGDATABASE does not expand a URI; override inherited Replit connection fields explicitly for external DB probes.
 - [Test-factory global fixtures](test-factory-global-fixtures.md) — namespaced factories must reuse globally current records; creating a newer global “current” row contaminates concurrent test identities.
 - [Referral QR fallback timing](referral-qr-fallback-timing.md) — a dynamically imported QR fallback is too late on throttled links; initial HTML must include usable PNG and SVG assets.
 - [Live link-audit concurrency](live-link-audit-concurrency.md) - cold Next route compilation needs capped crawl concurrency and generous per-request timeouts; unbounded parallel requests self-abort.
@@ -84,3 +88,5 @@
 - [Stripe Connect data boundary](stripe-connect-data-boundary.md) - Stripe redacts full tax/bank identifiers after collection; Open Banking also needs a Dashboard setting.
 - [Onboarding recovery and funnel](onboarding-recovery-funnel.md) - recovery campaigns are immutable and delivery-confirmed; anonymous funnel events resolve to applications within 24 hours.
 - [Rate Schedule version entries](rate-schedule-version-entries.md) - every effective Rate Schedule version must receive a complete entry snapshot atomically; repair empty current versions, never reactivate old ones.
+- [Browser HEIC conversion](upload-conversion-choice.md) - preserve the user's infrastructure-cost choice; dependency fixes do not authorise API-side HEIC decoding.
+- [Runtime audit isolation](runtime-audit-isolation.md) — cold portal sweeps can exhaust 16 GB; snapshot financial rejection probes and verify the intended rejection reason.

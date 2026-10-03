@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, NotFoundException } from '@nestjs/comm
 import { MenuImportItemStatus, MenuImportStatus, ModerationStatus } from '@prisma/client';
 import type { Prisma } from '@prisma/client';
 
+import { validateUpload } from '../../common/uploads/validate-upload';
 import { PrismaService } from '../../prisma/prisma.service';
 
 import { FSA_14_ALLERGEN_SET } from './catalogue.constants';
@@ -32,6 +33,8 @@ export class MenuImportService {
         code: 'INVALID_FILE_COUNT',
         message: 'Upload 1 to 4 files.',
       });
+    // Reject abusive files before creating rows, storing any page or starting OCR.
+    for (const file of files) validateUpload(file, 10 * 1024 * 1024, true);
     const imp = await this.prisma.menuImport.create({ data: { vendorId, sourceFiles: [] } });
     const sources: Array<Record<string, string>> = [];
     const all: Array<{

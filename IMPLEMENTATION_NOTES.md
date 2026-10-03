@@ -207,23 +207,23 @@ Supabase JWT verified by `SupabaseAuthGuard`; per-route role narrowing
 via `@Roles(...)` and `RolesGuard`. `StripeModule` and
 `NotificationsModule` are `@Global()`.
 
-| Module            | Surface                                                                                                                                               | Notes                                                                                                                |
+| Module | Surface | Notes |
 | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------- | ------- | ------------------------------------- |
-| `users`           | `GET/PATCH/DELETE /me`, `PATCH /:userId/status`                                                                                                       | Self-serve + admin status changes.                                                                                   |
-| `addresses`       | CRUD `/addresses`                                                                                                                                     | Customer delivery addresses.                                                                                         |
-| `vendors`         | List/create, `me`, `me/stats`, `me/analytics`, `me/delivery-config` (GET/PUT), `me/stripe-connect-link`, `:id` GET/PATCH, `:id/status`, `:id/reviews` | Stripe Connect onboarding link generation included.                                                                  |
-| `catalogue`       | Menus + items CRUD, image upload, availability toggle                                                                                                 | Vendor-scoped via `VendorOwnershipGuard` (unit tested).                                                              |
-| `orders`          | List/create, detail, `confirm`, `status`, `reorder`, `amendment` GET/PATCH                                                                            | Includes `OrderSlotsService` for delivery-slot capacity.                                                             |
-| `payments`        | List, `refunds`, `stripe-webhook` (raw-body)                                                                                                          | Webhook is processed via BullMQ for retries (`stripe-webhook.processor.ts`). Idempotent via `ProcessedWebhookEvent`. |
-| `payouts`         | List/get, `:id/approve`, `:id/hold`                                                                                                                   | Weekly Monday batch via processor in `payouts/processors`.                                                           |
-| `disputes`        | List/create, detail, vendor-response, escalate, close, evidence GET/POST                                                                              | Evidence stored with type tags.                                                                                      |
-| `compliance`      | List, create, `:documentId/verify`                                                                                                                    | Vendor document lifecycle (FHRS, insurance, allergen training). Has its own queue processor.                         |
-| `reviews`         | Create, `moderation-queue`, `:id/moderation`                                                                                                          | Moderation status enum gates publication.                                                                            |
-| `notifications`   | n/a (no routes)                                                                                                                                       | Email (Resend), SMS (Twilio), push (web-push). Templates under `templates/`. Provider abstraction in `providers/`.   |
-| `push`            | `subscribe`, `unsubscribe`                                                                                                                            | Stores `PushSubscription` rows.                                                                                      |
-| `event-enquiries` | See §1.2                                                                                                                                              | New in this milestone.                                                                                               |
-| `admin`           | `dashboard`, `vendors`, `audit-log`, `audit-log.csv`, `compliance/expiring`, `payouts/:id/reconcile-stripe`                                           | Role-gated to `admin                                                                                                 | support | finance | compliance` with per-route narrowing. |
-| `webhooks`        | n/a (Stripe handled inside `payments`)                                                                                                                | Module exists for future provider webhooks.                                                                          |
+| `users` | `GET/PATCH/DELETE /me`, `PATCH /:userId/status` | Self-serve + admin status changes. |
+| `addresses` | CRUD `/addresses` | Customer delivery addresses. |
+| `vendors` | List/create, `me`, `me/stats`, `me/analytics`, `me/delivery-config` (GET/PUT), `me/stripe-connect-link`, `:id` GET/PATCH, `:id/status`, `:id/reviews` | Stripe Connect onboarding link generation included. |
+| `catalogue` | Menus + items CRUD, image upload, availability toggle | Vendor-scoped via `VendorOwnershipGuard` (unit tested). |
+| `orders` | List/create, detail, `confirm`, `status`, `reorder`, `amendment` GET/PATCH | Includes `OrderSlotsService` for delivery-slot capacity. |
+| `payments` | List, `refunds`, `stripe-webhook` (raw-body) | Webhook is processed via BullMQ for retries (`stripe-webhook.processor.ts`). Idempotent via `ProcessedWebhookEvent`. |
+| `payouts` | List/get, `:id/approve`, `:id/hold` | Weekly Monday batch via processor in `payouts/processors`. |
+| `disputes` | List/create, detail, vendor-response, escalate, close, evidence GET/POST | Evidence stored with type tags. |
+| `compliance` | List, create, `:documentId/verify` | Vendor document lifecycle (FHRS, insurance, allergen training). Has its own queue processor. |
+| `reviews` | Create, `moderation-queue`, `:id/moderation` | Moderation status enum gates publication. |
+| `notifications` | n/a (no routes) | Email (Resend), SMS (Twilio), push (web-push). Templates under `templates/`. Provider abstraction in `providers/`. |
+| `push` | `subscribe`, `unsubscribe` | Stores `PushSubscription` rows. |
+| `event-enquiries` | See §1.2 | New in this milestone. |
+| `admin` | `dashboard`, `vendors`, `audit-log`, `audit-log.csv`, `compliance/expiring`, `payouts/:id/reconcile-stripe` | Role-gated to `admin                                                                                                 | support | finance | compliance` with per-route narrowing. |
+| `webhooks` | n/a (Stripe handled inside `payments`) | Module exists for future provider webhooks. |
 
 Tests present today: `vendors.service`, `catalogue/guards/vendor-ownership`,
 `catalogue/menu-items.service`, `orders/order-slots`, `orders.service`,

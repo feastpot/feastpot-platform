@@ -12,6 +12,8 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  SecureDownload,
+  SecureImage,
   Select,
   SelectContent,
   SelectItem,
@@ -24,6 +26,8 @@ import { useState } from 'react';
 
 import { PageHeader } from '@/components/layout/page-header';
 import { useToast } from '@/components/ui/toaster';
+import { useAccessToken } from '@/lib/auth/use-access-token';
+import { API_URL } from '@/lib/env';
 import {
   useCloseDispute,
   useDecideAppealStage1,
@@ -50,6 +54,7 @@ const RESOLUTIONS: ResolutionType[] = [
 const SEVERITIES: Severity[] = ['low', 'medium', 'high', 'critical'];
 
 export function DisputeDetailClient({ disputeId }: { disputeId: string }) {
+  const token = useAccessToken();
   const { toast } = useToast();
   const { data: dispute } = useDispute(disputeId);
   const { data: evidence } = useDisputeEvidence(disputeId);
@@ -186,9 +191,10 @@ export function DisputeDetailClient({ disputeId }: { disputeId: string }) {
                     className="group flex flex-col gap-1 rounded-md border border-border p-2 text-left hover:border-vendor"
                   >
                     <div className="grid h-24 w-full place-items-center rounded bg-muted">
-                      {e.type === 'image' ? (
-                        <img
-                          src={e.fileUrl}
+                      {['image', 'photo', 'screenshot'].includes(e.type) ? (
+                        <SecureImage
+                          url={`${API_URL}/v1/disputes/${disputeId}/evidence/${e.id}/download`}
+                          token={token}
                           alt={e.caption ?? ''}
                           className="h-full w-full rounded object-cover"
                         />
@@ -320,28 +326,28 @@ export function DisputeDetailClient({ disputeId }: { disputeId: string }) {
           <DialogHeader>
             <DialogTitle>{viewing?.caption ?? 'Evidence'}</DialogTitle>
           </DialogHeader>
-          {viewing?.type === 'image' && (
-            <img
-              src={viewing.fileUrl}
+          {viewing && ['image', 'photo', 'screenshot'].includes(viewing.type) && (
+            <SecureImage
+              url={`${API_URL}/v1/disputes/${disputeId}/evidence/${viewing.id}/download`}
+              token={token}
               alt={viewing.caption ?? ''}
               className="max-h-[70vh] w-full rounded object-contain"
             />
           )}
-          {viewing && viewing.type !== 'image' && (
+          {viewing && !['image', 'photo', 'screenshot'].includes(viewing.type) && (
             <div className="flex flex-col items-center gap-3 py-6">
               {viewing.type === 'video' ? (
                 <Video className="h-12 w-12" />
               ) : (
                 <ImageIcon className="h-12 w-12" />
               )}
-              <a
-                href={viewing.fileUrl}
-                target="_blank"
-                rel="noreferrer"
+              <SecureDownload
+                url={`${API_URL}/v1/disputes/${disputeId}/evidence/${viewing.id}/download`}
+                token={token}
                 className="text-sm text-vendor underline"
               >
                 Open original
-              </a>
+              </SecureDownload>
             </div>
           )}
         </DialogContent>

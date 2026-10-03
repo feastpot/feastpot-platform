@@ -3,11 +3,13 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
   Query,
+  StreamableFile,
   UnauthorizedException,
   UploadedFile,
   UseInterceptors,
@@ -229,5 +231,17 @@ export class DisputesController {
       requireUser(user),
       type as EvidenceType | undefined,
     );
+  }
+
+  @Get(':id/evidence/:evidenceId/download')
+  @Header('Cache-Control', 'private, no-store')
+  @Header('X-Content-Type-Options', 'nosniff')
+  async downloadEvidence(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('evidenceId', new ParseUUIDPipe()) evidenceId: string,
+    @CurrentUser() user: AuthUser | null,
+  ) {
+    const file = await this.disputes.downloadEvidence(id, evidenceId, requireUser(user));
+    return new StreamableFile(file.bytes, { type: file.type, disposition: 'attachment' });
   }
 }

@@ -36,6 +36,43 @@ function makeJwt(payload: Record<string, unknown>): string {
 }
 
 describe('mapUser', () => {
+  it.each(Object.values(UserRole))(
+    'reads signed app_role %s without confusing the database role',
+    (role) => {
+      const user = {
+        id: 'fixture-user',
+        email: 'fixture@example.test',
+        app_metadata: {},
+        user_metadata: { role: 'admin', app_role: 'admin' },
+      } as unknown as User;
+      expect(mapUser(user, makeJwt({ role: 'authenticated', app_role: role })).role).toBe(role);
+    },
+  );
+
+  it('prefers the canonical app_role over stale legacy claims and metadata', () => {
+    const user = {
+      id: 'fixture-user',
+      email: 'fixture@example.test',
+      app_metadata: { role: 'admin' },
+      user_metadata: {},
+    } as unknown as User;
+    expect(mapUser(user, makeJwt({ role: 'admin', app_role: 'customer' })).role).toBe(
+      UserRole.customer,
+    );
+  });
+
+  it('does not trust application-role fields in user-editable metadata', () => {
+    const user = {
+      id: 'fixture-user',
+      email: 'fixture@example.test',
+      app_metadata: {},
+      user_metadata: { role: 'admin', app_role: 'admin' },
+    } as unknown as User;
+    expect(mapUser(user, makeJwt({ role: 'authenticated', app_role: 'not-a-role' })).role).toBe(
+      UserRole.customer,
+    );
+  });
+
   it('reads role from verified JWT claim (set by custom_access_token_hook)', () => {
     const user = {
       id: '11111111-1111-1111-1111-111111111111',

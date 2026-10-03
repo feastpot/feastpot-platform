@@ -366,6 +366,9 @@ describe('OrdersService.updateStatus authorization', () => {
       inbox as never,
       members as never,
     );
+    Object.assign(service, {
+      terms: { assertAcceptedCurrentVersion: jest.fn().mockResolvedValue(undefined) },
+    });
   });
 
   const order = (
@@ -589,6 +592,9 @@ describe('OrdersService.createOrder allergen declaration gate', () => {
       items: [{ menuItemId: 'mi-1', quantity: 1 }],
       scheduledFor: '2030-01-01T12:00:00.000Z',
     };
+    Object.assign(service, {
+      terms: { assertAcceptedCurrentVersion: jest.fn().mockResolvedValue(undefined) },
+    });
     return { service, slots, dto };
   };
 

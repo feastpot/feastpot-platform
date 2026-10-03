@@ -3,18 +3,26 @@ import { createHash } from 'crypto';
 import { InjectQueue } from '@nestjs/bull';
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   Logger,
   NotFoundException,
   Optional,
 } from '@nestjs/common';
-import { AcceptanceMethod, NoticeChannel, RateStatus, TermsDocumentType } from '@prisma/client';
+import {
+  AcceptanceMethod,
+  NoticeChannel,
+  Prisma,
+  RateStatus,
+  TermsDocumentType,
+} from '@prisma/client';
 import type { Queue } from 'bull';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { TERMS_NOTICES_QUEUE } from '../../queues/queues.module';
 import { AnalyticsService } from '../analytics/analytics.service';
 
+import { currentTermsQuery, realTermsVendorWhere } from './current-terms';
 import { AcceptTermsVersionDto } from './dto/accept-terms-version.dto';
 import { PublishTermsVersionDto } from './dto/publish-terms-version.dto';
 import { TERMS_NOTICE_JOBS } from './terms-jobs';
@@ -45,6 +53,14 @@ export function buildVendorTermsAcceptanceLabel(version: string): string {
 export class TermsService {
   private readonly logger = new Logger(TermsService.name);
 
+  private async getRealVendorIds(): Promise<string[]> {
+    const vendors = await this.prisma.vendor.findMany({
+      where: realTermsVendorWhere,
+      select: { id: true },
+    });
+    return vendors.map((vendor) => vendor.id);
+  }
+
   constructor(
     private readonly prisma: PrismaService,
     @InjectQueue(TERMS_NOTICES_QUEUE) private readonly noticesQueue: Queue,
@@ -68,8 +84,8 @@ export class TermsService {
    * 3. isMaterial=false is reserved for editorial changes (typo fixes that do
    *    not alter meaning). The changeSummary must explain why; it is logged.
    *
-   * 4. Only one version per documentType may be live (supersededAt IS NULL)
-   *    at a time. Publishing sets supersededAt on the previous live version.
+   * 4. Current means the latest effective version, with deterministic ties.
+   *    Future replacements never supersede an effective version early.
    *
    * 5. VENDOR_TERMS requires solicitorSignOff ("Reviewed and approved by
    *    [solicitor] on [date]"). Rejected without it.
@@ -77,8 +93,20 @@ export class TermsService {
   async publishVersion(
     dto: PublishTermsVersionDto,
     rateScheduleEntries: RateScheduleEntryDraft[] = [],
+    withinTransaction?: (tx: Prisma.TransactionClient) => Promise<void>,
   ) {
     const now = new Date();
+    if (
+      dto.documentType === TermsDocumentType.VENDOR_TERMS &&
+      !/^\d+\.\d+(?:\.\d+)?$/.test(dto.version)
+    ) {
+      throw new BadRequestException(
+        'Vendor Terms version must be numeric, for example 2.0 or 2.0.1.',
+      );
+    }
+    if (!dto.effectiveAt || !Number.isFinite(new Date(dto.effectiveAt).getTime())) {
+      throw new BadRequestException('A valid replacement effective date is required.');
+    }
 
     // Rule 1: Compute content hash; reject if contentMdx is empty.
     if (!dto.contentMdx.trim()) {
@@ -123,10 +151,10 @@ export class TermsService {
     // supersede the current version.
     const termsVersion = await this.prisma.$transaction(async (tx) => {
       if (effectiveAt <= now) {
-        const replacementAlreadyEffective = effectiveAt <= now;
-        if (!replacementAlreadyEffective) {
+        const current = await tx.termsVersion.findFirst(currentTermsQuery(dto.documentType, now));
+        if (current && effectiveAt < current.effectiveAt) {
           throw new BadRequestException(
-            'Cannot supersede the only effective terms version before its replacement is effective.',
+            'Cannot supersede current terms with a replacement whose effective date is older.',
           );
         }
         await tx.termsVersion.updateMany({
@@ -163,6 +191,9 @@ export class TermsService {
         });
       }
 
+      // Financial changes and their canonical legal version commit together.
+      // Any failed rate write also rolls back the version and entry snapshot.
+      await withinTransaction?.(tx);
       return createdVersion;
     });
 
@@ -218,14 +249,7 @@ export class TermsService {
    * create a no-current window.
    */
   async getCurrentVersion(documentType: TermsDocumentType) {
-    const now = new Date();
-    return this.prisma.termsVersion.findFirst({
-      where: {
-        documentType,
-        effectiveAt: { lte: now },
-      },
-      orderBy: [{ effectiveAt: 'desc' }, { publishedAt: 'desc' }],
-    });
+    return this.prisma.termsVersion.findFirst(currentTermsQuery(documentType));
   }
 
   /**
@@ -421,6 +445,7 @@ export class TermsService {
    */
   async adminListAllVersions() {
     const now = new Date();
+    const realVendorIds = await this.getRealVendorIds();
     const versions = await this.prisma.termsVersion.findMany({
       orderBy: [{ documentType: 'asc' }, { publishedAt: 'desc' }],
       select: {
@@ -435,40 +460,62 @@ export class TermsService {
         contentHash: true,
         solicitorSignOff: true,
         createdBy: true,
-        _count: { select: { acceptances: true, notices: true } },
+        _count: {
+          select: {
+            acceptances: { where: { vendor: realTermsVendorWhere } },
+            notices: { where: { vendorId: { in: realVendorIds } } },
+          },
+        },
       },
     });
+    const effective = new Map<TermsDocumentType, (typeof versions)[number]>();
+    for (const v of versions) {
+      if (v.effectiveAt > now) continue;
+      const previous = effective.get(v.documentType);
+      if (
+        !previous ||
+        v.effectiveAt > previous.effectiveAt ||
+        (v.effectiveAt.getTime() === previous.effectiveAt.getTime() &&
+          (v.publishedAt > previous.publishedAt ||
+            (v.publishedAt.getTime() === previous.publishedAt.getTime() && v.id > previous.id)))
+      )
+        effective.set(v.documentType, v);
+    }
     return versions.map((v) => ({
       ...v,
-      status: this.versionStatus(v, now),
+      status:
+        v.effectiveAt > now
+          ? 'pending'
+          : effective.get(v.documentType)?.id === v.id
+            ? 'live'
+            : 'superseded',
     }));
   }
 
   /** Get a single version with full content and diff against current live version. */
   async adminGetVersion(id: string) {
+    const realVendorIds = await this.getRealVendorIds();
     const version = await this.prisma.termsVersion.findUniqueOrThrow({
       where: { id },
-      include: { _count: { select: { acceptances: true, notices: true } } },
+      include: {
+        _count: {
+          select: {
+            acceptances: { where: { vendor: realTermsVendorWhere } },
+            notices: { where: { vendorId: { in: realVendorIds } } },
+          },
+        },
+      },
     });
 
     // Fetch the currently live version for the same document type (for diff).
     const now = new Date();
-    const live =
-      version.supersededAt === null && version.effectiveAt <= now
-        ? null // This IS the live version
-        : await this.prisma.termsVersion.findFirst({
-            where: {
-              documentType: version.documentType,
-              effectiveAt: { lte: now },
-              supersededAt: null,
-            },
-            orderBy: { effectiveAt: 'desc' },
-            select: { id: true, version: true, contentMdx: true, contentHash: true },
-          });
+    const current = await this.getCurrentVersion(version.documentType);
+    const live = current?.id === version.id ? null : current;
 
     return {
       ...version,
-      status: this.versionStatus(version, now),
+      status:
+        version.effectiveAt > now ? 'pending' : current?.id === version.id ? 'live' : 'superseded',
       liveVersion: live,
     };
   }
@@ -487,7 +534,7 @@ export class TermsService {
       : null;
 
     const vendors = await this.prisma.vendor.findMany({
-      where: { status: { in: ['live', 'probation'] } },
+      where: { ...realTermsVendorWhere, status: { in: ['live', 'probation'] } },
       select: {
         id: true,
         businessName: true,
@@ -495,7 +542,6 @@ export class TermsService {
         termsAcceptances: {
           where: { termsVersion: { documentType } },
           orderBy: { acceptedAt: 'desc' },
-          take: 1,
           select: {
             acceptedAt: true,
             method: true,
@@ -508,7 +554,10 @@ export class TermsService {
     });
 
     const rows = vendors.map((v) => {
-      const latest = v.termsAcceptances[0] ?? null;
+      const latest =
+        v.termsAcceptances.find((a) => a.termsVersion.id === live?.id) ??
+        v.termsAcceptances[0] ??
+        null;
       const onCurrent = live ? latest?.termsVersion.id === live.id : false;
       return {
         vendorId: v.id,
@@ -524,7 +573,7 @@ export class TermsService {
 
     const filtered = onlyBehind ? rows.filter((r) => !r.onCurrentVersion) : rows;
     const onCurrentCount = rows.filter((r) => r.onCurrentVersion).length;
-    const pct = rows.length > 0 ? Math.round((onCurrentCount / rows.length) * 100) : 100;
+    const pct = rows.length > 0 ? Math.round((onCurrentCount / rows.length) * 100) : null;
 
     return {
       liveVersion: live,
@@ -540,9 +589,10 @@ export class TermsService {
    * Used by the Notice Delivery admin screen.
    */
   async adminListNotices(termsVersionId?: string) {
+    const realVendorIds = await this.getRealVendorIds();
     const [notices, versions] = await Promise.all([
       this.prisma.termsNotice.findMany({
-        where: termsVersionId ? { termsVersionId } : undefined,
+        where: { vendorId: { in: realVendorIds }, ...(termsVersionId ? { termsVersionId } : {}) },
         orderBy: { sentAt: 'desc' },
         select: {
           id: true,
@@ -790,15 +840,6 @@ export class TermsService {
     };
   }
 
-  private versionStatus(
-    v: { effectiveAt: Date; supersededAt: Date | null; publishedAt: Date },
-    now: Date,
-  ): string {
-    if (v.supersededAt !== null) return 'superseded';
-    if (v.effectiveAt > now) return 'pending';
-    return 'live';
-  }
-
   // ─── Rate Schedule (public) ──────────────────────────────────────────────────
 
   /**
@@ -866,9 +907,9 @@ export class TermsService {
    */
   async acknowledgeNotice(noticeId: string, vendorId: string) {
     const notice = await this.prisma.termsNotice.findUnique({ where: { id: noticeId } });
-    if (!notice || notice.vendorId !== vendorId) {
-      throw new NotFoundException('Notice not found.');
-    }
+    if (!notice) throw new NotFoundException('Notice not found.');
+    if (notice.vendorId !== vendorId)
+      throw new ForbiddenException('Cannot acknowledge another vendor notice.');
     return this.prisma.termsNotice.update({
       where: { id: noticeId },
       data: { acknowledgedAt: new Date() },
@@ -938,15 +979,18 @@ export class TermsService {
    * versions do not require solicitorSignOff (they are commercial schedule
    * changes, not contractual term changes requiring legal review).
    */
-  async publishRateScheduleVersion(opts: {
-    source: string;
-    isFirstOrder: boolean | null;
-    newRatePct: number;
-    previousRatePct: number;
-    effectiveFrom: Date;
-    createdBy: string;
-    note?: string;
-  }) {
+  async publishRateScheduleVersion(
+    opts: {
+      source: string;
+      isFirstOrder: boolean | null;
+      newRatePct: number;
+      previousRatePct: number;
+      effectiveFrom: Date;
+      createdBy: string;
+      note?: string;
+    },
+    withinTransaction?: (tx: Prisma.TransactionClient) => Promise<void>,
+  ) {
     const { source, isFirstOrder, newRatePct, previousRatePct, effectiveFrom, createdBy, note } =
       opts;
 
@@ -1053,6 +1097,8 @@ export class TermsService {
       sortOrder: entry.sortOrder,
     }));
 
-    return this.publishVersion(dto, nextEntries);
+    return withinTransaction
+      ? this.publishVersion(dto, nextEntries, withinTransaction)
+      : this.publishVersion(dto, nextEntries);
   }
 }

@@ -1,0 +1,59 @@
+TASK: Enforce terms acceptance, based on the real production
+figures from LR-01.
+
+DEPENDS ON: LR-01. Do not act on the development figure of 19
+acceptances against 277 live vendors until production is
+known.
+
+BRANCH ON WHAT LR-01 FOUND
+
+IF PRODUCTION IS CLEAN (a handful of real vendors, matching
+acceptances):
+  The finding was development seed pollution. The real work is
+  making test and real vendors distinguishable so this cannot
+  recur. Add a test-data marker, default operational views to
+  hiding test records, and re-run the acceptance query filtered
+  to real vendors only. Report the true ratio.
+
+IF PRODUCTION SHOWS REAL LIVE VENDORS WITHOUT ACCEPTANCE:
+  That is a genuine compliance gap. Block those vendors from
+  trading until they accept, prompt them at next sign-in with
+  a blocking modal rather than a dismissible banner, and
+  notify them by email and WhatsApp. Report how many are
+  affected before acting.
+
+IN EITHER CASE, ENFORCE THE GATE
+A vendor must not be able to trade without an acceptance
+record against the CURRENT effective version. Add a server-
+side check on the paths that matter: going live, accepting an
+order, and appearing in customer search. Assert it with a test
+for each path.
+
+VERIFY THE VERSION STATE
+The audit named effective version part-b-1788799279281. That
+identifier does not look like a semantic version. Confirm
+whether the versioning scheme is working as intended or
+whether an identifier is leaking where a version number
+belongs. Also confirm exactly one version is effective at any
+time, and that superseding a version without an effective
+replacement is rejected.
+
+WHILE HERE: THE MISSING CATERING COMPLIANCE PACK
+The audit found no catering compliance pack implementation.
+Clause 8.5 of the vendor terms promises every event customer a
+pack containing registration, FHRS evidence, insurance and an
+allergen matrix for the event menu. The contract promises
+something the product does not produce.
+Report whether it exists anywhere. If not, tell me the build
+scope and I will decide whether to implement it or amend the
+clause. Do not build it in this prompt.
+
+COST CONTROL
+Target 40 minutes. Report before blocking any vendor.
+
+ACCEPTANCE CRITERIA
+- The true production acceptance ratio, for real vendors only.
+- Test and real vendors distinguishable.
+- No vendor can trade without accepting current terms, proven
+  per path.
+- A clear answer on the catering compliance pack.

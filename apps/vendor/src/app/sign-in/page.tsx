@@ -156,8 +156,7 @@ function SignInForm() {
       // message instead of a flash of dashboard chrome before middleware
       // bounces the request.
       const role = (data.user?.user_metadata?.role ?? data.user?.app_metadata?.role) as
-        | string
-        | undefined;
+        string | undefined;
       if (role !== 'vendor' && role !== 'admin') {
         await supabase.auth.signOut();
         setNeedsVendorApplication(true);

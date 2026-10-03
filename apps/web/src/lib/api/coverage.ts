@@ -2,9 +2,7 @@ import { apiRequest } from './client';
 import { searchVendors } from './vendors';
 
 export type CoverageResult =
-  | { status: 'covered' }
-  | { status: 'uncovered' }
-  | { status: 'error'; message: string };
+  { status: 'covered' } | { status: 'uncovered' } | { status: 'error'; message: string };
 
 /**
  * Coverage check - does Feastpot have at least one live vendor delivering to

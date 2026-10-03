@@ -18,5 +18,10 @@ describe('VendorRepository public search provenance', () => {
 
     const query = queryRaw.mock.calls[0]?.[0] as { strings: readonly string[] };
     expect(query.strings.join('')).toContain('v.is_seed_data = false');
+    expect(query.strings.join('')).toContain('acceptance.vendor_id = v.id');
+    expect(query.strings.join('')).toContain('effective_at <= CURRENT_TIMESTAMP');
+    expect(query.strings.join('')).toContain(
+      'ORDER BY effective_at DESC, published_at DESC, id DESC',
+    );
   });
 });

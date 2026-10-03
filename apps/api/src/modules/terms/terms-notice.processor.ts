@@ -8,6 +8,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { TERMS_NOTICES_QUEUE } from '../../queues/queues.module';
 import { EmailProvider } from '../notifications/providers/email.provider';
 
+import { realTermsVendorWhere } from './current-terms';
 import { TERMS_NOTICE_JOBS } from './terms-jobs';
 import {
   DEEMED_ACCEPTANCE_CRON_JOB,
@@ -109,7 +110,7 @@ export class TermsNoticeProcessor implements OnApplicationBootstrap {
           },
           status: { in: activeStatuses },
         }
-      : { status: { in: activeStatuses } };
+      : { ...realTermsVendorWhere, status: { in: activeStatuses } };
     const vendors = await this.prisma.vendor.findMany({
       where: vendorWhere,
       select: {

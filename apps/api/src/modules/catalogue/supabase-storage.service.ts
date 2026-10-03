@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 
 import { SupabaseService } from '../../auth/supabase.service';
+import { validateUpload } from '../../common/uploads/validate-upload';
 
 import { STORAGE_BUCKET } from './catalogue.constants';
 
@@ -74,6 +75,8 @@ export class SupabaseStorageService implements OnModuleInit {
     await Promise.all([
       this.ensureBucket(STORAGE_BUCKET, {
         public: true,
+        // Trusted, server-generated QR SVGs use this bucket. User SVG uploads
+        // remain forbidden by validateUpload on every ingestion path.
         allowedMimeTypes: ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'],
         fileSizeLimit: 5 * 1024 * 1024,
       }),
@@ -138,6 +141,7 @@ export class SupabaseStorageService implements OnModuleInit {
     file: { originalname: string; mimetype: string; size: number; buffer: Buffer };
   }): Promise<UploadedImage> {
     const file = params.file;
+    validateUpload(file, MAX_BYTES);
     if (!ALLOWED_MIME.has(file.mimetype) || !looksLikeImage(file.buffer)) {
       throw new BadRequestException({
         code: 'INVALID_IMAGE_CONTENT',
@@ -180,6 +184,7 @@ export class SupabaseStorageService implements OnModuleInit {
     file: { originalname: string; mimetype: string; size: number; buffer: Buffer };
   }): Promise<{ path: string }> {
     const { file } = params;
+    validateUpload(file, IMPORT_MAX_BYTES, true);
     if (!IMPORT_MIME.has(file.mimetype) || !looksLikeImport(file.buffer, file.mimetype)) {
       throw new BadRequestException({
         code: 'INVALID_IMPORT_CONTENT',
@@ -266,6 +271,7 @@ export class SupabaseStorageService implements OnModuleInit {
     folder: string,
     file: { originalname: string; mimetype: string; size: number; buffer: Buffer },
   ): Promise<UploadedImage> {
+    validateUpload(file, MAX_BYTES);
     if (!ALLOWED_MIME.has(file.mimetype)) {
       throw new BadRequestException({
         code: 'INVALID_IMAGE_TYPE',

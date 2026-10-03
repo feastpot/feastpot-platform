@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { AlertTriangle, Check, ImageOff, Info, Loader2, Upload, X } from 'lucide-react';
-import Image from 'next/image';
+import { SafeImage as Image } from '@feastpot/ui';
 import { cn } from '@feastpot/ui';
 
 import { Textarea } from '@/components/ui/textarea';
@@ -1074,6 +1074,7 @@ function ImageSlot({
   }, []);
 
   const displaySrc = localPreview ?? url;
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
 
   return (
     <div className="space-y-2">
@@ -1087,10 +1088,11 @@ function ImageSlot({
           aspect,
         )}
       >
-        {displaySrc ? (
+        {displaySrc && failedSrc !== displaySrc ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={displaySrc}
+            onError={() => setFailedSrc(displaySrc)}
             alt={label}
             className="absolute inset-0 h-full w-full object-cover"
           />
@@ -1116,7 +1118,7 @@ function ImageSlot({
       <input
         ref={ref}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];

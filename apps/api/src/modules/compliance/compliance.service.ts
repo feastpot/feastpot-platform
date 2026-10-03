@@ -17,6 +17,7 @@ import {
 
 import { SupabaseService } from '../../auth/supabase.service';
 import type { AuthUser } from '../../auth/types';
+import { validateUpload } from '../../common/uploads/validate-upload';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AnalyticsService } from '../analytics/analytics.service';
 import { DOCUMENTS_BUCKET } from '../catalogue/supabase-storage.service';
@@ -66,6 +67,42 @@ export class ComplianceService {
     });
   }
 
+  async downloadDocument(vendorId: string, documentId: string, user: AuthUser) {
+    await this.assertCanManageVendor(vendorId, user);
+    const document = await this.prisma.vendorDocument.findFirst({
+      where: { id: documentId, vendorId },
+    });
+    if (!document)
+      throw new NotFoundException({ code: 'DOCUMENT_NOT_FOUND', message: 'Document not found' });
+    const marker = `/storage/v1/object/public/${DOCUMENTS_BUCKET}/`;
+    const pathname = new URL(document.fileUrl).pathname;
+    if (!pathname.includes(marker))
+      throw new NotFoundException({
+        code: 'DOCUMENT_UNAVAILABLE',
+        message: 'Document unavailable',
+      });
+    const path = decodeURIComponent(pathname.split(marker)[1]!);
+    if (!path.startsWith(`vendors/${vendorId}/`))
+      throw new NotFoundException({
+        code: 'DOCUMENT_UNAVAILABLE',
+        message: 'Document unavailable',
+      });
+    const { data, error } = await this.supabase
+      .getClient()
+      .storage.from(DOCUMENTS_BUCKET)
+      .download(path);
+    if (error || !data)
+      throw new NotFoundException({
+        code: 'DOCUMENT_UNAVAILABLE',
+        message: 'Document unavailable',
+      });
+    return {
+      bytes: Buffer.from(await data.arrayBuffer()),
+      type: data.type,
+      name: document.fileName ?? 'document',
+    };
+  }
+
   async uploadDocument(
     vendorId: string,
     file: { originalname: string; buffer: Buffer; mimetype: string; size: number },
@@ -73,6 +110,7 @@ export class ComplianceService {
     user: AuthUser,
   ) {
     await this.assertCanManageVendor(vendorId, user);
+    validateUpload(file, 10 * 1024 * 1024, true);
     if (file.size > 10 * 1024 * 1024) {
       throw new BadRequestException({ code: 'FILE_TOO_LARGE', message: 'Max 10 MB per document' });
     }

@@ -81,8 +81,8 @@ describe('SupabaseStorageService startup', () => {
         file: {
           originalname: 'menu.pdf',
           mimetype: 'application/pdf',
-          size: 12,
-          buffer: Buffer.from('%PDF-1.7 demo'),
+          size: Buffer.byteLength('%PDF-1.7 demo\n%%EOF'),
+          buffer: Buffer.from('%PDF-1.7 demo\n%%EOF'),
         },
       }),
     ).rejects.toBeInstanceOf(InternalServerErrorException);

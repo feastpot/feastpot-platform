@@ -1,3 +1,7 @@
+const VALID_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=',
+  'base64',
+);
 import { MenuImportItemStatus, MenuImportStatus, ModerationStatus } from '@prisma/client';
 
 import type { PrismaService } from '../../prisma/prisma.service';
@@ -66,7 +70,12 @@ describe('MenuImportService', () => {
     prisma.menuImport.findFirst = jest.fn().mockResolvedValue({ id: 'import-1', items: [] });
 
     await service.create('vendor-1', [
-      { originalname: 'menu.png', mimetype: 'image/png', size: 10, buffer: Buffer.from('image') },
+      {
+        originalname: 'menu.png',
+        mimetype: 'image/png',
+        size: VALID_PNG.length,
+        buffer: VALID_PNG,
+      },
     ]);
     expect(prisma.menuImport.update).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -106,8 +115,8 @@ describe('MenuImportService', () => {
       {
         originalname: 'peanut-soup.png',
         mimetype: 'image/png',
-        size: 10,
-        buffer: Buffer.from('image'),
+        size: VALID_PNG.length,
+        buffer: VALID_PNG,
       },
     ]);
 

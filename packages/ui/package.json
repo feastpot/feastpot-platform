@@ -21,6 +21,10 @@
     "./benefits-strip": {
       "types": "./src/components/benefits-strip.tsx",
       "default": "./src/components/benefits-strip.tsx"
+    },
+    "./upload": {
+      "types": "./src/lib/prepare-upload.ts",
+      "default": "./src/lib/prepare-upload.ts"
     }
   },
   "scripts": {
@@ -36,6 +40,7 @@
     "@radix-ui/react-toast": "^1.2.2",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "heic-to": "1.6.5",
     "lucide-react": "^0.460.0",
     "tailwind-merge": "^2.5.4"
   },

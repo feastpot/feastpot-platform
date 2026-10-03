@@ -1,7 +1,13 @@
 import { COMMISSION_RATES } from '@feastpot/config/commission-rates';
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { DiscountFundedBy, OrderSource, RateStatus, TermsDocumentType } from '@prisma/client';
+import {
+  DiscountFundedBy,
+  OrderSource,
+  Prisma,
+  RateStatus,
+  TermsDocumentType,
+} from '@prisma/client';
 import { Decimal } from '@prisma/client/runtime/library';
 
 import { PrismaService } from '../prisma/prisma.service';
@@ -337,14 +343,17 @@ export class CommissionService {
    * effectiveFrom must be >= now (validated by caller; rate increases need 15d notice).
    * Returns the new rate row.
    */
-  async createRate(dto: {
-    source: OrderSource;
-    isFirstOrder: boolean | null;
-    ratePercent: Decimal;
-    effectiveFrom: Date;
-    createdBy: string;
-    note?: string;
-  }) {
+  async createRate(
+    dto: {
+      source: OrderSource;
+      isFirstOrder: boolean | null;
+      ratePercent: Decimal;
+      effectiveFrom: Date;
+      createdBy: string;
+      note?: string;
+    },
+    transaction?: Prisma.TransactionClient,
+  ) {
     if (!(dto.effectiveFrom instanceof Date) || Number.isNaN(dto.effectiveFrom.getTime())) {
       throw new BadRequestException({
         code: 'INVALID_EFFECTIVE_FROM',
@@ -352,7 +361,7 @@ export class CommissionService {
       });
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const writeRate = async (tx: Prisma.TransactionClient) => {
       // Serialize edits to this logical slot. There is intentionally no mutable
       // "current rate" record: rates are an audit history and only effectiveTo
       // may be closed as part of adding the next row.
@@ -416,7 +425,8 @@ export class CommissionService {
           note: dto.note ?? null,
         },
       });
-    });
+    };
+    return transaction ? writeRate(transaction) : this.prisma.$transaction(writeRate);
   }
 
   // ─── Reporting ───────────────────────────────────────────────────────────────

@@ -1,4 +1,5 @@
 'use client';
+import { prepareUpload } from '@feastpot/ui/upload';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -301,6 +302,7 @@ export function useUploadItemImage(vendorId: string, menuId: string) {
       itemId: string;
       file: File;
     }): Promise<UploadedImage> => {
+      file = await prepareUpload(file, { maxBytes: MAX_BYTES });
       if (!ALLOWED.has(file.type)) {
         throw new Error(`Unsupported image type ${file.type}; use JPEG/PNG/WebP`);
       }

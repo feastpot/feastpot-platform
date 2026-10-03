@@ -79,14 +79,14 @@ export class ReviewsController {
   }
 
   @Get('moderation-queue')
-  @Roles(UserRole.admin, UserRole.support)
+  @Roles(UserRole.admin)
   @ApiOperation({ summary: 'List reviews held for moderation (admin/support)' })
   queue(@Query() dto: ListModerationQueueDto) {
     return this.reviews.listModerationQueue(dto);
   }
 
   @Get('moderation-queue.csv')
-  @Roles(UserRole.admin, UserRole.support)
+  @Roles(UserRole.admin)
   @Header('Content-Type', 'text/csv; charset=utf-8')
   @Header('Content-Disposition', 'attachment; filename="reviews-moderation.csv"')
   @ApiOperation({
@@ -101,7 +101,7 @@ export class ReviewsController {
   }
 
   @Get('moderation-queue/counts')
-  @Roles(UserRole.admin, UserRole.support)
+  @Roles(UserRole.admin)
   @ApiOperation({
     summary: 'Counts per moderation status honouring current filters (admin/support)',
   })

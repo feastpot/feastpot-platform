@@ -93,7 +93,7 @@ describe('TermsService legal invariants', () => {
         documentType: TermsDocumentType.VENDOR_TERMS,
         effectiveAt: { lte: now },
       },
-      orderBy: [{ effectiveAt: 'desc' }, { publishedAt: 'desc' }],
+      orderBy: [{ effectiveAt: 'desc' }, { publishedAt: 'desc' }, { id: 'desc' }],
     });
   });
 

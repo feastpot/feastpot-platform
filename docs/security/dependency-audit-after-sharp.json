@@ -1,0 +1,25 @@
+{
+  "npm": {
+    "info": 0,
+    "low": 0,
+    "moderate": 0,
+    "high": 0,
+    "critical": 0,
+    "total": 0
+  },
+  "broader": {
+    "critical": 0,
+    "high": 1,
+    "info": 0,
+    "low": 0,
+    "moderate": 0
+  },
+  "remaining": [
+    {
+      "package": "braces",
+      "version": "3.0.3",
+      "id": "GHSA-vfj7-8cjw-p6xm@braces-3.0.3",
+      "severity": "high"
+    }
+  ]
+}

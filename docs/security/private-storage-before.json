@@ -1,0 +1,59 @@
+{
+  "at": "2026-10-03T00:34:59.649Z",
+  "environment": "development",
+  "pass": true,
+  "results": [
+    {
+      "name": "private Storage signed out",
+      "http": 400,
+      "error": "Error",
+      "storageStatus": "400"
+    },
+    {
+      "name": "private Storage owner",
+      "http": 500,
+      "error": "DatabaseError",
+      "storageStatus": "500"
+    },
+    {
+      "name": "private Storage other vendor",
+      "http": 500,
+      "error": "DatabaseError",
+      "storageStatus": "500"
+    },
+    {
+      "name": "private API signed out",
+      "http": 401,
+      "error": "UNAUTHORIZED",
+      "storageStatus": 401
+    },
+    {
+      "name": "private API other vendor",
+      "http": 403,
+      "error": "FORBIDDEN",
+      "storageStatus": 403
+    },
+    {
+      "name": "private API owner",
+      "http": 200
+    },
+    {
+      "name": "public image signed out",
+      "http": 200
+    }
+  ],
+  "claimsResults": [
+    {
+      "expectedRole": "vendor",
+      "databaseRole": "vendor",
+      "appRole": null,
+      "mappingPass": true
+    },
+    {
+      "expectedRole": "vendor",
+      "databaseRole": "vendor",
+      "appRole": null,
+      "mappingPass": true
+    }
+  ]
+}

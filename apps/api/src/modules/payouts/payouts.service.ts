@@ -1338,8 +1338,7 @@ export class PayoutsService {
       foundingAllowanceAppliedPence: o.foundingAllowanceAppliedPence,
       // resolvedSource is null only on pre-attribution rows; treat as MARKETPLACE_FIRST.
       attributionSource: (o.orderCommission?.source ?? o.attribution?.resolvedSource ?? null) as
-        | string
-        | null,
+        string | null,
     }));
   }
 

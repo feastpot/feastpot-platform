@@ -1,0 +1,57 @@
+TASK: Fix the genuine customer-facing defects.
+
+DEPENDS ON: LR-03. Fix ONLY items classified as bucket A,
+genuine product defects. Bucket C items (incorrect tests) are
+handled in LR-11. Do not conflate them.
+
+THE FAILURES THE AUDIT NAMED
+  checkout financials
+  payment outcomes
+  the 375px post-order journey
+  the real Stripe test-mode purchase smoke
+LR-03 will have told you which of these are real. Fix those.
+
+CHECKOUT FINANCIALS, VERIFY THESE SPECIFICALLY
+  The total INCLUDING the mandatory customer service fee
+  (5% capped £2.99) is shown at the FIRST point pricing
+  appears, not added late. This is a legal requirement, not a
+  preference.
+  The fee is charged to the customer and never reduces the
+  vendor payout. Assert the vendor payout is byte-identical
+  for a FeastPass member and a non-member on the same order.
+  Commission resolves correctly per source: 8% first-order,
+  5% repeat, 0% vendor-referred, and never touches delivery
+  fees, service fees, tips or discounts.
+
+PAYMENT OUTCOMES
+Test-mode cards for: success, decline, insufficient funds, 3DS
+completed, 3DS abandoned, timeout during confirmation,
+double-click on pay, tab closed mid-payment.
+For each, assert the resulting order state is correct and no
+orphan order or orphan payment exists.
+
+MOBILE POST-ORDER AT 375px
+Confirmation, order history, tracking, cancellation. Report
+scrollWidth against clientWidth on each. Fix any overflow.
+
+THE DEFINITIVE TEST
+One clean test-mode purchase, from postcode search through
+vendor profile, allergen display, basket, checkout, payment,
+confirmation, order history and cancellation. This must pass
+before launch. Screenshot each step.
+
+ALSO FIX
+/vendors/audit-missing-slug returns HTTP 200 while rendering
+"We couldn't find that page". Return a real 404 status. Search
+engines and monitoring both rely on the status code.
+
+COST CONTROL
+Fix defects, do not refactor. If a fix does not work after two
+attempts, record and move on. Target 60 minutes.
+
+ACCEPTANCE CRITERIA
+- One clean test-mode purchase completes end to end.
+- Total including all mandatory fees shown at first display.
+- Vendor payout identical for member and non-member.
+- No horizontal overflow at 375px on the post-order journey.
+- Missing vendor slugs return 404.

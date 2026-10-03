@@ -1,7 +1,8 @@
 'use client';
+import { prepareUpload } from '@feastpot/ui/upload';
 
 import { ArrowRight, Check, CircleAlert, ImagePlus, Loader2, Mail, Sparkles } from 'lucide-react';
-import Image from 'next/image';
+import { SafeImage as Image } from '@feastpot/ui';
 import Link from 'next/link';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { RateRow } from '@feastpot/ui';
@@ -43,11 +44,7 @@ type CurrentStep =
   | 'phase_2_review'
   | 'submitted';
 type PhaseTwoScreen =
-  | 'phase_2_business_name'
-  | 'phase_2_cuisines'
-  | 'phase_2_menu'
-  | 'phase_2_occasions'
-  | 'review';
+  'phase_2_business_name' | 'phase_2_cuisines' | 'phase_2_menu' | 'phase_2_occasions' | 'review';
 type AbandonmentField =
   | 'first_name'
   | 'email'
@@ -493,7 +490,7 @@ function PhaseTwo({
             </span>
             <input
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
               data-testid="input-menu-photo"
               className="sr-only"
               onFocus={() => onFieldFocus('menu_photo')}
@@ -841,6 +838,12 @@ function ApplicationFlow({
     }
   };
   const upload = async (file: File) => {
+    try {
+      file = await prepareUpload(file);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : 'Could not prepare the photo.');
+      return;
+    }
     if (
       !['image/jpeg', 'image/png', 'image/webp'].includes(file.type) ||
       file.size > 5 * 1024 * 1024

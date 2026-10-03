@@ -1470,11 +1470,12 @@ export class VendorsService {
 
   async search(dto: SearchVendorsDto) {
     const limit = dto.limit ?? 20;
+    const currentTerms = await this.terms.getCurrentVersion('VENDOR_TERMS');
     // Cache key includes the entire DTO so each filter combo is its own
     // bucket. Logged search rows are intentionally written below on EVERY
     // call (including cache hits) so the analytics pipeline still sees
     // real customer demand even when the response was served from Redis.
-    const cacheKey = `vendors:search:${RedisCacheService.stableKey(dto)}`;
+    const cacheKey = `vendors:search:terms-v1:${currentTerms?.id ?? 'none'}:${RedisCacheService.stableKey(dto)}`;
     const cached = await this.cache.get<{
       data: ReturnType<VendorsService['mapSearchRows']>;
       nextCursor: string | null;
@@ -1699,7 +1700,12 @@ export class VendorsService {
   /** All live, approved menu items for a vendor. Used by the featured-dishes picker. */
   async getLiveMenuItems(
     vendorId: string,
+    user: AuthUser,
   ): Promise<{ id: string; name: string; imageUrls: string[] }[]> {
+    const vendor = await this.prisma.vendor.findUniqueOrThrow({ where: { id: vendorId } });
+    if (vendor.userId !== user.id && user.role !== UserRole.admin) {
+      throw new ForbiddenException({ code: 'FORBIDDEN', message: 'Cannot access another vendor' });
+    }
     return this.prisma.menuItem.findMany({
       where: {
         vendorId,
@@ -1928,6 +1934,7 @@ export class VendorsService {
     // Publication eligibility is derived from fresh source evidence. It is
     // deliberately not stored on Vendor, so it cannot drift from its inputs.
     if (dto.status === VendorStatus.live) {
+      await this.terms.assertAcceptedCurrentVersion(vendorId);
       await this.onboarding.assertCanProfileGoLive(vendorId);
     }
 
@@ -2373,6 +2380,12 @@ export class VendorsService {
       where: { id: blackoutId, vendorId: vendor.id },
     });
     if (res.count === 0) {
+      if (await this.prisma.blackoutDate.findUnique({ where: { id: blackoutId } })) {
+        throw new ForbiddenException({
+          code: 'FORBIDDEN',
+          message: 'Cannot remove another vendor blackout',
+        });
+      }
       throw new NotFoundException({ code: 'BLACKOUT_NOT_FOUND', message: 'Blackout not found' });
     }
     return this.getAvailabilityById(vendor.id);
@@ -2515,6 +2528,12 @@ export class VendorsService {
       where: { id: capacityId, vendorId: vendor.id },
     });
     if (res.count === 0) {
+      if (await this.prisma.vendorCapacity.findUnique({ where: { id: capacityId } })) {
+        throw new ForbiddenException({
+          code: 'FORBIDDEN',
+          message: 'Cannot remove another vendor capacity',
+        });
+      }
       throw new NotFoundException({ code: 'CAPACITY_NOT_FOUND', message: 'Capacity not found' });
     }
     return this.getMyCapacity(userId);

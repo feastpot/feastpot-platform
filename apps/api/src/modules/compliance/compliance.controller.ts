@@ -3,10 +3,12 @@ import {
   Body,
   Controller,
   Get,
+  Header,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
+  StreamableFile,
   UnauthorizedException,
   UploadedFile,
   UseInterceptors,
@@ -81,6 +83,21 @@ export class ComplianceController {
         message: 'Multipart field "file" is required',
       });
     return this.compliance.uploadDocument(vendorId, file, dto, requireUser(user));
+  }
+
+  @Get(':documentId/download')
+  @Header('Cache-Control', 'private, no-store')
+  @Header('X-Content-Type-Options', 'nosniff')
+  async download(
+    @Param('vendorId', new ParseUUIDPipe()) vendorId: string,
+    @Param('documentId', new ParseUUIDPipe()) documentId: string,
+    @CurrentUser() user: AuthUser | null,
+  ) {
+    const file = await this.compliance.downloadDocument(vendorId, documentId, requireUser(user));
+    return new StreamableFile(file.bytes, {
+      type: file.type,
+      disposition: `attachment; filename="${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}"`,
+    });
   }
 
   @Patch(':documentId/verify')
