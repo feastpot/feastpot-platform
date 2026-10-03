@@ -330,8 +330,7 @@ export class VendorEnforcementService {
     }
 
     const priorStatus = (action.facts as Record<string, unknown>).priorStatus as
-      | VendorStatus
-      | undefined;
+      VendorStatus | undefined;
 
     const lifted = await this.prisma.$transaction(async (tx) => {
       const updated = await tx.vendorEnforcementAction.update({

@@ -15,11 +15,7 @@ export interface OnboardingProgress {
 }
 
 export type OnboardingStepState =
-  | 'not_started'
-  | 'in_progress'
-  | 'submitted'
-  | 'verified'
-  | 'rejected';
+  'not_started' | 'in_progress' | 'submitted' | 'verified' | 'rejected';
 
 export interface OnboardingStep {
   name: string;

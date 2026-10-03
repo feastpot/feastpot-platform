@@ -600,8 +600,7 @@ export class NotificationProcessor {
 
   private resolveUserId(data: NotificationJobData): string | undefined {
     return (data.userId ?? data.customerId ?? data.vendorUserId ?? data.recipientUserId) as
-      | string
-      | undefined;
+      string | undefined;
   }
 
   private async handleCateringEnquiryExpired(

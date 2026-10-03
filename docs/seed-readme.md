@@ -21,13 +21,14 @@ rebuilds the order graph from scratch. It is safe to run against an already-
 seeded database.
 
 **Required env vars** (`.env`, see `.env.example`):
-| Var | Purpose |
-|---|---|
-| `SUPABASE_URL` | Dev Supabase project API URL |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service-role key (admin user creation) |
-| `SUPABASE_DB_URL` | Prisma connection pool URL |
-| `SUPABASE_DIRECT_URL` | Prisma direct URL (migrations) |
-| `SEED_TEST_PASSWORD` | Password assigned to every disposable seeded identity; keep it in environment secrets |
+
+| Var                         | Purpose                                                                               |
+| --------------------------- | ------------------------------------------------------------------------------------- |
+| `SUPABASE_URL`              | Dev Supabase project API URL                                                          |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service-role key (admin user creation)                                       |
+| `SUPABASE_DB_URL`           | Prisma connection pool URL                                                            |
+| `SUPABASE_DIRECT_URL`       | Prisma direct URL (migrations)                                                        |
+| `SEED_TEST_PASSWORD`        | Password assigned to every disposable seeded identity; keep it in environment secrets |
 
 ---
 

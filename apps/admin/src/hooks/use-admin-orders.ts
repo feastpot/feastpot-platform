@@ -149,11 +149,7 @@ export function useBulkOrderTags() {
 }
 
 export type RefundReason =
-  | 'customer_complaint'
-  | 'order_not_delivered'
-  | 'food_safety'
-  | 'goodwill'
-  | 'other';
+  'customer_complaint' | 'order_not_delivered' | 'food_safety' | 'goodwill' | 'other';
 
 export const REFUND_REASONS: Array<{ value: RefundReason; label: string }> = [
   { value: 'customer_complaint', label: 'Customer complaint' },

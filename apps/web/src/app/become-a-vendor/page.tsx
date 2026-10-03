@@ -44,11 +44,7 @@ type CurrentStep =
   | 'phase_2_review'
   | 'submitted';
 type PhaseTwoScreen =
-  | 'phase_2_business_name'
-  | 'phase_2_cuisines'
-  | 'phase_2_menu'
-  | 'phase_2_occasions'
-  | 'review';
+  'phase_2_business_name' | 'phase_2_cuisines' | 'phase_2_menu' | 'phase_2_occasions' | 'review';
 type AbandonmentField =
   | 'first_name'
   | 'email'

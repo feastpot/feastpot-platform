@@ -3,13 +3,7 @@
 import { useState } from 'react';
 
 type BookingStatus =
-  | 'QUOTED'
-  | 'DEPOSIT_PAID'
-  | 'CONFIRMED'
-  | 'BALANCE_PAID'
-  | 'COMPLETED'
-  | 'CANCELLED'
-  | 'EXPIRED';
+  'QUOTED' | 'DEPOSIT_PAID' | 'CONFIRMED' | 'BALANCE_PAID' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
 
 interface LineItem {
   id: string;

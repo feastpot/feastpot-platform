@@ -8,11 +8,7 @@ import { useAccessToken } from '@/lib/auth/use-access-token';
 import { API_URL } from '@/lib/env';
 
 export type VendorDocumentType =
-  | 'hygiene_cert'
-  | 'insurance'
-  | 'photo_id'
-  | 'bank_details'
-  | 'kitchen_reg';
+  'hygiene_cert' | 'insurance' | 'photo_id' | 'bank_details' | 'kitchen_reg';
 
 export type DocumentStatus = 'pending' | 'verified' | 'rejected' | 'expired';
 

@@ -314,8 +314,7 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
       });
       expect(search.status()).toBe(200);
       const searchBody = (await search.json()) as
-        | Array<{ id: string }>
-        | { data?: Array<{ id: string }> };
+        Array<{ id: string }> | { data?: Array<{ id: string }> };
       const searchRows = Array.isArray(searchBody) ? searchBody : (searchBody.data ?? []);
       expect(searchRows.some((row) => row.id === vendorId)).toBe(true);
 

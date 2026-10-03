@@ -10,11 +10,7 @@ import { API_URL } from '@/lib/env';
 export type DisputeStatus = 'open' | 'vendor_contacted' | 'escalated' | 'resolved' | 'closed';
 
 export type DisputeIssueType =
-  | 'not_delivered'
-  | 'missing_items'
-  | 'wrong_order'
-  | 'quality'
-  | 'other';
+  'not_delivered' | 'missing_items' | 'wrong_order' | 'quality' | 'other';
 
 export type DisputeSeverity = 'low' | 'medium' | 'high';
 

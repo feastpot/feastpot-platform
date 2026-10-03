@@ -90,6 +90,8 @@ d('Delivery chip-set governs vendor search discoverability (integration, real DB
         contentHash: currentTerms.contentHash,
         scrolledToEnd: true,
         acceptanceText: 'Integration fixture accepts the current vendor terms.',
+        ipAddress: '127.0.0.1',
+        userAgent: 'delivery-search-integration-test',
       },
     });
   }

@@ -17,12 +17,7 @@ import type {
  * on the page banner rather than per row.
  */
 export type ComplianceState =
-  | 'not_started'
-  | 'submitted'
-  | 'approved'
-  | 'needs_changes'
-  | 'expiring_soon'
-  | 'expired';
+  'not_started' | 'submitted' | 'approved' | 'needs_changes' | 'expiring_soon' | 'expired';
 
 /** Mirrors apps/api/.../compliance.service.ts EXPIRY_WARNING_DAYS. */
 export const EXPIRY_WARNING_DAYS = 30;

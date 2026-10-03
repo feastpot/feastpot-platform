@@ -62,10 +62,7 @@ export class HmrcReportService {
       where: {
         status: {
           in: REPORTABLE_STATUSES as unknown as (
-            | 'delivered'
-            | 'dispatched'
-            | 'accepted'
-            | 'preparing'
+            'delivered' | 'dispatched' | 'accepted' | 'preparing'
           )[],
         },
         createdAt: { gte: start, lt: end },

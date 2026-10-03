@@ -4,14 +4,8 @@
       "component": "next",
       "viewport": 1280,
       "ratio": {
-        "natural": [
-          24,
-          32
-        ],
-        "rendered": [
-          24,
-          32
-        ],
+        "natural": [24, 32],
+        "rendered": [24, 32],
         "pass": true
       },
       "placeholder": true
@@ -20,14 +14,8 @@
       "component": "plain",
       "viewport": 1280,
       "ratio": {
-        "natural": [
-          24,
-          32
-        ],
-        "rendered": [
-          24,
-          32
-        ],
+        "natural": [24, 32],
+        "rendered": [24, 32],
         "pass": true
       },
       "placeholder": true
@@ -36,14 +24,8 @@
       "component": "private",
       "viewport": 1280,
       "ratio": {
-        "natural": [
-          24,
-          32
-        ],
-        "rendered": [
-          24,
-          32
-        ],
+        "natural": [24, 32],
+        "rendered": [24, 32],
         "pass": true
       },
       "placeholder": true
@@ -52,14 +34,8 @@
       "component": "next",
       "viewport": 375,
       "ratio": {
-        "natural": [
-          24,
-          32
-        ],
-        "rendered": [
-          24,
-          32
-        ],
+        "natural": [24, 32],
+        "rendered": [24, 32],
         "pass": true
       },
       "placeholder": true
@@ -68,14 +44,8 @@
       "component": "plain",
       "viewport": 375,
       "ratio": {
-        "natural": [
-          24,
-          32
-        ],
-        "rendered": [
-          24,
-          32
-        ],
+        "natural": [24, 32],
+        "rendered": [24, 32],
         "pass": true
       },
       "placeholder": true
@@ -84,14 +54,8 @@
       "component": "private",
       "viewport": 375,
       "ratio": {
-        "natural": [
-          24,
-          32
-        ],
-        "rendered": [
-          24,
-          32
-        ],
+        "natural": [24, 32],
+        "rendered": [24, 32],
         "pass": true
       },
       "placeholder": true

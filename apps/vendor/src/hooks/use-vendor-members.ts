@@ -6,11 +6,7 @@ import { apiRequest } from '@/lib/api/client';
 import { useAccessToken } from '@/lib/auth/use-access-token';
 
 export type VendorMemberRole =
-  | 'owner'
-  | 'kitchen_manager'
-  | 'finance'
-  | 'staff'
-  | 'delivery_coordinator';
+  'owner' | 'kitchen_manager' | 'finance' | 'staff' | 'delivery_coordinator';
 
 export interface VendorMemberRow {
   id: string;

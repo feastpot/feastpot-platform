@@ -5,11 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useApi } from './use-api';
 
 export type VendorApplicationStatus =
-  | 'pending'
-  | 'under_review'
-  | 'information_requested'
-  | 'approved'
-  | 'rejected';
+  'pending' | 'under_review' | 'information_requested' | 'approved' | 'rejected';
 
 interface ReviewerRef {
   id: string;
@@ -80,10 +76,7 @@ export interface VendorApplicationDetail {
 
 /** Statuses an admin can transition an application TO via the PATCH endpoint. */
 export type VendorApplicationAction =
-  | 'under_review'
-  | 'information_requested'
-  | 'approved'
-  | 'rejected';
+  'under_review' | 'information_requested' | 'approved' | 'rejected';
 
 export interface UpdateVendorApplicationBody {
   status: VendorApplicationAction;

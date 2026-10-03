@@ -83,13 +83,7 @@ interface EligibleVendor {
 }
 
 type BookingStatus =
-  | 'QUOTED'
-  | 'DEPOSIT_PAID'
-  | 'CONFIRMED'
-  | 'BALANCE_PAID'
-  | 'COMPLETED'
-  | 'CANCELLED'
-  | 'EXPIRED';
+  'QUOTED' | 'DEPOSIT_PAID' | 'CONFIRMED' | 'BALANCE_PAID' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED';
 
 interface CateringBooking {
   id: string;
