@@ -155,25 +155,23 @@ export function decodeJwtClaims(token: string): Record<string, unknown> | null {
 }
 
 export function mapUser(user: User, verifiedToken: string): AuthUser {
-  // Trust ONLY two sources, in order:
-  //  1. Top-level `role` claim from the verified JWT - but ONLY if it parses
-  //     to one of our app roles. Supabase ALWAYS sets a top-level `role`
-  //     claim (default value `"authenticated"` - its auth-level role). When
-  //     the `custom_access_token_hook` is registered it overwrites that with
-  //     our app role; when the hook is NOT registered we'd see "authenticated"
-  //     here and must fall through, otherwise everyone collapses to customer.
-  //  2. `app_metadata.role` - server-managed, written via
-  //     `supabase.auth.admin.updateUserById({ app_metadata })`. Safe to trust.
+  // `role` is Supabase's PostgreSQL role, NOT the Feastpot application role.
+  // Trust the hook's signed `app_role` first, then legacy application-role
+  // tokens during session rollover, then server-managed app_metadata.role.
+  // Never create PostgreSQL vendor/admin roles to accommodate old tokens.
   //
   // NEVER trust `user_metadata.role` - that field is user-writable and would
   // allow privilege escalation.
   const claims = decodeJwtClaims(verifiedToken);
+  const applicationClaim = claims && typeof claims.app_role === 'string' ? claims.app_role : null;
   const jwtRole = claims && typeof claims.role === 'string' ? claims.role : null;
   const appRoleRaw = (user.app_metadata as Record<string, unknown> | undefined)?.role;
   const appRole = typeof appRoleRaw === 'string' ? appRoleRaw : null;
 
   let role: UserRole = UserRole.customer;
-  if (jwtRole && VALID_ROLES.has(jwtRole as UserRole)) {
+  if (applicationClaim && VALID_ROLES.has(applicationClaim as UserRole)) {
+    role = applicationClaim as UserRole;
+  } else if (jwtRole && VALID_ROLES.has(jwtRole as UserRole)) {
     role = jwtRole as UserRole;
   } else if (appRole && VALID_ROLES.has(appRole as UserRole)) {
     role = appRole as UserRole;

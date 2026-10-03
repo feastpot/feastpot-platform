@@ -25,7 +25,7 @@
 - [Chargeback reconciliation](chargeback-reconciliation.md) - lost disputes write the refund+credit ledger pair; ALL refund writers must take the per-order advisory lock and re-check the ceiling in-tx.
 - [Stripe money idempotency](stripe-idempotency.md) - every money-moving Stripe call must pass a deterministic idempotencyKey keyed on the business id; createTransfer lacked one → double-pay on re-approval.
 - [Queue-infra crons](queue-module-crons.md) - host @InjectQueue cron services in a separate module, NOT queues.module (circular import → queue-name const resolves undefined).
-- [Supabase auth hook](supabase-auth-hook.md) - login depends on custom_access_token_hook fn + RLS policy (auth_admin SELECT public.users); missing fn → all logins HTTP 500; missing policy → JWT role=customer for everyone.
+- [Supabase auth hook](supabase-auth-hook.md) — JWT role is PostgreSQL authenticated; signed app_role holds Feastpot permissions. Wrong role causes Storage 500; auth-admin RLS is required.
 - [DB reset recovery](db-reset-recovery.md) - empty/drifted app DB w/ auth.users intact: migrate diff → db push --accept-data-loss → db:seed (bg, idempotent) → re-apply auth hook+policy.
 - [GitHub push workflow scope](github-push-workflow-scope.md) - PUSH_REJECTED when commits touch .github/workflows/: OAuth token lacks `workflow` scope; user must push via PAT (repo+workflow) or SSH.
 - [GitHub push authentication](github-pat-replit-push.md) - the connected GitHub proxy can work when shell credentials fail; automatic merging is disabled, so required checks remain a merge blocker.

@@ -216,3 +216,17 @@ mtime_ms = 1790984898336
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/d9b27f6d-4b36-411a-98ec-dd65455447cc/1cd1d8e1-31a4-406b-8431-4cc004c35949"
 storage_version_token = "1790984923536715"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "BMVbfWi9jrt56owOmxy23"
+uri = "file://docs/security/private-storage-repair.md"
+type = "text"
+title = "Private Storage repair and verification"
+description = "Root cause, passing before/after access checks, preserved private-document boundaries and production rollout requirements."
+logical_id = "43af0de7-57e1-4d3b-82e9-fb92939a705e"
+content_hash = "sha256:547d875e7fdeacbfd910da4172c7f63af5ea8f1126d3e8961dfe621c1dd75709"
+size = 4074
+mtime_ms = 1790988149380
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/43af0de7-57e1-4d3b-82e9-fb92939a705e/0b1d8e80-3660-4a33-b213-7edda6338d59"
+storage_version_token = "1790988154218902"
+content_type = "text/markdown"

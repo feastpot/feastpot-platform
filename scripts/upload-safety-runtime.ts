@@ -425,6 +425,16 @@ async function main() {
           checks.documentApiSignedOut = await status(download);
           checks.documentApiCrossVendor = await status(download, otherToken);
           checks.documentApiOwner = await status(download, vendorToken);
+          // A 500 can fail closed before RLS runs (e.g. an invalid JWT database
+          // role). It is not a successful private-access denial.
+          if (
+            ![400, 403, 404].includes(Number(checks.privateCrossVendorAuthenticated)) ||
+            checks.documentApiSignedOut !== 401 ||
+            checks.documentApiCrossVendor !== 403 ||
+            checks.documentApiOwner !== 200
+          ) {
+            throw new Error('PRIVATE_STORAGE_ACCESS_BOUNDARY_FAILED');
+          }
           privateProofDone = true;
         }
         if (path.name === 'logo/cover' && response.ok)

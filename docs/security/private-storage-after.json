@@ -1,0 +1,99 @@
+{
+  "at": "2026-10-03T00:39:07.805Z",
+  "environment": "development",
+  "pass": true,
+  "results": [
+    {
+      "name": "private Storage signed out",
+      "http": 400,
+      "error": "Error",
+      "storageStatus": "400"
+    },
+    {
+      "name": "private Storage owner",
+      "http": 400,
+      "error": "not_found",
+      "storageStatus": "404"
+    },
+    {
+      "name": "private Storage other vendor",
+      "http": 400,
+      "error": "not_found",
+      "storageStatus": "404"
+    },
+    {
+      "name": "private API signed out",
+      "http": 401,
+      "error": "UNAUTHORIZED",
+      "storageStatus": 401
+    },
+    {
+      "name": "private API other vendor",
+      "http": 403,
+      "error": "FORBIDDEN",
+      "storageStatus": 403
+    },
+    {
+      "name": "private API owner",
+      "http": 200
+    },
+    {
+      "name": "public image signed out",
+      "http": 200
+    },
+    {
+      "name": "private API customer",
+      "http": 403,
+      "error": "FORBIDDEN",
+      "storageStatus": 403
+    },
+    {
+      "name": "private API AAL2 admin",
+      "http": 200
+    }
+  ],
+  "claimsResults": [
+    {
+      "expectedRole": "vendor",
+      "databaseRole": "authenticated",
+      "appRole": "vendor",
+      "mappingPass": true
+    },
+    {
+      "expectedRole": "vendor",
+      "databaseRole": "authenticated",
+      "appRole": "vendor",
+      "mappingPass": true
+    },
+    {
+      "expectedRole": "customer",
+      "databaseRole": "authenticated",
+      "appRole": "customer",
+      "mappingPass": true
+    },
+    {
+      "expectedRole": "admin",
+      "databaseRole": "authenticated",
+      "appRole": "admin",
+      "mappingPass": true
+    },
+    {
+      "expectedRole": "support",
+      "databaseRole": "authenticated",
+      "appRole": "support",
+      "mappingPass": true
+    },
+    {
+      "expectedRole": "finance",
+      "databaseRole": "authenticated",
+      "appRole": "finance",
+      "mappingPass": true
+    },
+    {
+      "expectedRole": "compliance",
+      "databaseRole": "authenticated",
+      "appRole": "compliance",
+      "mappingPass": true
+    }
+  ]
+}

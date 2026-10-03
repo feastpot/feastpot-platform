@@ -1,6 +1,8 @@
 # Supabase custom access token hook
 
-Feastpot expects each Supabase JWT to carry a `role` claim drawn from `public.users.role`. Register the following hook in **Supabase Dashboard → Authentication → Hooks → Custom Access Token Hook**.
+Feastpot expects each Supabase JWT to carry an `app_role` claim drawn from `public.users.role`. The reserved `role` claim must remain `authenticated`: Supabase Storage and PostgREST use it as a PostgreSQL role. Putting `vendor`, `customer` or staff roles there causes database errors, not ordinary access denials.
+
+Register the following hook in **Supabase Dashboard → Authentication → Hooks → Custom Access Token Hook**.
 
 ```sql
 CREATE OR REPLACE FUNCTION public.custom_access_token_hook(event jsonb)
@@ -17,11 +19,8 @@ BEGIN
 
   claims := event->'claims';
 
-  IF user_role IS NOT NULL THEN
-    claims := jsonb_set(claims, '{role}', to_jsonb(user_role));
-  ELSE
-    claims := jsonb_set(claims, '{role}', '"customer"');
-  END IF;
+  claims := jsonb_set(claims, '{role}', '"authenticated"'::jsonb);
+  claims := jsonb_set(claims, '{app_role}', to_jsonb(COALESCE(user_role, 'customer')));
 
   RETURN jsonb_set(event, '{claims}', claims);
 END;
@@ -35,7 +34,7 @@ GRANT SELECT (id, role) ON public.users TO supabase_auth_admin;
 
 -- public.users has RLS enabled (and forced), so supabase_auth_admin would read
 -- ZERO rows without an explicit policy. Without this the hook silently falls
--- back to '"customer"' for EVERYONE, and vendors/admins get a customer JWT.
+-- back to app_role '"customer"' for EVERYONE.
 DROP POLICY IF EXISTS "Allow auth admin to read user roles" ON public.users;
 CREATE POLICY "Allow auth admin to read user roles"
   ON public.users
@@ -44,20 +43,25 @@ CREATE POLICY "Allow auth admin to read user roles"
   USING (true);
 ```
 
-After creating the function, register it: **Auth → Hooks → Custom Access Token Hook → public.custom_access_token_hook**. Newly issued JWTs will then carry a top-level `role` claim, which `SupabaseAuthGuard.mapUser` reads from the verified bearer token.
+After creating the function, register it: **Auth → Hooks → Custom Access Token Hook → public.custom_access_token_hook**. Newly issued JWTs carry `role: authenticated` and the separate top-level `app_role`, which `SupabaseAuthGuard.mapUser` reads from the verified bearer token.
 
-> **Important - this hook is not managed by Prisma.** The function, its grants,
-> and the RLS policy above live only in the database. A schema reset / fresh
-> `prisma db push` against a new database drops them. When that happens **every**
+> **Important:** the hook repair is now versioned in a SQL migration. Supabase Dashboard hook registration remains external configuration and is not created by Prisma. A database reset can still remove the function, grants or auth-admin RLS policy. When that happens **every**
 > sign-in returns HTTP 500 (`Error running hook URI: pg-functions://postgres/public/custom_access_token_hook`),
 > or - if only the policy is missing - logins succeed but every JWT carries
-> `role: customer`. Re-run the full SQL block above after any DB reset.
+> `app_role: customer`. Re-run the full SQL block above after recovery if necessary. Never use `db push` on shared databases.
 
 ## Trust model
 
 `mapUser` sources the role from, in order:
 
-1. The top-level `role` claim of the verified JWT (set by this hook).
-2. `user.app_metadata.role` (server-managed, set via the admin API only).
+1. The top-level `app_role` claim of the verified JWT (set by this hook).
+2. A legacy top-level application `role` claim, only for existing sessions during rollover.
+3. `user.app_metadata.role` (server-managed, set via the admin API only).
 
 `user_metadata.role` is **never** trusted - that field is writable by the user themselves and would allow privilege escalation.
+
+## Rollout and private Storage boundary
+
+Deploy the compatible API role reader before updating a live hook. Apply the hook migration to the intended Supabase database; this does not require changing its existing Dashboard registration. Existing tokens keep their original signed claims until refreshed or reissued. API authorisation stays compatible, but old tokens can still produce the Storage 500 until session refresh. Do not revoke all sessions merely to accelerate rollover.
+
+Private document access stays through the authenticated API proxy, using its ownership/staff checks and server-side Storage credentials. Do not add PostgreSQL application roles, make the bucket public, or add permissive Storage policies. Even an owner is intentionally denied direct private Storage reads; normal masked not-found responses are expected. Public image reads remain public.
