@@ -47,6 +47,7 @@ interface HealthzResponse {
     secrets: 'ok' | string;
     stripe: StripeMode;
     supabase: SupabaseInfo;
+    authTokenClaims: 'app_role-v1';
     notifications: NotificationChannels;
     serviceFeeBps: number;
   };
@@ -340,6 +341,8 @@ export class HealthController {
         secrets,
         stripe: stripeMode(),
         supabase: supabaseInfo(),
+        // Production hook activation checks this compiled API capability.
+        authTokenClaims: 'app_role-v1',
         notifications: notificationChannels(),
         serviceFeeBps: getServiceFeeBps(),
       },

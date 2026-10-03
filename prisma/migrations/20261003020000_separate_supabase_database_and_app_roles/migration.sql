@@ -1,7 +1,8 @@
 -- Supabase Storage/PostgREST SET ROLE using the reserved JWT `role` claim.
 -- App roles are not PostgreSQL roles and must never be put in that claim.
--- CREATE OR REPLACE preserves the existing hook registration and grants.
-CREATE OR REPLACE FUNCTION public.custom_access_token_hook(event jsonb)
+-- STAGE ONLY: migrations run before the manual API publish. Do not change
+-- the registered hook here. Activation is a separate, live-API-gated step.
+CREATE OR REPLACE FUNCTION public.custom_access_token_hook_v2(event jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
 AS $$
@@ -20,6 +21,9 @@ BEGIN
 END;
 $$;
 
+-- The staged implementation is an Auth-internal function, not a public RPC.
+REVOKE ALL ON FUNCTION public.custom_access_token_hook_v2(jsonb) FROM PUBLIC;
+
 -- Fresh databases may not previously have had the hook installed. Test/CI
 -- PostgreSQL does not necessarily define Supabase's auth-admin role.
 DO $$
@@ -27,7 +31,7 @@ BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'supabase_auth_admin') THEN
     GRANT USAGE ON SCHEMA public TO supabase_auth_admin;
     GRANT SELECT (id, role) ON public.users TO supabase_auth_admin;
-    GRANT EXECUTE ON FUNCTION public.custom_access_token_hook(jsonb) TO supabase_auth_admin;
+    GRANT EXECUTE ON FUNCTION public.custom_access_token_hook_v2(jsonb) TO supabase_auth_admin;
     IF NOT EXISTS (
       SELECT 1 FROM pg_policies
       WHERE schemaname = 'public' AND tablename = 'users'

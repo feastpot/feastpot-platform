@@ -35,6 +35,6 @@ Sanitised before/after evidence: `private-storage-before.json` and `private-stor
 
 ## Rollout limits
 
-Only the development hook has been updated. Deploy the compatible API reader before applying the migration to a live hook. Dashboard registration remains external configuration. Existing signed tokens keep their old claims until refreshed/reissued; API authorisation remains compatible, but those old tokens can still cause the Storage 500 until refresh. No mass session revocation was performed.
+Only the development hook has been updated. The prepared migration now stages an inactive implementation, safe to run before the API publish. Activation is a separate live-API-gated command requiring explicit production approval; see `storage-hook-production-rollout.md`. Dashboard registration remains external configuration. Existing signed tokens keep their old claims until refreshed/reissued; API authorisation remains compatible, but those old tokens can still cause the Storage 500 until refresh. No mass session revocation was performed.
 
 Production, historical object exposure and signed-in portal UI were not verified by this work.

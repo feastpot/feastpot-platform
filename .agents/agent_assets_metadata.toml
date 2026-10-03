@@ -230,3 +230,17 @@ mtime_ms = 1790988149380
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/43af0de7-57e1-4d3b-82e9-fb92939a705e/0b1d8e80-3660-4a33-b213-7edda6338d59"
 storage_version_token = "1790988154218902"
 content_type = "text/markdown"
+
+[[outputs]]
+id = "tMEw1VCxoKjkNsAr_rjvn"
+uri = "file://docs/security/storage-hook-production-rollout.md"
+type = "text"
+title = "Coordinated production Storage rollout"
+description = "Two-phase release steps, read-only and explicit activation commands, verification results and recovery guidance. Production is unchanged."
+logical_id = "ec6f93c1-08bd-4b42-928b-d0a878aa8c56"
+content_hash = "sha256:20fecd8c68b9dece2255d61e6bf927d66e603aaf218a82b81baa055566700389"
+size = 5112
+mtime_ms = 1790989163587
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/ec6f93c1-08bd-4b42-928b-d0a878aa8c56/0d251e4f-2c45-4185-a193-356ef98429a0"
+storage_version_token = "1790989235426800"
+content_type = "text/markdown"
