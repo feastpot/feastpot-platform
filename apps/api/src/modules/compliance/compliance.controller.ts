@@ -2,12 +2,14 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Header,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   StreamableFile,
   UnauthorizedException,
   UploadedFile,
@@ -98,6 +100,32 @@ export class ComplianceController {
       type: file.type,
       disposition: `attachment; filename="${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}"`,
     });
+  }
+
+  @Delete(':documentId')
+  @Roles(UserRole.vendor, UserRole.compliance, UserRole.admin)
+  deleteDocument(
+    @Param('vendorId', new ParseUUIDPipe()) vendorId: string,
+    @Param('documentId', new ParseUUIDPipe()) documentId: string,
+    @CurrentUser() user: AuthUser | null,
+  ) {
+    return this.compliance.deleteDocument(vendorId, documentId, requireUser(user));
+  }
+
+  @Put(':documentId')
+  @Roles(UserRole.vendor, UserRole.compliance, UserRole.admin)
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: 10 * 1024 * 1024 } }))
+  replaceDocument(
+    @Param('vendorId', new ParseUUIDPipe()) vendorId: string,
+    @Param('documentId', new ParseUUIDPipe()) documentId: string,
+    @CurrentUser() user: AuthUser | null,
+    @UploadedFile() file: Express.Multer.File,
+    @Body() dto: UploadDocumentDto,
+  ) {
+    if (!file)
+      throw new BadRequestException({ code: 'FILE_REQUIRED', message: 'File is required' });
+    return this.compliance.uploadDocument(vendorId, file, dto, requireUser(user), documentId);
   }
 
   @Patch(':documentId/verify')

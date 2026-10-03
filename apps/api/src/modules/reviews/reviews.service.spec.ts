@@ -22,7 +22,11 @@ describe('ReviewsService', () => {
     vendor: { update: jest.fn() },
   };
   const cache = { del: jest.fn() };
-  const storage = { uploadReviewPhoto: jest.fn() };
+  const storage = {
+    uploadReviewPhoto: jest.fn(),
+    commitImage: jest.fn(),
+    compensateImage: jest.fn(),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -107,6 +111,42 @@ describe('ReviewsService', () => {
         select: { id: true, photoUrls: true },
       });
       expect(res.photoUrls).toEqual(['existing', 'new-url']);
+    });
+    it('compensates earlier uploads if a later file fails', async () => {
+      prisma.review.findUnique.mockResolvedValue({
+        id: 'r-1',
+        customerId: 'u-1',
+        vendorId: 'v-1',
+        photoUrls: [],
+      });
+      storage.uploadReviewPhoto
+        .mockResolvedValueOnce({ path: 'first.png', publicUrl: 'first-url' })
+        .mockRejectedValueOnce(new Error('Second upload failed'));
+      await expect(service.addPhotos('r-1', [file, file], customer)).rejects.toThrow(
+        'Second upload failed',
+      );
+      expect(storage.compensateImage).toHaveBeenCalledWith({
+        path: 'first.png',
+        publicUrl: 'first-url',
+      });
+      expect(prisma.review.update).not.toHaveBeenCalled();
+    });
+    it('compensates every uploaded photo when the database write fails', async () => {
+      prisma.review.findUnique.mockResolvedValue({
+        id: 'r-1',
+        customerId: 'u-1',
+        vendorId: 'v-1',
+        photoUrls: [],
+      });
+      storage.uploadReviewPhoto
+        .mockResolvedValueOnce({ path: 'first.png', publicUrl: 'first-url' })
+        .mockResolvedValueOnce({ path: 'second.png', publicUrl: 'second-url' });
+      prisma.review.update.mockRejectedValueOnce(new Error('Database write failed'));
+      await expect(service.addPhotos('r-1', [file, file], customer)).rejects.toThrow(
+        'Database write failed',
+      );
+      expect(storage.compensateImage).toHaveBeenCalledTimes(2);
+      expect(storage.commitImage).not.toHaveBeenCalled();
     });
   });
 });

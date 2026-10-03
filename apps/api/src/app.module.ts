@@ -50,6 +50,7 @@ import { StripeWebhookProcessorModule } from './modules/payments/stripe-webhook-
 import { PayoutsModule } from './modules/payouts/payouts.module';
 import { PushModule } from './modules/push/push.module';
 import { ReviewsModule } from './modules/reviews/reviews.module';
+import { StorageLifecycleModule } from './modules/storage-lifecycle/storage-lifecycle.module';
 import { TermsModule } from './modules/terms/terms.module';
 import { UsersModule } from './modules/users/users.module';
 import { VendorEnforcementModule } from './modules/vendor-enforcement/vendor-enforcement.module';
@@ -224,6 +225,7 @@ import { RootController } from './root.controller';
       },
     }),
     ScheduleModule.forRoot(),
+    StorageLifecycleModule,
     BullModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],

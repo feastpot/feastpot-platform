@@ -575,11 +575,13 @@ export class VendorsService {
           submittedAt: new Date(),
           currentStep: 'submitted',
           menuPhotoUrl: promotedImage.publicUrl,
+          menuPhotoPath: null,
           submissionClaimToken: null,
           submissionClaimExpiresAt: null,
         },
       });
       if (finalized.count === 0) throw new Error('Application submission claim was lost');
+      await this.storage.commitImage(promotedImage);
       await this.storage.removePrivateImage(draft.menuPhotoPath!);
     } catch (error) {
       if (promotedPath) await this.storage.removePublicImage(promotedPath);
@@ -1896,10 +1898,16 @@ export class VendorsService {
       throw new ForbiddenException({ code: 'FORBIDDEN', message: 'Cannot edit another vendor' });
     }
     const uploaded = await this.storage.uploadVendorImage({ vendorId, kind, file });
-    await this.repo.update(
-      vendorId,
-      kind === 'logo' ? { logoUrl: uploaded.publicUrl } : { coverImageUrl: uploaded.publicUrl },
-    );
+    try {
+      await this.repo.update(
+        vendorId,
+        kind === 'logo' ? { logoUrl: uploaded.publicUrl } : { coverImageUrl: uploaded.publicUrl },
+      );
+    } catch (error) {
+      await this.storage.compensateImage(uploaded);
+      throw error;
+    }
+    await this.storage.commitImage(uploaded);
     await this.cache.del(`vendors:profile:${vendorId}`);
     await this.cache.delByPattern('vendors:search:*');
     return uploaded;

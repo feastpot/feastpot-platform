@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import { InjectQueue } from '@nestjs/bull';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -8,6 +10,7 @@ import * as QRCode from 'qrcode';
 import { SupabaseService } from '../../auth/supabase.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ATTRIBUTION_QR_QUEUE } from '../../queues/queues.module';
+import { StorageLifecycleService } from '../storage-lifecycle/storage-lifecycle.service';
 
 import { BACKFILL_REFERRAL_QR_JOB, GENERATE_REFERRAL_QR_JOB } from './attribution-qr.jobs';
 import { RecordClickDto } from './dto/record-click.dto';
@@ -83,6 +86,7 @@ export class AttributionService {
     private readonly supabase: SupabaseService,
     private readonly config: ConfigService,
     @InjectQueue(ATTRIBUTION_QR_QUEUE) private readonly qrQueue: Queue,
+    private readonly lifecycle: StorageLifecycleService,
   ) {
     this.webBaseUrl = config.get<string>('WEB_BASE_URL') ?? 'https://feastpot.co.uk';
   }
@@ -204,31 +208,41 @@ export class AttributionService {
     ]);
 
     const storage = this.supabase.getClient().storage.from(QR_BUCKET);
-    const pngPath = `referral-qr/${linkId}/qr.png`;
-    const svgPath = `referral-qr/${linkId}/qr.svg`;
+    const revision = randomUUID();
+    const pngPath = `referral-qr/${linkId}/${revision}.png`;
+    const svgPath = `referral-qr/${linkId}/${revision}.svg`;
+    await this.lifecycle.reserve(QR_BUCKET, pngPath);
+    await this.lifecycle.reserve(QR_BUCKET, svgPath);
 
-    const [pngUpload, svgUpload] = await Promise.all([
-      storage.upload(pngPath, pngBuffer, { contentType: 'image/png', upsert: true }),
-      storage.upload(svgPath, Buffer.from(svgString), {
-        contentType: 'image/svg+xml',
-        upsert: true,
-      }),
-    ]);
+    try {
+      const [pngUpload, svgUpload] = await Promise.all([
+        storage.upload(pngPath, pngBuffer, { contentType: 'image/png', upsert: false }),
+        storage.upload(svgPath, Buffer.from(svgString), {
+          contentType: 'image/svg+xml',
+          upsert: false,
+        }),
+      ]);
 
-    if (pngUpload.error) throw new Error(pngUpload.error.message);
-    if (svgUpload.error) throw new Error(svgUpload.error.message);
+      if (pngUpload.error) throw new Error(pngUpload.error.message);
+      if (svgUpload.error) throw new Error(svgUpload.error.message);
 
-    const { data: pngData } = storage.getPublicUrl(pngPath);
-    const { data: svgData } = storage.getPublicUrl(svgPath);
+      const { data: pngData } = storage.getPublicUrl(pngPath);
+      const { data: svgData } = storage.getPublicUrl(svgPath);
 
-    const urls = { png: pngData.publicUrl, svg: svgData.publicUrl };
+      const urls = { png: pngData.publicUrl, svg: svgData.publicUrl };
 
-    await this.prisma.vendorReferralLink.update({
-      where: { id: linkId },
-      data: { qrCodeUrl: JSON.stringify(urls) },
-    });
-
-    return urls;
+      await this.prisma.vendorReferralLink.update({
+        where: { id: linkId },
+        data: { qrCodeUrl: JSON.stringify(urls) },
+      });
+      await this.lifecycle.committed(QR_BUCKET, pngPath);
+      await this.lifecycle.committed(QR_BUCKET, svgPath);
+      return urls;
+    } catch (error) {
+      await this.lifecycle.compensate(QR_BUCKET, pngPath);
+      await this.lifecycle.compensate(QR_BUCKET, svgPath);
+      throw error;
+    }
   }
 
   /**

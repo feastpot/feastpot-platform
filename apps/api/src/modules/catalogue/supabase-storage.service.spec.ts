@@ -13,7 +13,14 @@ describe('SupabaseStorageService startup', () => {
   function makeService(createBucket: jest.Mock, updateBucket = jest.fn()) {
     const storage = { createBucket, updateBucket, from: jest.fn() };
     const supabase = { getClient: () => ({ storage }) } as unknown as SupabaseService;
-    return { service: new SupabaseStorageService(supabase), storage };
+    return {
+      service: new SupabaseStorageService(supabase, {
+        reserve: jest.fn(),
+        compensate: jest.fn(),
+        committed: jest.fn(),
+      } as never),
+      storage,
+    };
   }
 
   it('opens a Nest HTTP listener even when bucket provisioning never settles', async () => {
@@ -90,7 +97,14 @@ describe('SupabaseStorageService startup', () => {
 });
 
 describe('SupabaseStorageService menu imports', () => {
-  const service = new SupabaseStorageService({} as SupabaseService);
+  const service = new SupabaseStorageService(
+    {} as SupabaseService,
+    {
+      reserve: jest.fn(),
+      compensate: jest.fn(),
+      committed: jest.fn(),
+    } as never,
+  );
 
   it('rejects a spoofed MIME type and magic bytes', async () => {
     await expect(

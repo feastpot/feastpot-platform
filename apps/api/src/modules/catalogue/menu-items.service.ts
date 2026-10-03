@@ -1028,27 +1028,39 @@ export class MenuItemsService {
     // Pass the caller so findOne grants the vendor owner access to their own
     // draft items.  Previously caller defaulted to null → 404 on drafts.
     const item = await this.findOne(params.vendorId, params.menuId, params.itemId, params.caller);
+    if (item.imageUrls.length >= 5) {
+      throw new BadRequestException({
+        code: 'TOO_MANY_IMAGES',
+        message: 'Remove an existing image before uploading another. A dish can have five images.',
+      });
+    }
     const uploaded = await this.storage.uploadMenuItemImage({
       vendorId: params.vendorId,
       itemId: params.itemId,
       file: params.file,
     });
-    const next = [...item.imageUrls, uploaded.publicUrl].slice(0, 5);
+    const next = [...item.imageUrls, uploaded.publicUrl];
     const newlyPending = item.moderationStatus !== ModerationStatus.held;
-    await this.prisma.menuItem.update({
-      where: { id: params.itemId },
-      // Every image change is a new submission. One write ensures no previous
-      // approval or rejection survives after the public image set changes.
-      data: {
-        imageUrls: next,
-        submissionVersion: { increment: 1 },
-        moderationStatus: ModerationStatus.held,
-        submittedAt: new Date(),
-        decidedAt: null,
-        decisionReason: null,
-        moderatedBy: { disconnect: true },
-      },
-    });
+    try {
+      await this.prisma.menuItem.update({
+        where: { id: params.itemId },
+        // Every image change is a new submission. One write ensures no previous
+        // approval or rejection survives after the public image set changes.
+        data: {
+          imageUrls: next,
+          submissionVersion: { increment: 1 },
+          moderationStatus: ModerationStatus.held,
+          submittedAt: new Date(),
+          decidedAt: null,
+          decisionReason: null,
+          moderatedBy: { disconnect: true },
+        },
+      });
+    } catch (error) {
+      await this.storage.compensateImage(uploaded);
+      throw error;
+    }
+    await this.storage.commitImage(uploaded);
     await this.invalidateVendorCache(params.vendorId);
     if (newlyPending) {
       await this.notifyAdminsOfPendingItem(params.itemId, item.name, params.vendorId);

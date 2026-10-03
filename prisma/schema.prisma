@@ -1,3 +1,22 @@
+model StorageCleanupJob {
+  locator     String    @id
+  reason      String
+  dueAt       DateTime  @default(now()) @map("due_at") @db.Timestamptz
+  attempts    Int       @default(0)
+  lastError   String?   @map("last_error")
+  lockedUntil DateTime? @map("locked_until") @db.Timestamptz
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("storage_cleanup_jobs")
+}
+
+model StorageReconciliationReport {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  data      Json
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@map("storage_reconciliation_reports")
+}
 // Feastpot Prisma schema
 // UK diaspora bulk food marketplace
 

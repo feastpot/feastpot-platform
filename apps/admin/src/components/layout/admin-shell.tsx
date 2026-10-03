@@ -154,6 +154,12 @@ export const NAV_GROUPS = [
       roles: R('/dead-letters'),
     },
     { href: '/queues', label: 'Job queues', icon: Layers, roles: R('/queues') },
+    {
+      href: '/storage-reconciliation',
+      label: 'Storage reconciliation',
+      icon: Layers,
+      roles: R('/storage-reconciliation'),
+    },
     { href: '/settings', label: 'Settings', icon: Settings, roles: R('/settings') },
     {
       href: '/users',

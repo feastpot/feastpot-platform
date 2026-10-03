@@ -267,7 +267,7 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
                   uploading={upload.isPending}
                   onPick={(file, expiresAt) => {
                     upload.mutate(
-                      { file, type: d.type, expiresAt },
+                      { file, type: d.type, expiresAt, replaceId: doc?.id },
                       {
                         onSuccess: () => toast({ title: `${d.label} uploaded` }),
                         onError: async (err) =>

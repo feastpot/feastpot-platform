@@ -191,7 +191,18 @@ export class VendorsController {
       applicationId: draft.id,
       file,
     });
-    return this.vendors.attachApplicationDraftMenuPhoto(token, uploaded.path, uploaded.publicUrl);
+    try {
+      const draft = await this.vendors.attachApplicationDraftMenuPhoto(
+        token,
+        uploaded.path,
+        uploaded.publicUrl,
+      );
+      await this.storage.commitPrivate(uploaded.path);
+      return draft;
+    } catch (error) {
+      await this.storage.removePrivateImage(uploaded.path);
+      throw error;
+    }
   }
 
   @Public()

@@ -42,7 +42,12 @@ export function useUploadDocument(vendorId: string) {
   const { token } = useAccessToken();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { file: File; type: VendorDocumentType; expiresAt?: string }) => {
+    mutationFn: async (input: {
+      file: File;
+      type: VendorDocumentType;
+      expiresAt?: string;
+      replaceId?: string;
+    }) => {
       if (input.file.size > MAX) throw new Error('File exceeds 5 MB');
       const fd = new FormData();
       fd.append(
@@ -51,17 +56,33 @@ export function useUploadDocument(vendorId: string) {
       );
       fd.append('type', input.type);
       if (input.expiresAt) fd.append('expiresAt', input.expiresAt);
-      const res = await fetch(`${API_URL}/v1/vendors/${vendorId}/documents`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-        body: fd,
-      });
+      const res = await fetch(
+        `${API_URL}/v1/vendors/${vendorId}/documents${input.replaceId ? `/${input.replaceId}` : ''}`,
+        {
+          method: input.replaceId ? 'PUT' : 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: fd,
+        },
+      );
       if (!res.ok) {
         const body: unknown = await res.json().catch(() => ({}));
         throw new Error((body as { message?: string }).message ?? `Upload failed (${res.status})`);
       }
       return (await res.json()) as VendorDocument;
     },
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY(vendorId) }),
+  });
+}
+
+export function useDeleteDocument(vendorId: string) {
+  const { token } = useAccessToken();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) =>
+      apiRequest<{ deleted: boolean; storageCleanup: 'complete' | 'pending' }>(
+        `/vendors/${vendorId}/documents/${id}`,
+        { method: 'DELETE', accessToken: token! },
+      ),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY(vendorId) }),
   });
 }

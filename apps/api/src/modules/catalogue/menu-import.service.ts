@@ -64,10 +64,18 @@ export class MenuImportService {
               : 'Source file could not be stored',
         });
       }
-      await this.prisma.menuImport.update({
-        where: { id: imp.id },
-        data: { sourceFiles: sources },
-      });
+      try {
+        await this.prisma.menuImport.update({
+          where: { id: imp.id },
+          data: { sourceFiles: sources },
+        });
+        const path = sources[sources.length - 1]?.path;
+        if (path) await this.storage.commitPrivate(path);
+      } catch (error) {
+        const path = sources[sources.length - 1]?.path;
+        if (path) await this.storage.removePrivateImage(path);
+        throw error;
+      }
     }
     // A bad page must not discard candidates extracted from other files.
     for (let index = 0; index < files.length; index += 1) {
