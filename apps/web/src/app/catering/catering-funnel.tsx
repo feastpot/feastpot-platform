@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
@@ -364,7 +365,10 @@ export function CateringFunnel() {
       clearState();
       setConfirmed(true);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
+      const msg = await userErrorMessage(
+        err,
+        'Could not send your catering request. Please try again.',
+      );
       setServerError(msg);
     } finally {
       setSubmitting(false);

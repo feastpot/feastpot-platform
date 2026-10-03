@@ -1,4 +1,5 @@
 'use client';
+import { UserError, userErrorMessage } from '@/lib/user-error';
 
 import {
   Button,
@@ -150,7 +151,7 @@ export function SupplyPipelineClient({
       setSelected([]);
       void qc.invalidateQueries({ queryKey: ['admin', 'supply-pipeline'] });
     },
-    onError: (error) => setResult((error as Error).message),
+    onError: async (error) => setResult(await userErrorMessage(error)),
   });
   const recoveryChase = useMutation({
     mutationFn: async (vendorIds: string[]) => {
@@ -206,7 +207,7 @@ export function SupplyPipelineClient({
         }`,
       );
     },
-    onError: (error) => setResult((error as Error).message),
+    onError: async (error) => setResult(await userErrorMessage(error)),
   });
   const rows = query.data?.rows ?? [];
   const actionable = rows.filter(
@@ -278,12 +279,12 @@ export function SupplyPipelineClient({
       </Card>
       {query.error && (
         <p role="alert" className="mb-3 text-sm text-destructive">
-          Failed to load pipeline: {(query.error as Error).message}
+          <UserError error={query.error} message="Could not load the pipeline." />
         </p>
       )}
       {recovery.error && (
         <p role="alert" className="mb-3 text-sm text-destructive">
-          Failed to load post-approval recovery: {(recovery.error as Error).message}
+          <UserError error={recovery.error} message="Could not load post-approval recovery." />
         </p>
       )}
       {recovery.data && recovery.data.length > 0 && (

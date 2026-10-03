@@ -1,6 +1,10 @@
-import { ArgumentsHost, Catch, ExceptionFilter, HttpStatus } from '@nestjs/common';
+import { ArgumentsHost, Catch, ExceptionFilter } from '@nestjs/common';
 import { ThrottlerException } from '@nestjs/throttler';
-import type { Request, Response } from 'express';
+import type { Response } from 'express';
+
+import { ErrorIncidentsService } from '../../modules/error-incidents/error-incidents.service';
+
+import { HttpExceptionFilter } from './http-exception.filter';
 
 /**
  * Dedicated 429 filter. ThrottlerException extends HttpException, so without
@@ -19,22 +23,15 @@ import type { Request, Response } from 'express';
  */
 @Catch(ThrottlerException)
 export class ThrottlerExceptionFilter implements ExceptionFilter {
-  catch(_exception: ThrottlerException, host: ArgumentsHost): void {
+  constructor(private readonly incidents?: ErrorIncidentsService) {}
+  async catch(_exception: ThrottlerException, host: ArgumentsHost): Promise<void> {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
-    const request = ctx.getRequest<Request>();
 
     const headerRetry = Number(response.getHeader('Retry-After'));
     const retryAfter = Number.isFinite(headerRetry) && headerRetry > 0 ? headerRetry : 60;
     response.setHeader('Retry-After', retryAfter.toString());
 
-    response.status(HttpStatus.TOO_MANY_REQUESTS).json({
-      code: 'TooManyRequests',
-      message: 'You have made too many requests. Please wait before trying again.',
-      statusCode: HttpStatus.TOO_MANY_REQUESTS,
-      timestamp: new Date().toISOString(),
-      path: request.url,
-      retryAfter,
-    });
+    await new HttpExceptionFilter(this.incidents).catch(_exception, host);
   }
 }

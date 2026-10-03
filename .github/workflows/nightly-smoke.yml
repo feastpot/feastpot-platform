@@ -63,7 +63,7 @@ jobs:
         env:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
-          [ -z "${SLACK_WEBHOOK_URL}" ] && { echo "::warning::SLACK_WEBHOOK_URL not set — skipping Slack notify"; exit 0; }
+          [ -z "${SLACK_WEBHOOK_URL}" ] && { echo "::warning::SLACK_WEBHOOK_URL not set - skipping Slack notify"; exit 0; }
           curl -fsS -X POST -H 'Content-type: application/json' \
-            --data "{\"text\":\":x: Nightly smoke FAILED (vendor onboarding / over-refund safety) — run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" \
+            --data "{\"text\":\":x: Nightly smoke FAILED (vendor onboarding / over-refund safety) - run: https://github.com/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}\"}" \
             "${SLACK_WEBHOOK_URL}" || echo "::warning::Slack notify failed (check SLACK_WEBHOOK_URL)"

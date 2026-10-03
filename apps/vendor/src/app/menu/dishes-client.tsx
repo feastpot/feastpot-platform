@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import {
   DndContext,
@@ -32,7 +33,7 @@ import {
   X,
 } from 'lucide-react';
 import { SafeImage as Image } from '@feastpot/ui';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useToast } from '@/components/ui/toaster';
 import { useCreateMenu, useMenus } from '@/hooks/use-menus';
@@ -421,7 +422,7 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
     setForm(initial);
     setDirty(false);
     setAllergenError(false);
-  }, [open, itemId]);
+  }, [open, itemId, initial]);
 
   function patch(updates: Partial<EditorState>) {
     setForm((prev) => ({ ...prev, ...updates }));
@@ -555,19 +556,19 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
 
       onClose();
     } catch (err) {
-      const msg = (err as { message?: string }).message ?? 'Something went wrong';
+      const msg = await userErrorMessage(err, 'Could not save this dish.');
       toast({ title: 'Could not save dish', description: msg, variant: 'destructive' });
     } finally {
       setSaving(false);
     }
   }
 
-  function handleClose() {
+  const handleClose = useCallback(() => {
     if (dirty && !saving) {
       if (!confirm('You have unsaved changes. Discard them?')) return;
     }
     onClose();
-  }
+  }, [dirty, saving, onClose]);
 
   // Escape key
   useEffect(() => {
@@ -577,7 +578,7 @@ function DishEditor({ open, itemId, initial, vendorId, menuId, onClose }: DishEd
     }
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, dirty, saving]);
+  }, [open, handleClose]);
 
   if (!open) return null;
 
@@ -1055,7 +1056,7 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
   const [allergenFilter, setAllergenFilter] = useState(false);
 
   // Grouped and filtered items
-  const allItems = items.data ?? [];
+  const allItems = useMemo(() => items.data ?? [], [items.data]);
 
   const filteredItems = useMemo(() => {
     let list = allItems;
@@ -1142,7 +1143,7 @@ export function DishesClient({ vendorId }: { vendorId: string }) {
         await updateItem.mutateAsync({ itemId: item.id, isAvailable: true, soldOut: false });
       }
     } catch (err) {
-      const msg = (err as { message?: string }).message;
+      const msg = await userErrorMessage(err, 'Could not update the status.');
       toast({ title: 'Could not update status', description: msg, variant: 'destructive' });
     }
   }

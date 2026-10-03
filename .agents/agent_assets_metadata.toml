@@ -286,3 +286,59 @@ mtime_ms = 1791032258893
 storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/da2d577c-793f-4223-b215-0b02128103b7/b687ec26-4680-458a-8858-ba55b33a52c9"
 storage_version_token = "1791032384043220"
 content_type = "text/html"
+
+[[outputs]]
+id = "GQ6-jI6ruN407yEs7W2Tk"
+uri = "file://audit/honest-coverage/report.html"
+type = "html"
+title = "Honest coverage and all 49 LR-03 corrections"
+description = "Measured coverage, skipped-test inventory, individual categorisation and explicit outstanding acceptance work."
+logical_id = "1b6fb432-76d8-4fc2-beca-0eccbb5926ff"
+content_hash = "sha256:68413fde92174c93bc4833e9d314617e46fe996af825e7124fa668cdbfec0e75"
+size = 31885
+mtime_ms = 1791043917741
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/1b6fb432-76d8-4fc2-beca-0eccbb5926ff/7ae52fa4-cd55-4fb7-8742-ce4b79e91582"
+storage_version_token = "1791043950804616"
+content_type = "text/html"
+
+[[outputs]]
+id = "PCy1_2guQK05DUciFBgam"
+uri = "file://audit/honest-coverage/coverage-evidence.zip"
+type = "unspecified"
+title = "Complete API and web coverage evidence"
+description = "HTML coverage reports, LCOV, JSON summaries, and the 49-case CSV. Includes the honest full TS/TSX web denominator."
+logical_id = "7326f16d-56ca-41a6-b4da-ad0b78b14d74"
+content_hash = "sha256:4b0bcf7309eadf850ed0abf8185af36b60feaccd10e520c5255ed870f9f14e6e"
+size = 6011505
+mtime_ms = 1791043918524
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/7326f16d-56ca-41a6-b4da-ad0b78b14d74/1d188da8-8335-4263-9703-35d16a8605fd"
+storage_version_token = "1791043952400146"
+content_type = "application/octet-stream"
+
+[[outputs]]
+id = "jyCjwCzXZT2xX6mtrOE6e"
+uri = "file://screenshots/storage-lifecycle-browser/vendor-replaced-mobile.png"
+type = "image"
+title = "Verified vendor document controls — mobile"
+description = "Real signed-in replacement, with the document pending review and replace/delete controls visible."
+logical_id = "77329f75-3816-444b-926f-afad1db1ba91"
+content_hash = "sha256:34e62fda6dbf75571d768809500cfbf587c09890fe974e2a4d709cd03f934026"
+size = 67064
+mtime_ms = 1791053019729
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/77329f75-3816-444b-926f-afad1db1ba91/41285fd9-b9d9-48c5-90f7-e7980621fb1f"
+storage_version_token = "1791053320957658"
+content_type = "image/png"
+
+[[outputs]]
+id = "IcqAKlSE8Xpm-NAUbMCip"
+uri = "file://screenshots/storage-lifecycle-browser/admin-report-desktop.png"
+type = "image"
+title = "Verified staff storage reconciliation"
+description = "Real two-factor staff session. Report-only refresh preserved the seeded orphan; test files and accounts were cleaned up afterwards."
+logical_id = "3b210cc6-91bf-4bc0-a491-4c6f220ef9ab"
+content_hash = "sha256:a69d6f49b1c2e09b2662ed24513bb7917015828c41c1e65d480f96dea5ea2a4c"
+size = 171618
+mtime_ms = 1791053102164
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/3b210cc6-91bf-4bc0-a491-4c6f220ef9ab/65d88ea9-b388-45ed-b482-8b4c084030e8"
+storage_version_token = "1791053321909705"
+content_type = "image/png"

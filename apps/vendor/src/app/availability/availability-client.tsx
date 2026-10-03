@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { cn } from '@feastpot/ui';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -165,8 +166,8 @@ export function AvailabilityClient({ initial }: { initial: AvailabilitySnapshot 
       setServerError(null);
       window.setTimeout(() => setSavedNote(false), 2200);
     },
-    onError: (e) => {
-      setServerError(e instanceof ApiError ? e.message : 'Could not save your changes');
+    onError: async (e) => {
+      setServerError(await userErrorMessage(e, 'Could not save your changes.'));
     },
   });
 
@@ -178,8 +179,8 @@ export function AvailabilityClient({ initial }: { initial: AvailabilitySnapshot 
         body: input,
       }),
     onSuccess: (next) => qc.setQueryData(QUERY_KEY, next),
-    onError: (e) => {
-      setServerError(e instanceof ApiError ? e.message : 'Could not add that blackout');
+    onError: async (e) => {
+      setServerError(await userErrorMessage(e, 'Could not add that blackout.'));
     },
   });
 
@@ -190,8 +191,8 @@ export function AvailabilityClient({ initial }: { initial: AvailabilitySnapshot 
         accessToken: token!,
       }),
     onSuccess: (next) => qc.setQueryData(QUERY_KEY, next),
-    onError: (e) => {
-      setServerError(e instanceof ApiError ? e.message : 'Could not remove that blackout date');
+    onError: async (e) => {
+      setServerError(await userErrorMessage(e, 'Could not remove that blackout date.'));
     },
   });
 
@@ -562,8 +563,8 @@ function CapacitySection({ token }: { token: string | null }) {
       setCutoff('');
       setRepeatWeeks('0');
     },
-    onError: (e) => {
-      setError(e instanceof ApiError ? e.message : 'Could not save that capacity');
+    onError: async (e) => {
+      setError(await userErrorMessage(e, 'Could not save that capacity.'));
     },
   });
 
@@ -574,8 +575,8 @@ function CapacitySection({ token }: { token: string | null }) {
         accessToken: token!,
       }),
     onSuccess: (next) => qc.setQueryData(CAPACITY_QUERY_KEY, next),
-    onError: (e) => {
-      setError(e instanceof ApiError ? e.message : 'Could not remove that capacity');
+    onError: async (e) => {
+      setError(await userErrorMessage(e, 'Could not remove that capacity.'));
     },
   });
 

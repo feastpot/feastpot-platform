@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import Image from 'next/image';
 import Link from 'next/link';
@@ -72,7 +73,7 @@ export default function ResetUpdate() {
       // from the old password" (if leaked-password check or same-password
       // rejection is enabled), "New password should be different from the old
       // password", session expired.
-      setError(updateError.message);
+      setError(await userErrorMessage(updateError, 'Could not update your password.'));
       setBusy(false);
       return;
     }

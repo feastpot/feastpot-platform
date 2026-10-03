@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import {
   calculateCateringDeposit,
@@ -153,7 +154,7 @@ function QuoteCard({
       setDepositPence(res.depositPence);
       setStage('pay');
     } catch (e) {
-      setErr((e as Error).message);
+      setErr(await userErrorMessage(e, 'Could not update this event.'));
     }
   }
 
@@ -171,7 +172,7 @@ function QuoteCard({
       payment_method: { card },
     });
     if (stripeErr) {
-      setErr(stripeErr.message ?? 'Payment failed');
+      setErr(await userErrorMessage(stripeErr, 'Could not complete your payment.'));
       setSubmitting(false);
       return;
     }
@@ -183,7 +184,12 @@ function QuoteCard({
       try {
         await confirmDeposit.mutateAsync();
       } catch (e) {
-        setErr(`Payment succeeded but booking confirmation failed: ${(e as Error).message}`);
+        setErr(
+          await userErrorMessage(
+            e,
+            'Your payment succeeded but we could not confirm the booking. Please contact support before paying again.',
+          ),
+        );
         setSubmitting(false);
         return;
       }

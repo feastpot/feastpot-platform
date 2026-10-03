@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { type FormEvent, useState } from 'react';
 
@@ -88,7 +89,7 @@ export function WaitlistForm({
       });
       setSuccess(true);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
+      const msg = await userErrorMessage(err, 'Could not join the waitlist. Please try again.');
       // Treat 409 DUPLICATE as success - user is already signed up.
       if (msg.includes('already') || msg.includes('duplicate') || msg.includes('DUPLICATE')) {
         setSuccess(true);
@@ -307,7 +308,7 @@ export function RecommendForm({ submitLabel = 'Recommend a cook' }: RecommendFor
       });
       setSuccess(true);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
+      const msg = await userErrorMessage(err, 'Could not join the waitlist. Please try again.');
       setServerError(msg);
     } finally {
       setSubmitting(false);

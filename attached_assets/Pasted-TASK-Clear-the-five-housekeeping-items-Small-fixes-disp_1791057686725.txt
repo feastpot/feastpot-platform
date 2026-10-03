@@ -1,0 +1,56 @@
+TASK: Clear the five housekeeping items. Small fixes,
+disproportionate tidiness value.
+
+H1. DOCUMENT THE ENVIRONMENT VARIABLES
+Sixteen variable names are listed at audit/01-static.md:125-162
+with no documentation. For each, record in .env.example: the
+name, which runtime owns it (API, web, vendor, admin), whether
+it is required or optional, what it does, and what happens if
+it is absent. Never record a value.
+
+H2. DEPRECATED NEXT LINT COMMANDS
+Web, vendor and admin all use deprecated Next lint invocations
+(audit/01-static.md:62-84). Replace with the current
+supported command. Confirm linting still covers the same file
+set afterwards; a silently narrowed lint scope would be worse
+than the deprecation warning.
+
+H3. EM DASH CHECK RUNS ONLY LOCALLY
+The no-em-dash rule is enforced by a local pre-commit hook
+(audit/01-static.md:179-188). A pre-commit hook can be
+bypassed with --no-verify and does not run in CI at all.
+Add the check to CI as a required step covering every
+workspace and file type: ts, tsx, js, jsx, json, md, html,
+css, yaml, sql, sh and txt. An earlier audit found the glob
+too narrow to catch a live em dash in hardcoded legal pages.
+Verify by committing a deliberate em dash and confirming CI
+blocks it.
+
+H4. MISSING VENDOR SLUG RETURNS 200
+Both audited visits to /vendors/audit-missing-slug returned
+HTTP 200 while rendering "We couldn't find that page".
+Return a genuine 404 status. Search engines index the page as
+valid otherwise, and uptime monitoring cannot distinguish a
+working page from a missing one.
+(If LR-09 already fixed this, verify rather than repeat.)
+
+H5. ADMIN SIGN-IN CONSOLE WARNINGS
+audit/evidence/admin-sign-in.jpg was captured with a 404
+resource, a failed HMR WebSocket and a nested-form browser
+warning.
+The 404 resource and the nested form are real: a nested form
+can break submission in some browsers. The HMR failure is
+development-only and can be ignored if confirmed as such.
+Fix the first two, confirm the third.
+
+COST CONTROL
+Target 40 minutes for all five. These are small; do not let
+any one of them expand.
+
+ACCEPTANCE CRITERIA
+- All 16 variables documented with owning runtime.
+- Lint commands current, scope unchanged.
+- A deliberate em dash fails CI.
+- Missing slugs return 404.
+- Admin sign-in renders with no 404 resource and no nested
+  form warning.

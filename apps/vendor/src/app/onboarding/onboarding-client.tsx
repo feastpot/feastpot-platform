@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { Badge, Button, Card, CardContent } from '@feastpot/ui';
 import { brandColors } from '@feastpot/ui/brand';
@@ -266,13 +267,16 @@ export function OnboardingClient({ vendor }: { vendor: VendorSummary }) {
                   uploading={upload.isPending}
                   onPick={(file, expiresAt) => {
                     upload.mutate(
-                      { file, type: d.type, expiresAt },
+                      { file, type: d.type, expiresAt, replaceId: doc?.id },
                       {
                         onSuccess: () => toast({ title: `${d.label} uploaded` }),
-                        onError: (err) =>
+                        onError: async (err) =>
                           toast({
                             title: 'Upload failed',
-                            description: err instanceof Error ? err.message : '',
+                            description: await userErrorMessage(
+                              err,
+                              'Could not upload this document.',
+                            ),
                             variant: 'destructive',
                           }),
                       },

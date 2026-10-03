@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# git-sync.sh — fetch, rebase, and push `main` to GitHub using GITHUB_TOKEN.
+# git-sync.sh - fetch, rebase, and push `main` to GitHub using GITHUB_TOKEN.
 #
 # WHY THIS EXISTS
 # The Replit Git UI authenticates to GitHub via an OAuth session that
@@ -13,7 +13,7 @@
 #   BRANCH=feature/x bash scripts/git-sync.sh      # push branch `feature/x` explicitly
 #   DRY_RUN=1 bash scripts/git-sync.sh             # show what would happen, do not push
 #
-# DEFAULT BEHAVIOUR — IMPORTANT
+# DEFAULT BEHAVIOUR - IMPORTANT
 #   This script REFUSES to push to `main` unless ALLOW_MAIN_PUSH=1 is set
 #   AND the user types "yes" at the confirmation prompt. The day-to-day
 #   path to main is:  feature branch -> PR -> CI green -> review -> merge.
@@ -31,7 +31,7 @@
 #   1  generic failure
 #   2  GITHUB_TOKEN missing
 #   3  working tree dirty
-#   4  rebase conflicts — manual resolution required
+#   4  rebase conflicts - manual resolution required
 #   5  refused to push directly to main without explicit override
 
 set -euo pipefail
@@ -89,7 +89,7 @@ if [[ "${BRANCH}" == "main" ]]; then
   fi
 fi
 
-# Refuse to push a dirty working tree — surprises here are dangerous.
+# Refuse to push a dirty working tree - surprises here are dangerous.
 if ! git diff --quiet || ! git diff --cached --quiet; then
   err "Working tree has uncommitted changes. Commit or stash them first."
   git status --short
@@ -116,7 +116,7 @@ if [[ -z "${SKIP_TOKEN_CHECK:-}" ]]; then
     exit 1
   fi
   # Parse the permissions object properly (a previous regex over the raw
-  # JSON was brittle — key order and whitespace are not guaranteed).
+  # JSON was brittle - key order and whitespace are not guaranteed).
   if ! python3 -c "
 import json, sys
 d = json.load(open('/tmp/git-sync-perms.json'))
@@ -140,14 +140,14 @@ fi
 
 # Detect first-push case: feature branch that doesn't yet exist on
 # origin. We must NOT compute ahead/behind against a non-existent
-# ref — `git rev-list` would fail and the fallback "0 0" would make
+# ref - `git rev-list` would fail and the fallback "0 0" would make
 # the script wrongly conclude "nothing to push".
 first_push=0
 if ! git show-ref --verify --quiet "refs/remotes/${REMOTE}/${BRANCH}"; then
   first_push=1
   ahead=$(git rev-list --count HEAD)
   behind=0
-  log "Branch '${BRANCH}' does not exist on ${REMOTE} yet — this will be a first push (${ahead} commits)."
+  log "Branch '${BRANCH}' does not exist on ${REMOTE} yet - this will be a first push (${ahead} commits)."
 else
   ahead_behind=$(git rev-list --left-right --count "${REMOTE}/${BRANCH}...${BRANCH}")
   behind=$(echo "${ahead_behind}" | awk '{print $1}')
@@ -159,7 +159,7 @@ if [[ "${first_push}" -eq 0 && "${behind}" -gt 0 ]]; then
   log "Rebasing onto ${REMOTE}/${BRANCH}..."
   if ! git rebase "${REMOTE}/${BRANCH}"; then
     err "Rebase produced conflicts. The repo is now in a"
-    err "rebase-in-progress state — finish or abort it before doing"
+    err "rebase-in-progress state - finish or abort it before doing"
     err "anything else. Inspect, then choose ONE of:"
     err ""
     err "  # 1. Abort and return to the pre-rebase state:"
@@ -174,7 +174,7 @@ if [[ "${first_push}" -eq 0 && "${behind}" -gt 0 ]]; then
     err "Re-run scripts/git-sync.sh after either path completes."
     exit 4
   fi
-  # Recompute after rebase — the rebased commits have new SHAs, so the
+  # Recompute after rebase - the rebased commits have new SHAs, so the
   # pre-rebase ahead/behind numbers are no longer accurate.
   ahead_behind=$(git rev-list --left-right --count "${REMOTE}/${BRANCH}...${BRANCH}" || echo "0 0")
   behind=$(echo "${ahead_behind}" | awk '{print $1}')
@@ -183,12 +183,12 @@ if [[ "${first_push}" -eq 0 && "${behind}" -gt 0 ]]; then
 fi
 
 if [[ "${ahead}" -eq 0 ]]; then
-  log "Nothing to push — already up to date."
+  log "Nothing to push - already up to date."
   exit 0
 fi
 
 if [[ "${DRY_RUN}" == "1" ]]; then
-  log "DRY_RUN=1 — would push ${ahead} commit(s) to ${REMOTE}/${BRANCH}. Skipping."
+  log "DRY_RUN=1 - would push ${ahead} commit(s) to ${REMOTE}/${BRANCH}. Skipping."
   exit 0
 fi
 

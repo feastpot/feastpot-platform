@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { CheckCircle2, Loader2, MapPin, Truck } from 'lucide-react';
 import Link from 'next/link';
@@ -60,9 +61,7 @@ export function WaitlistForm() {
       setSubmitted(true);
     } catch (err) {
       setError(
-        err instanceof Error
-          ? err.message
-          : "We couldn't save your details just now. Please try again.",
+        await userErrorMessage(err, "We couldn't save your details just now. Please try again."),
       );
     } finally {
       setSubmitting(false);

@@ -1,4 +1,5 @@
 'use client';
+import { UserError, userErrorMessage } from '@/lib/user-error';
 
 import {
   Button,
@@ -121,7 +122,7 @@ export function DiscountCodesClient({ canCreate }: Props) {
       setForm(EMPTY_FORM);
       setDialog({ kind: 'closed' });
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Failed to create discount code';
+      const msg = await userErrorMessage(e, 'Could not create the discount code.');
       toast({ title: 'Could not create code', description: msg, variant: 'destructive' });
       setDialog({ kind: 'create' }); // return to form on error so admin can fix
     }
@@ -131,7 +132,7 @@ export function DiscountCodesClient({ canCreate }: Props) {
     try {
       await toggle.mutateAsync({ id, isActive });
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Failed to update code';
+      const msg = await userErrorMessage(e, 'Could not update the discount code.');
       toast({ title: 'Update failed', description: msg, variant: 'destructive' });
     }
   }
@@ -142,7 +143,7 @@ export function DiscountCodesClient({ canCreate }: Props) {
       toast({ title: 'Funding source updated' });
       setDialog({ kind: 'closed' });
     } catch (e) {
-      const msg = e instanceof ApiError ? e.message : 'Failed to update funding source';
+      const msg = await userErrorMessage(e, 'Could not update the funding source.');
       toast({ title: 'Update failed', description: msg, variant: 'destructive' });
     }
   }
@@ -172,7 +173,7 @@ export function DiscountCodesClient({ canCreate }: Props) {
       {error ? (
         <Card>
           <CardContent className="p-6 text-sm text-destructive">
-            {error instanceof ApiError ? error.message : 'Failed to load discount codes'}
+            <UserError error={error} message="Could not load discount codes." />
           </CardContent>
         </Card>
       ) : null}

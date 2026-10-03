@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { Button, Input } from '@feastpot/ui';
 import Link from 'next/link';
@@ -53,7 +54,7 @@ export default function ConfirmedPage() {
       setFeedback("Numbers confirmed. We'll prompt you 48h before the event for the balance.");
       setOpen(false);
     } catch (err) {
-      setFeedback(`Failed to update: ${(err as Error).message}`);
+      setFeedback(await userErrorMessage(err, 'Could not update this event.'));
     }
   }
 

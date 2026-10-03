@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@feastpot/ui';
 import { AlertTriangle, CheckCircle2, RefreshCw, XCircle } from 'lucide-react';
@@ -32,10 +33,10 @@ export function NoticesClient() {
         toast({ title: 'Queued', description: 'Notice re-enqueued for delivery.' });
         void refetch();
       },
-      onError: (err) =>
+      onError: async (err) =>
         toast({
           title: 'Error',
-          description: err instanceof Error ? err.message : 'Failed to resend',
+          description: await userErrorMessage(err, 'Could not resend the notice.'),
           variant: 'destructive',
         }),
     });

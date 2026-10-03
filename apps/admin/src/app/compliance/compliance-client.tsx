@@ -1,4 +1,5 @@
 'use client';
+import { UserError } from '@/lib/user-error';
 
 import { useMemo, useState } from 'react';
 
@@ -193,7 +194,7 @@ function VerificationTriage() {
       {error && (
         <Card className="mb-4 border-destructive/40 bg-destructive/5">
           <CardContent className="py-3 text-sm text-destructive">
-            Failed to load verification summary: {(error as Error).message}
+            <UserError error={error} message="Could not load the verification summary." />
           </CardContent>
         </Card>
       )}
@@ -398,7 +399,7 @@ function ExpiringDocumentsSection() {
       {error && (
         <Card className="mb-4 border-destructive/40 bg-destructive/5">
           <CardContent className="py-3 text-sm text-destructive">
-            Failed to load expiring documents: {(error as Error).message}
+            <UserError error={error} message="Could not load expiring documents." />
           </CardContent>
         </Card>
       )}

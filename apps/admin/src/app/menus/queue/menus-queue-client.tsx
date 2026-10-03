@@ -1,4 +1,6 @@
 'use client';
+import { UserError } from '@/lib/user-error';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import {
   Button,
@@ -148,9 +150,7 @@ export function MenusQueueClient() {
       });
       setActionError(null);
     } catch (error) {
-      setActionError(
-        error instanceof Error ? error.message : 'The moderation action failed. Try again.',
-      );
+      setActionError(await userErrorMessage(error, 'The moderation action failed. Try again.'));
     } finally {
       setInFlight((prev) => {
         const next = new Set(prev);
@@ -199,9 +199,7 @@ export function MenusQueueClient() {
       setReason('');
       setActionError(null);
     } catch (error) {
-      setActionError(
-        error instanceof Error ? error.message : 'The moderation action failed. Try again.',
-      );
+      setActionError(await userErrorMessage(error, 'The moderation action failed. Try again.'));
     } finally {
       setInFlight((prev) => {
         const next = new Set(prev);
@@ -230,7 +228,7 @@ export function MenusQueueClient() {
       setSelected(new Set());
       setActionError(null);
     } catch (error) {
-      setActionError(error instanceof Error ? error.message : 'Bulk approval failed. Try again.');
+      setActionError(await userErrorMessage(error, 'Bulk approval failed. Try again.'));
     }
   }
 
@@ -333,7 +331,7 @@ export function MenusQueueClient() {
       {list.error && (
         <Card className="mb-4 border-destructive/40 bg-destructive/5">
           <CardContent className="py-3 text-sm text-destructive">
-            Failed to load menu items: {(list.error as Error).message}
+            <UserError error={list.error} message="Could not load menu items." />
           </CardContent>
         </Card>
       )}

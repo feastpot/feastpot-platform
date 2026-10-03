@@ -34,10 +34,9 @@ import { StripeWebhookProcessor } from './stripe-webhook.processor';
  * Skip behaviour mirrors the e2e smoke: skipped entirely when SUPABASE_DB_URL
  * is not set, so plain unit-test runs stay green without a database.
  */
-const d = process.env.SUPABASE_DB_URL ? describe : describe.skip;
+const d = describe;
 if (!process.env.SUPABASE_DB_URL) {
-  // eslint-disable-next-line no-console
-  console.warn('[refund-chargeback-concurrency] skipping: SUPABASE_DB_URL not set');
+  throw new Error('REFUND_CONCURRENCY_DATABASE_REQUIRED: SUPABASE_DB_URL is missing');
 }
 
 // Historical pre-cutover order economics: total 10000p. Commission 12% of subtotal (1080p).

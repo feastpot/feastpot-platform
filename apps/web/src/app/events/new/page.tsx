@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { Button, Input } from '@feastpot/ui';
 import { useRouter } from 'next/navigation';
@@ -64,7 +65,7 @@ export default function NewEventEnquiryPage() {
       setSuccess(true);
       router.push(`/events/${created.id}`);
     } catch (err) {
-      setServerError(err instanceof ApiError ? err.message : (err as Error).message);
+      setServerError(await userErrorMessage(err, 'Could not create the event.'));
     }
   }
 

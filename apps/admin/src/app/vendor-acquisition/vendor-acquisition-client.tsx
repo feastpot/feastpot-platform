@@ -1,4 +1,5 @@
 'use client';
+import { UserError } from '@/lib/user-error';
 
 import Link from 'next/link';
 import { useState } from 'react';
@@ -179,7 +180,7 @@ export function VendorAcquisitionClient({ canSeeStuckLeads }: { canSeeStuckLeads
           role="alert"
           className="rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive"
         >
-          Could not load lifecycle analytics: {(lifecycle.error as Error).message}
+          <UserError error={lifecycle.error} message="Could not load lifecycle analytics." />
         </div>
       )}
       <Card>
@@ -286,7 +287,7 @@ export function VendorAcquisitionClient({ canSeeStuckLeads }: { canSeeStuckLeads
             </div>
             {stuck.error && (
               <p role="alert" className="p-4 text-sm text-destructive">
-                Could not load stuck leads: {(stuck.error as Error).message}
+                <UserError error={stuck.error} message="Could not load stuck leads." />
               </p>
             )}
             {stuck.isLoading && (

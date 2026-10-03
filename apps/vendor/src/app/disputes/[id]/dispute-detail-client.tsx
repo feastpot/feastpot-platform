@@ -1,4 +1,5 @@
 'use client';
+import { UserError, userErrorMessage } from '@/lib/user-error';
 import { SecureDownload, SecureImage } from '@feastpot/ui';
 import { useAccessToken } from '@/lib/auth/use-access-token';
 import { API_URL } from '@/lib/env';
@@ -52,11 +53,11 @@ export function DisputeDetailClient({ disputeId }: { disputeId: string }) {
       <div className="space-y-4">
         <BackLink />
         <div className="fp-card border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {notFound
-            ? 'This dispute could not be found, or you do not have access to it.'
-            : error instanceof ApiError
-              ? error.message
-              : 'Could not load this dispute. Please try again.'}
+          {notFound ? (
+            'This dispute could not be found, or you do not have access to it.'
+          ) : (
+            <UserError error={error} message="Could not load this dispute. Please try again." />
+          )}
         </div>
       </div>
     );
@@ -239,13 +240,9 @@ function VendorResponseSection({ dispute }: { dispute: DisputeDetail }) {
         setSubmitted(true);
         setResponse('');
       },
-      onError: (err) => {
+      onError: async (err) => {
         setSubmitError(
-          err instanceof ApiError
-            ? err.message
-            : err instanceof Error
-              ? err.message
-              : 'Could not submit your response. Please try again.',
+          await userErrorMessage(err, 'Could not submit your response. Please try again.'),
         );
       },
     });
@@ -438,8 +435,8 @@ function AppealSection({ disputeId, decidedAt }: { disputeId: string; decidedAt:
             setSubmitError(null);
             submit.mutate(grounds.trim(), {
               onSuccess: () => setSubmitted(true),
-              onError: (err) =>
-                setSubmitError(err instanceof Error ? err.message : 'Submit failed'),
+              onError: async (err) =>
+                setSubmitError(await userErrorMessage(err, 'Could not submit your appeal.')),
             });
           }}
           className="flex-1 rounded-md bg-teal px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-50"
@@ -544,13 +541,9 @@ function EvidenceUpload({ disputeId }: { disputeId: string }) {
           setFile(null);
           setCaption('');
         },
-        onError: (err) => {
+        onError: async (err) => {
           setUploadError(
-            err instanceof ApiError
-              ? err.message
-              : err instanceof Error
-                ? err.message
-                : 'Upload failed. Please try again.',
+            await userErrorMessage(err, 'Could not upload your evidence. Please try again.'),
           );
         },
       },

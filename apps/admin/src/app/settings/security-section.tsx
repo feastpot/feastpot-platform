@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { Button, Card, CardContent, CardHeader, CardTitle, Input } from '@feastpot/ui';
 import {
@@ -66,7 +67,7 @@ export function SecuritySection({
     if (error) {
       toast({
         title: 'Could not load 2FA state',
-        description: error.message,
+        description: await userErrorMessage(error, 'Could not load two-factor authentication.'),
         variant: 'destructive',
       });
     } else {
@@ -98,7 +99,10 @@ export function SecuritySection({
     if (error || !data) {
       toast({
         title: 'Could not start enrolment',
-        description: error?.message ?? '',
+        description: await userErrorMessage(
+          error,
+          'Could not start two-factor authentication setup.',
+        ),
         variant: 'destructive',
       });
       return;
@@ -118,7 +122,10 @@ export function SecuritySection({
       setVerifying(false);
       toast({
         title: 'Challenge failed',
-        description: challenge.error?.message ?? '',
+        description: await userErrorMessage(
+          challenge.error,
+          'Could not verify your authentication code.',
+        ),
         variant: 'destructive',
       });
       return;
@@ -149,8 +156,10 @@ export function SecuritySection({
     } catch (e) {
       toast({
         title: 'Recovery codes not generated',
-        description:
-          e instanceof Error ? e.message : 'You can generate them manually from this card.',
+        description: await userErrorMessage(
+          e,
+          'Could not generate recovery codes. Please try again.',
+        ),
         variant: 'destructive',
       });
     }
@@ -178,7 +187,7 @@ export function SecuritySection({
     if (error) {
       toast({
         title: 'Could not remove 2FA',
-        description: error.message,
+        description: await userErrorMessage(error, 'Could not remove two-factor authentication.'),
         variant: 'destructive',
       });
       return;
@@ -201,7 +210,7 @@ export function SecuritySection({
     } catch (e) {
       toast({
         title: 'Could not generate codes',
-        description: e instanceof Error ? e.message : '',
+        description: await userErrorMessage(e, 'Could not generate recovery codes.'),
         variant: 'destructive',
       });
     }

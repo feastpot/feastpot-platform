@@ -1,4 +1,5 @@
 'use client';
+import { UserError } from '@/lib/user-error';
 
 import { Badge, Button, Card, CardContent } from '@feastpot/ui';
 import { ArrowLeft, ExternalLink } from 'lucide-react';
@@ -38,7 +39,7 @@ export function EnquiryDetailClient({ enquiryId }: EnquiryDetailClientProps) {
     return (
       <Card className="border-destructive/40 bg-destructive/5">
         <CardContent className="py-6 text-sm text-destructive">
-          Failed to load enquiry: {(error as Error).message}
+          <UserError error={error} message="Could not load the enquiry." />
         </CardContent>
       </Card>
     );

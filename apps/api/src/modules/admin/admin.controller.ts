@@ -21,7 +21,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Prisma, UserRole } from '@prisma/client';
+import { type OrderSource, Prisma, UserRole } from '@prisma/client';
 import type { Queue } from 'bull';
 import type { Response } from 'express';
 
@@ -1038,8 +1038,7 @@ export class AdminController {
     const minNoticeMs = 15 * 24 * 60 * 60 * 1000; // 15 days
 
     // Check if this is a rate increase requiring 15-day notice.
-    const { OrderSource } = await import('@prisma/client');
-    const src = dto.source as (typeof OrderSource)[keyof typeof OrderSource];
+    const src = dto.source as OrderSource;
     const existing = await this.commissionService.listRates();
     const currentActive = existing.find(
       (r) =>

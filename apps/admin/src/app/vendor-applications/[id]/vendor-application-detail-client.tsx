@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import {
   Button,
@@ -77,10 +78,10 @@ export function VendorApplicationDetailClient({
           });
           router.refresh();
         },
-        onError: (err) =>
+        onError: async (err) =>
           toast({
             title: 'Approval failed',
-            description: (err as Error).message,
+            description: await userErrorMessage(err, 'Could not approve this application.'),
             variant: 'destructive',
           }),
       },
@@ -98,10 +99,10 @@ export function VendorApplicationDetailClient({
           toast({ title: 'Application rejected', description: 'Applicant notified by email.' });
           router.refresh();
         },
-        onError: (err) =>
+        onError: async (err) =>
           toast({
             title: 'Rejection failed',
-            description: (err as Error).message,
+            description: await userErrorMessage(err, 'Could not reject this application.'),
             variant: 'destructive',
           }),
       },
@@ -119,10 +120,10 @@ export function VendorApplicationDetailClient({
           toast({ title: 'Information requested', description: 'Applicant emailed your notes.' });
           router.refresh();
         },
-        onError: (err) =>
+        onError: async (err) =>
           toast({
             title: 'Request failed',
-            description: (err as Error).message,
+            description: await userErrorMessage(err, 'Could not request further information.'),
             variant: 'destructive',
           }),
       },
@@ -133,10 +134,10 @@ export function VendorApplicationDetailClient({
     resendMutation.mutate(undefined, {
       onSuccess: () =>
         toast({ title: 'Invite resent', description: 'A fresh 7-day magic link is on its way.' }),
-      onError: (err) =>
+      onError: async (err) =>
         toast({
           title: 'Resend failed',
-          description: (err as Error).message,
+          description: await userErrorMessage(err, 'Could not resend the invitation.'),
           variant: 'destructive',
         }),
     });
@@ -197,6 +198,9 @@ export function VendorApplicationDetailClient({
                   <div className="mb-2 text-xs uppercase tracking-wide text-muted-foreground">
                     Menu photo
                   </div>
+                  {/* Private, expiring menu URL: do not cache it in the public
+                      image optimiser. This staff-only review is not a listing. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={app.menuPhotoUrl}
                     alt={`Menu supplied by ${app.kitchenName}`}

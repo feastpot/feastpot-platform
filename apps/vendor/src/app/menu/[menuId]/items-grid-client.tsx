@@ -1,4 +1,5 @@
 'use client';
+import { UserError, userErrorMessage } from '@/lib/user-error';
 
 import {
   DndContext,
@@ -110,10 +111,10 @@ export function MenuItemsGridClient({
     reorder.mutate(
       nextOrder.map((it) => it.id),
       {
-        onError: (err) =>
+        onError: async (err) =>
           toast({
             title: 'Could not save the new order',
-            description: err instanceof Error ? err.message : '',
+            description: await userErrorMessage(err),
             variant: 'destructive',
           }),
       },
@@ -159,7 +160,7 @@ export function MenuItemsGridClient({
       {error && (
         <Card>
           <CardContent className="p-4 text-sm text-destructive">
-            Could not load items. {error instanceof Error ? error.message : ''}
+            <UserError error={error} message="Could not load items." />
           </CardContent>
         </Card>
       )}
@@ -347,10 +348,10 @@ function ItemCard({
           title: 'Item duplicated',
           description: `"${input.name}" saved as a draft. Update and publish when ready.`,
         }),
-      onError: (err) =>
+      onError: async (err) =>
         toast({
           title: 'Could not duplicate item',
-          description: err instanceof Error ? err.message : '',
+          description: await userErrorMessage(err),
           variant: 'destructive',
         }),
     });
@@ -417,10 +418,10 @@ function ItemCard({
                 toggle.mutate(
                   { itemId: item.id, isAvailable: checked },
                   {
-                    onError: (err) =>
+                    onError: async (err) =>
                       toast({
                         title: 'Could not update availability',
-                        description: err instanceof Error ? err.message : '',
+                        description: await userErrorMessage(err),
                         variant: 'destructive',
                       }),
                   },
@@ -458,10 +459,10 @@ function ItemCard({
               onClick={() => {
                 if (!confirm(`Delete "${item.name}"?`)) return;
                 del.mutate(item.id, {
-                  onError: (err) =>
+                  onError: async (err) =>
                     toast({
                       title: 'Could not delete item',
-                      description: err instanceof Error ? err.message : '',
+                      description: await userErrorMessage(err),
                       variant: 'destructive',
                     }),
                 });

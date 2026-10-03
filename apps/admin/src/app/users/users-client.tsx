@@ -1,4 +1,5 @@
 'use client';
+import { UserError } from '@/lib/user-error';
 
 import {
   Button,
@@ -385,7 +386,7 @@ export function UsersClient({ currentUserId, role }: UsersClientProps) {
       {list.error && (
         <Card className="mb-4 border-destructive/40 bg-destructive/5">
           <CardContent className="py-3 text-sm text-destructive">
-            Failed to load users: {(list.error as Error).message}
+            <UserError error={list.error} message="Could not load users." />
           </CardContent>
         </Card>
       )}
@@ -763,7 +764,9 @@ function CreateTestVendorsDialog({
               />
             </label>
             {mutation.error && (
-              <p className="text-xs text-destructive">{(mutation.error as Error).message}</p>
+              <p className="text-xs text-destructive">
+                <UserError error={mutation.error} />
+              </p>
             )}
             <div className="flex justify-end gap-2">
               <Button variant="ghost" onClick={close} disabled={mutation.isPending}>
@@ -895,7 +898,9 @@ function CreateUserDialog({
             </span>
           </label>
           {mutation.error && (
-            <p className="text-xs text-destructive">{(mutation.error as Error).message}</p>
+            <p className="text-xs text-destructive">
+              <UserError error={mutation.error} />
+            </p>
           )}
         </div>
         <div className="mt-4 flex justify-end gap-2">
@@ -1003,7 +1008,9 @@ function ChangeRoleDialog({
             />
           </label>
           {mutation.error && (
-            <p className="text-xs text-destructive">{(mutation.error as Error).message}</p>
+            <p className="text-xs text-destructive">
+              <UserError error={mutation.error} />
+            </p>
           )}
         </div>
         <div className="mt-4 flex justify-end gap-2">
@@ -1077,7 +1084,9 @@ function IssueCreditDialog({
             />
           </label>
           {mutation.error && (
-            <p className="text-xs text-destructive">{(mutation.error as Error).message}</p>
+            <p className="text-xs text-destructive">
+              <UserError error={mutation.error} />
+            </p>
           )}
         </div>
         <div className="mt-4 flex justify-end gap-2">
@@ -1131,7 +1140,9 @@ function SuspendDialog({
           placeholder="Reason for suspension"
         />
         {mutation.error && (
-          <p className="mt-2 text-xs text-destructive">{(mutation.error as Error).message}</p>
+          <p className="mt-2 text-xs text-destructive">
+            <UserError error={mutation.error} />
+          </p>
         )}
         <div className="mt-4 flex justify-end gap-2">
           <Button variant="ghost" onClick={() => onOpenChange(false)}>

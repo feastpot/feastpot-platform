@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { useEffect, useState } from 'react';
 
@@ -110,7 +111,7 @@ export function AddressSelector({ value, onChange, onCreateError }: AddressSelec
                 setShowForm(false);
                 onChange(created.id);
               } catch (err) {
-                const msg = err instanceof Error ? err.message : 'Failed to save address.';
+                const msg = await userErrorMessage(err, 'Could not save the address.');
                 setServerError(msg);
                 onCreateError?.(msg);
               }

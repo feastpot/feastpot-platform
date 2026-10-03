@@ -1813,7 +1813,10 @@ export class AdminService {
           const requested = await this.requestVendorApplicationInformation(id, actorId, dto);
           return { ok: true, outcome: 'success' as const, ...requested };
         } catch (error) {
-          const response = error instanceof Error ? error.message : 'Unable to request information';
+          const response =
+            error instanceof Error
+              ? error.message
+              : 'Could not request information for this application.';
           const code =
             error instanceof ConflictException
               ? (error.getResponse() as { code?: string }).code
@@ -1826,6 +1829,7 @@ export class AdminService {
                 ? ('skipped' as const)
                 : ('error' as const),
             error: response,
+            stack: error instanceof Error ? error.stack : undefined,
           };
         }
       }),

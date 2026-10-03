@@ -2,7 +2,8 @@ import { ImageResponse } from 'next/og';
 
 import { getVendorBySlug } from '@/lib/api/vendors';
 
-export const runtime = 'edge';
+// Use Node so Next can honour the vendor lookup's five-minute revalidation.
+// The edge runtime disables static generation and does not support ISR.
 export const alt = 'Feastpot vendor';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
@@ -16,8 +17,8 @@ interface Props {
 /**
  * Per-vendor OG card. Falls back to the generic Feastpot card if the vendor
  * lookup fails so social shares never serve a broken image. ImageResponse
- * runs at the edge on every request - no static caching here, but Next will
- * stamp a stable URL with a content hash.
+ * uses Next's default Node runtime with the five-minute vendor-data cache.
+ * Next stamps a stable image URL with a content hash.
  */
 export default async function VendorOgImage({ params }: Props) {
   const { slug } = await params;

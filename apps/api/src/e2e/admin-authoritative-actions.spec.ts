@@ -31,7 +31,7 @@ const provisioned = required.every((name) => process.env[name]) && Boolean(anonK
 // Local discovery remains possible without destructive credentials. CI is
 // deliberately fail-closed: a configured acceptance job must never turn green
 // by silently skipping authoritative persistence checks.
-const describeWhenProvisioned = provisioned ? describe : describe.skip;
+const describeWhenProvisioned = describe;
 
 const future = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString();
 const futureDate = (days: number) => new Date(Date.now() + days * 86_400_000);
@@ -97,13 +97,15 @@ describeWhenProvisioned('admin authoritative actions (factory JWTs and persisted
     // A1 token has been captured, giving the suite both assurance levels.
     adminToken = await factory.issueAccessToken(admin);
     aal2Admin = await factory.create('A2');
+    if (!aal2Admin.accessToken) throw new Error('ADMIN_ACTIONS_REAL_AAL2_TOKEN_REQUIRED');
+    adminToken = aal2Admin.accessToken;
     support = await factory.create('A3');
     finance = await factory.create('A4');
     compliance = await factory.create('A5');
     applicant = await factory.create('V1');
     vendor = await factory.create('V4');
     disputeVendor = await factory.create('V5');
-    complianceToken = await factory.issueAccessToken(compliance);
+    complianceToken = await factory.issueAal2AccessToken(compliance);
 
     const { AppModule } = await import('../app.module');
     const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
@@ -320,10 +322,8 @@ describeWhenProvisioned('admin authoritative actions (factory JWTs and persisted
   }, 30_000);
 
   it('keeps restricted factory identities unable to perform authoritative mutations', async () => {
-    const [supportToken, financeToken] = await Promise.all([
-      factory.issueAccessToken(support),
-      factory.issueAccessToken(finance),
-    ]);
+    const supportToken = await factory.issueAal2AccessToken(support);
+    const financeToken = await factory.issueAal2AccessToken(finance);
     for (const token of [supportToken, financeToken]) {
       const result = await request(app.getHttpServer())
         .post(`/v1/admin/vendors/${vendor.vendorId!}/enforcement`)
@@ -343,7 +343,7 @@ describeWhenProvisioned('admin authoritative actions (factory JWTs and persisted
     const before = await factory.prisma.termsVersion.count();
     const base = {
       documentType: 'VENDOR_TERMS',
-      version: `authority-${Date.now()}`,
+      version: `2.${Date.now()}`,
       contentMdx: '# Authoritative terms\nMaterial contractual amendment.',
       changeSummary: 'Material commission and cancellation amendment.',
       isMaterial: true,

@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { cn } from '@feastpot/ui';
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
@@ -21,6 +22,7 @@ import { summarise } from '@/components/compliance/compliance-status';
 import { useToast } from '@/components/ui/toaster';
 import {
   useUploadDocument,
+  useDeleteDocument,
   useVendorDocuments,
   type VendorDocument,
   type VendorDocumentType,
@@ -97,6 +99,7 @@ export function ComplianceClient({
 }) {
   const docs = useVendorDocuments(vendor.id);
   const upload = useUploadDocument(vendor.id);
+  const deletion = useDeleteDocument(vendor.id);
   const { toast } = useToast();
   // An empty response means no documents have been uploaded yet. Normalise it
   // before deriving row state so every required document remains visible as
@@ -217,16 +220,42 @@ export function ComplianceClient({
                 mustShow={d.mustShow}
                 acceptedFiles={d.acceptedFiles}
                 doc={docByType.get(d.type) ?? null}
-                uploading={upload.isPending}
+                uploading={upload.isPending || deletion.isPending}
+                onDelete={() => {
+                  const current = docByType.get(d.type);
+                  if (
+                    !current ||
+                    !window.confirm(
+                      'Delete this document and its stored file? You may need to upload a replacement to remain compliant.',
+                    )
+                  )
+                    return;
+                  deletion.mutate(current.id, {
+                    onSuccess: (result) =>
+                      toast({
+                        title: 'Document deleted',
+                        description:
+                          result.storageCleanup === 'pending'
+                            ? 'Storage removal is pending and has been recorded for retry.'
+                            : 'The stored file has also been removed.',
+                      }),
+                    onError: async (error) =>
+                      toast({
+                        title: 'Could not delete document',
+                        description: await userErrorMessage(error),
+                        variant: 'destructive',
+                      }),
+                  });
+                }}
                 onPick={(file, expiresAt) => {
                   upload.mutate(
-                    { file, type: d.type, expiresAt },
+                    { file, type: d.type, expiresAt, replaceId: docByType.get(d.type)?.id },
                     {
                       onSuccess: () => toast({ title: `${d.label} uploaded` }),
-                      onError: (err) =>
+                      onError: async (err) =>
                         toast({
                           title: 'Upload failed',
-                          description: err instanceof Error ? err.message : '',
+                          description: await userErrorMessage(err),
                           variant: 'destructive',
                         }),
                     },

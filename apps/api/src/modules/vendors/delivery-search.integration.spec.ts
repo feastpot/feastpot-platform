@@ -39,10 +39,9 @@ import { currentTermsQuery } from '../terms/current-terms';
 import { VendorSortBy } from './dto/search-vendors.dto';
 import { VendorRepository } from './vendors.repository';
 
-const d = process.env.SUPABASE_DB_URL ? describe : describe.skip;
+const d = describe;
 if (!process.env.SUPABASE_DB_URL) {
-  // eslint-disable-next-line no-console
-  console.warn('[delivery-search] skipping: SUPABASE_DB_URL not set');
+  throw new Error('DELIVERY_SEARCH_DATABASE_REQUIRED: SUPABASE_DB_URL is missing');
 }
 
 const RUN = Date.now();

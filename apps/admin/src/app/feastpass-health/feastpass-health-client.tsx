@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { useEffect, useState } from 'react';
 
@@ -46,7 +47,7 @@ export function FeastPassHealthClient({ accessToken, apiUrl }: Props) {
         return r.json() as Promise<HealthStats>;
       })
       .then(setStats)
-      .catch((e) => setError((e as Error).message))
+      .catch(async (e) => setError(await userErrorMessage(e, 'Could not load FeastPass health.')))
       .finally(() => setLoading(false));
   }, [accessToken, apiUrl]);
 

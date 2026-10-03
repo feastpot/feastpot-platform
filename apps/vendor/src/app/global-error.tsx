@@ -20,6 +20,7 @@ export default function GlobalError({
   reset: () => void;
 }) {
   const [ref, setRef] = useState<string | null>(null);
+  const [reporting, setReporting] = useState(true);
   const hasLogged = useRef(false);
 
   useEffect(() => {
@@ -32,9 +33,11 @@ export default function GlobalError({
       app: 'vendor',
       route: typeof window !== 'undefined' ? window.location.pathname : '/',
       message: error.message || 'Root layout error',
+      detail: error.stack,
       digest: error.digest,
     }).then((incidentRef) => {
       if (incidentRef) setRef(incidentRef);
+      setReporting(false);
     });
   }, [error]);
 
@@ -61,7 +64,7 @@ export default function GlobalError({
             Something went wrong
           </h1>
           <p style={{ fontSize: '14px', color: '#6b6b66', margin: '0 0 8px', lineHeight: 1.6 }}>
-            We hit an unexpected error. It&rsquo;s been logged and we&rsquo;ll look into it.
+            Please try again. If the problem continues, contact support.
           </p>
           {ref ? (
             <p
@@ -76,7 +79,9 @@ export default function GlobalError({
             </p>
           ) : (
             <p style={{ fontSize: '12px', color: '#c8c8c3', margin: '0 0 24px' }}>
-              Logging error...
+              {reporting
+                ? 'Logging error...'
+                : 'Support reference unavailable. Please contact support.'}
             </p>
           )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>

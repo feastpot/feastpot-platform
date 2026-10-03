@@ -16,21 +16,8 @@ import {
   UserRole,
 } from '@prisma/client';
 import type { Queue } from 'bull';
+import PDFDocument from 'pdfkit';
 import Stripe from 'stripe';
-// eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-var-requires
-const PDFDocument = require('pdfkit') as new (opts?: object) => NodeJS.EventEmitter & {
-  text: (t: string, x?: number, y?: number, opts?: object) => any;
-  fontSize: (n: number) => any;
-  font: (name: string) => any;
-  moveDown: (n?: number) => any;
-  moveTo: (x: number, y: number) => any;
-  lineTo: (x: number, y: number) => any;
-  stroke: () => any;
-  end: () => void;
-  page: { width: number; margins: { left: number; right: number } };
-  x: number;
-  y: number;
-};
 
 import type { AuthUser } from '../../auth/types';
 import { CommissionService } from '../../commission/commission.service';
@@ -458,7 +445,7 @@ export class PayoutsService {
           removeOnFail: false,
         },
       );
-    } catch (e) {
+    } catch {
       // Bull/Redis unavailable: roll the CAS back to draft so finance can
       // retry once Redis recovers. Without rollback, the payout stays
       // `approved` forever with no job to advance it.

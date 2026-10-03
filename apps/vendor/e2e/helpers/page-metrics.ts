@@ -79,7 +79,7 @@ export class PageMetrics {
     throw new Error(
       `${taskLabel}: task triggered ${this.navUrls.length} unexpected full-page navigation(s):\n` +
         this.navUrls.map((u) => `  -> ${u}`).join('\n') +
-        '\nThe single-screen requirement is broken - no task should ever navigate away from /menu.',
+        '\nThe single-screen requirement is broken - the task navigated away from its starting screen.',
     );
   }
 

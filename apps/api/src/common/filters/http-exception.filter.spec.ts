@@ -77,7 +77,7 @@ describe('HttpExceptionFilter - non-HTTP exception sanitisation (Part 3)', () =>
     });
 
     it('returns a generic message, not the raw error text', () => {
-      expect(body['message']).toBe('An unexpected error occurred');
+      expect(body['message']).toBe('We could not complete this request. Please try again.');
     });
 
     it('does not expose any internal file path', () => {

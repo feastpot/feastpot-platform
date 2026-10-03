@@ -7,7 +7,7 @@
       "Prisma validate + drift check",
       "Test (coverage thresholds)",
       "E2E (customer checkout)",
-      "E2E (vendor portal, all projects)",
+      "E2E (vendor authoritative lifecycle)",
       "E2E (admin portal, all projects)",
       "Financial suite",
       "Build all apps"

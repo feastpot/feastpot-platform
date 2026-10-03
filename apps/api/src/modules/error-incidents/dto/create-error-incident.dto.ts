@@ -3,6 +3,11 @@ import { IsIn, IsOptional, IsString, IsUUID, Matches, MaxLength } from 'class-va
 const INCIDENT_APPS = ['vendor', 'web', 'admin'] as const;
 
 export class CreateErrorIncidentDto {
+  /** Private structured diagnostics; never returned to a browser. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(20000)
+  detail?: string;
   /** Which app raised the error: vendor | web | admin */
   @IsString()
   @IsIn(INCIDENT_APPS)

@@ -140,6 +140,8 @@ test.describe('B3: reused confirmation link', () => {
     await expect(page.getByRole('heading', { name: 'Account confirmed' })).toBeVisible();
 
     // Navigate back and click again (simulate a reuse).
+    // Leave the mounted success flow before reusing the same hash.
+    await page.goto('/sign-in');
     await page.goto(CONFIRM_URL());
     const btn2 = page.getByRole('button', { name: 'Confirm my account' });
     await btn2.click();

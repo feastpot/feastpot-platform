@@ -18,7 +18,7 @@ on:
   pull_request:
     types: [opened, reopened, synchronize, closed]
   schedule:
-    # Daily at 03:00 UTC — sweep stale pr-* branches as a backstop.
+    # Daily at 03:00 UTC - sweep stale pr-* branches as a backstop.
     - cron: '0 3 * * *'
   # Allow manual runs to clear branches when the plan limit is approaching.
   workflow_dispatch:
@@ -53,7 +53,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Fork PRs do not receive repository secrets — the variables arrive as
+          # Fork PRs do not receive repository secrets - the variables arrive as
           # empty strings. Detect this early and skip gracefully rather than
           # failing with a confusing authentication error.
           if [ -z "${NEON_API_KEY:-}" ] || [ -z "${NEON_PROJECT_ID:-}" ]; then
@@ -107,9 +107,9 @@ jobs:
 
           if [ -z "$existing_id" ]; then
             # ------------------------------------------------------------------
-            # Step 2a: No existing branch — create one.
+            # Step 2a: No existing branch - create one.
             # ------------------------------------------------------------------
-            echo "Branch ${BRANCH_NAME} not found — creating…"
+            echo "Branch ${BRANCH_NAME} not found - creating…"
             payload="{\"branch\":{\"name\":\"${BRANCH_NAME}\"},\"endpoints\":[{\"type\":\"read_write\"}]}"
             raw=$(neon_api POST "/branches" "$payload")
             status=$(echo "$raw" | tail -n1)
@@ -121,7 +121,7 @@ jobs:
             else
               # The create may have lost a race with a parallel workflow run on
               # the same PR. Re-list before treating this as a hard failure.
-              echo "Create returned HTTP ${status} — checking for a race-created branch…"
+              echo "Create returned HTTP ${status} - checking for a race-created branch…"
               raw2=$(neon_api GET "/branches")
               status2=$(echo "$raw2" | tail -n1)
               body2=$(echo "$raw2" | sed '$d')
@@ -148,9 +148,9 @@ jobs:
             fi
           else
             # ------------------------------------------------------------------
-            # Step 2b: Branch already exists — reuse it.
+            # Step 2b: Branch already exists - reuse it.
             # ------------------------------------------------------------------
-            echo "Branch ${BRANCH_NAME} already exists (${existing_id}) — reusing."
+            echo "Branch ${BRANCH_NAME} already exists (${existing_id}) - reusing."
             branch_id="$existing_id"
           fi
 
@@ -191,7 +191,7 @@ jobs:
         run: |
           # DATABASE_URL is empty when we skipped above (fork PR / missing secret).
           if [ -z "${DATABASE_URL:-}" ]; then
-            echo "No DATABASE_URL — skipping migrations."
+            echo "No DATABASE_URL - skipping migrations."
             exit 0
           fi
           npx prisma migrate deploy --schema=./prisma/schema.prisma
@@ -221,7 +221,7 @@ jobs:
             });
 
   # ----------------------------------------------------------------------------
-  # Delete the branch when the PR is closed — merged or not.
+  # Delete the branch when the PR is closed - merged or not.
   # ----------------------------------------------------------------------------
   destroy:
     name: Delete Neon branch
@@ -268,7 +268,7 @@ jobs:
             | head -1)
 
           if [ -z "$branch_id" ]; then
-            echo "No branch named ${BRANCH_NAME} found — nothing to delete."
+            echo "No branch named ${BRANCH_NAME} found - nothing to delete."
             exit 0
           fi
 
@@ -305,7 +305,7 @@ jobs:
           set -euo pipefail
 
           if [ -z "${NEON_API_KEY:-}" ] || [ -z "${NEON_PROJECT_ID:-}" ]; then
-            echo "::notice::Secrets unavailable — skipping cleanup."
+            echo "::notice::Secrets unavailable - skipping cleanup."
             exit 0
           fi
 
@@ -332,7 +332,7 @@ jobs:
             | jq -r '.branches[] | select(.name | test("^pr-[0-9]+$")) | [.id, .name] | @tsv')
 
           if [ -z "$branch_list" ]; then
-            echo "No pr-* branches found — nothing to clean up."
+            echo "No pr-* branches found - nothing to clean up."
             exit 0
           fi
 
@@ -348,12 +348,12 @@ jobs:
               --jq '.state' 2>/dev/null || echo "closed")
 
             if [ "$pr_state" = "open" ]; then
-              echo "PR #${pr_num} is open — keeping branch ${bname}."
+              echo "PR #${pr_num} is open - keeping branch ${bname}."
               kept=$((kept + 1))
               continue
             fi
 
-            echo "PR #${pr_num} is ${pr_state} — deleting branch ${bname} (${bid})…"
+            echo "PR #${pr_num} is ${pr_state} - deleting branch ${bname} (${bid})…"
             raw2=$(neon_api DELETE "/branches/${bid}")
             status2=$(echo "$raw2" | tail -n1)
             body2=$(echo "$raw2" | sed '$d')
@@ -362,7 +362,7 @@ jobs:
               echo "  Deleted ${bname}."
               deleted=$((deleted + 1))
             else
-              echo "::warning::Failed to delete ${bname} (${bid}): HTTP ${status2} — ${body2}"
+              echo "::warning::Failed to delete ${bname} (${bid}): HTTP ${status2} - ${body2}"
             fi
           done <<< "$branch_list"
 

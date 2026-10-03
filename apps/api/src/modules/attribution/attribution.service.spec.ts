@@ -19,6 +19,7 @@ import { OrderSource } from '@prisma/client';
 import { SupabaseService } from '../../auth/supabase.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ATTRIBUTION_QR_QUEUE } from '../../queues/queues.module';
+import { StorageLifecycleService } from '../storage-lifecycle/storage-lifecycle.service';
 
 import {
   AttributionService,
@@ -163,6 +164,7 @@ describe('AttributionService.getOrCreateLink', () => {
       {} as SupabaseService,
       { get: jest.fn().mockReturnValue('https://feastpot.co.uk') } as unknown as ConfigService,
       { add: jest.fn(), getJob: jest.fn().mockResolvedValue(null) } as unknown as never,
+      { reserve: jest.fn(), committed: jest.fn(), compensate: jest.fn() } as never,
     );
   });
 
@@ -210,6 +212,10 @@ describe('AttributionService.preResolveSource', () => {
     const module = await Test.createTestingModule({
       providers: [
         AttributionService,
+        {
+          provide: StorageLifecycleService,
+          useValue: { reserve: jest.fn(), committed: jest.fn(), compensate: jest.fn() },
+        },
         {
           provide: PrismaService,
           useValue: {

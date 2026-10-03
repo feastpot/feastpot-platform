@@ -200,20 +200,27 @@ export class ReviewsService {
       });
     }
 
-    const uploaded: string[] = [];
-    for (const file of files) {
-      const { publicUrl } = await this.storage.uploadReviewPhoto({
-        vendorId: review.vendorId,
-        reviewId: review.id,
-        file,
+    const uploaded: Array<{ path: string; publicUrl: string }> = [];
+    try {
+      for (const file of files) {
+        const image = await this.storage.uploadReviewPhoto({
+          vendorId: review.vendorId,
+          reviewId: review.id,
+          file,
+        });
+        uploaded.push(image);
+      }
+      const updated = await this.prisma.review.update({
+        where: { id: review.id },
+        data: { photoUrls: [...review.photoUrls, ...uploaded.map((image) => image.publicUrl)] },
+        select: { id: true, photoUrls: true },
       });
-      uploaded.push(publicUrl);
+      for (const image of uploaded) await this.storage.commitImage(image);
+      return updated;
+    } catch (error) {
+      for (const image of uploaded) await this.storage.compensateImage(image);
+      throw error;
     }
-    return this.prisma.review.update({
-      where: { id: review.id },
-      data: { photoUrls: [...review.photoUrls, ...uploaded] },
-      select: { id: true, photoUrls: true },
-    });
   }
 
   // -------------------- moderation --------------------

@@ -1,0 +1,58 @@
+TASK: Make test coverage honest, and correct the tests that
+assert the wrong thing.
+
+PART 1: BUCKET C FROM LR-03
+Fix every failure classified as an incorrect test. Expect
+several to date from the rate change (12/10 to 8/5/0) and the
+terms rewrite.
+For each, state which category it falls into:
+  asserting the rate engine resolves correctly: update to the
+    new rate
+  asserting a historic order keeps its original rate: KEEP the
+    old figure, it is testing effective dating and must still
+    pass
+  a snapshot that captured whatever the number was: replace
+    with an assertion against the rate engine
+Do not blanket-update. Report the categorisation.
+
+PART 2: SKIPPED TESTS
+283 API tests are skipped. For each skip reason, report what
+it would have tested and what is missing. Then make
+credential-dependent suites FAIL with a clear message in the
+required environment rather than skipping. A skipped test in
+CI is a test that protects nothing.
+
+PART 3: COVERAGE THAT FINISHES
+API coverage did not complete within five minutes.
+Investigate why: an open handle, a database connection not
+closed, or an unbounded test. Fix so it completes, then
+publish real per-workspace coverage.
+
+PART 4: THRESHOLDS THAT MEAN SOMETHING
+Web branch coverage measured 0.87% against a 1.3% threshold,
+so the gate is failing on a number so small it protects
+nothing. Set thresholds at CURRENT measured levels per
+workspace and ratchet upward as tests are added. Do not set an
+aspirational figure that will be disabled within a week.
+Replace the vendor workspace echo command with real unit
+tests, or exclude it explicitly from the coverage job with a
+stated reason. Silent passing is the thing to eliminate.
+
+PART 5: BRANCH PROTECTION NAMING
+Checked-in branch protection names the check
+"E2E (vendor portal, all projects)" while the workflow job is
+named "E2E (vendor authoritative lifecycle)". If those do not
+match, the intended gate is not enforced.
+Inspect the ACTUAL GitHub protection settings, align the exact
+name, then prove it by pushing a deliberately failing vendor
+check to a test branch and confirming it blocks.
+
+COST CONTROL
+Target 50 minutes. One CI verification push for Part 5 only.
+
+ACCEPTANCE CRITERIA
+- Every bucket C test corrected and categorised.
+- Zero silently skipped tests in the required environment.
+- API coverage completes and is published.
+- Thresholds set at real measured levels.
+- A failing vendor check demonstrably blocks merge.

@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import {
   Button,
@@ -60,7 +61,7 @@ export function QueuesClient({ accessToken }: { accessToken: string }) {
       setHealth(snapshot.data);
       setBoardUrl(`${API_URL}/admin/queues`);
     } catch (err) {
-      setError((err as Error).message);
+      setError(await userErrorMessage(err, 'Could not load the queues.'));
     } finally {
       setLoading(false);
     }

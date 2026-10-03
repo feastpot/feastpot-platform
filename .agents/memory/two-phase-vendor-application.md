@@ -14,3 +14,16 @@ Menu photos remain private while an application is a draft. Submission must clai
 **Why:** Abandoned application photos are private intake material, while approved review/provisioning needs a stable image URL.
 
 **How to apply:** Any new draft mutation must reject submitted or actively claimed rows; any new Admin application query must exclude unsubmitted rows unless it is an explicitly authorised lead-recovery tool.
+
+Preserve acquisition identity and referral headers rather than stripping them
+to work around browser failures. Permit them in the API's CORS header policy
+while retaining the strict origin allowlist.
+
+**Why:** A production registration failure occurred before the POST reached the
+handler: browser preflight rejected the identity headers, despite a reachable
+API route and current database schema. No server-side registration exception
+was recorded.
+
+**How to apply:** When saves fail with no matching API incident, check browser
+preflight first. Verify the actual customer origin and headers against the
+running API, not only direct server-to-server requests.

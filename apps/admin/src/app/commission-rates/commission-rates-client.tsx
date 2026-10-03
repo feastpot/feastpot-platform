@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { useCallback, useEffect, useState } from 'react';
 
@@ -77,7 +78,7 @@ export function CommissionRatesClient() {
       setRates(r);
       setTakeRate(tr);
     } catch (e) {
-      setError((e as Error).message);
+      setError(await userErrorMessage(e, 'Could not load commission rates.'));
     } finally {
       setLoading(false);
     }
@@ -107,7 +108,7 @@ export function CommissionRatesClient() {
       });
       if (!res.ok) {
         const err = (await res.json()) as { message?: string };
-        throw new Error(err.message ?? `API ${res.status}`);
+        throw new Error(await userErrorMessage(err, 'Could not save commission rates.'));
       }
       setShowForm(false);
       setFRatePct('');
@@ -115,7 +116,7 @@ export function CommissionRatesClient() {
       setFNote('');
       await load();
     } catch (e) {
-      setFormError((e as Error).message);
+      setFormError(await userErrorMessage(e, 'Could not save commission rates.'));
     } finally {
       setSubmitting(false);
     }

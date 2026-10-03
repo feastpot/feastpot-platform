@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import {
   BadRequestException,
   ConflictException,
@@ -32,6 +34,7 @@ import { LoyaltyService } from '../loyalty/loyalty.service';
 import { NotificationEvent } from '../notifications/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PaymentsService } from '../payments/payments.service';
+import { StorageLifecycleService } from '../storage-lifecycle/storage-lifecycle.service';
 
 import type { CloseDisputeDto } from './dto/close-dispute.dto';
 import type { CreateDisputeDto } from './dto/create-dispute.dto';
@@ -103,6 +106,7 @@ export class DisputesService {
     private readonly inbox: InboxService,
     // @Global() LoyaltyModule - used for resolution=credit (goodwill points).
     private readonly loyalty: LoyaltyService,
+    private readonly lifecycle: StorageLifecycleService,
   ) {}
 
   // -------------------- list --------------------
@@ -858,14 +862,16 @@ export class DisputesService {
       });
     }
     const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100);
-    const path = `disputes/${id}/${Date.now()}-${safeName}`;
+    const path = `disputes/${id}/${randomUUID()}-${safeName}`;
     const storage = this.supabase.getClient().storage.from(DOCUMENTS_BUCKET);
+    await this.lifecycle.reserve(DOCUMENTS_BUCKET, path);
 
     const { error } = await storage.upload(path, file.buffer, {
       contentType: file.mimetype,
       upsert: false,
     });
     if (error) {
+      await this.lifecycle.compensate(DOCUMENTS_BUCKET, path);
       throw new BadRequestException({ code: 'UPLOAD_FAILED', message: error.message });
     }
     const { data } = storage.getPublicUrl(path);
@@ -885,15 +891,22 @@ export class DisputesService {
       });
     }
     const type = declaredType ?? (isImage ? EvidenceType.photo : EvidenceType.document);
-    const evidence = await this.prisma.disputeEvidence.create({
-      data: {
-        disputeId: id,
-        type,
-        fileUrl: data.publicUrl,
-        caption: caption ?? null,
-        uploadedBy: user.id,
-      },
-    });
+    let evidence;
+    try {
+      evidence = await this.prisma.disputeEvidence.create({
+        data: {
+          disputeId: id,
+          type,
+          fileUrl: data.publicUrl,
+          caption: caption ?? null,
+          uploadedBy: user.id,
+        },
+      });
+    } catch (error) {
+      await this.lifecycle.compensate(DOCUMENTS_BUCKET, path);
+      throw error;
+    }
+    await this.lifecycle.committed(DOCUMENTS_BUCKET, path);
     await this.audit(user.id, 'dispute.evidence_uploaded', id, { evidenceId: evidence.id, type });
     return evidence;
   }

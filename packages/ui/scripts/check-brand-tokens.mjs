@@ -10,7 +10,7 @@
  *
  * Checks per audited file:
  *   1. Every brand CSS variable in REQUIRED_VARS must be present AND bound
- *      to the exact token it maps to — assigning a *different* (but valid)
+ *      to the exact token it maps to - assigning a *different* (but valid)
  *      token to e.g. `--brand-teal` fails, so palettes can't be silently
  *      reshuffled, only re-pointed at brand.ts.
  *   2. Every other 6-digit hex literal must still be a known brand token

@@ -1,4 +1,5 @@
 'use client';
+import { UserError } from '@/lib/user-error';
 
 import {
   Badge,
@@ -380,7 +381,7 @@ export function OrdersClient({ role }: OrdersClientProps) {
       {error && (
         <Card className="mb-4 border-destructive/40 bg-destructive/5">
           <CardContent className="py-3 text-sm text-destructive">
-            Failed to load orders: {(error as Error).message}
+            <UserError error={error} message="Could not load orders." />
           </CardContent>
         </Card>
       )}
@@ -848,7 +849,9 @@ function BulkActionsBar({
               {bulkTags.isPending ? 'Saving…' : removeMode ? 'Remove tags' : 'Add tags'}
             </Button>
             {bulkTags.error && (
-              <span className="text-xs text-destructive">{(bulkTags.error as Error).message}</span>
+              <span className="text-xs text-destructive">
+                <UserError error={bulkTags.error} />
+              </span>
             )}
           </div>
         )}
@@ -886,7 +889,7 @@ function BulkActionsBar({
             )}
             {bulkStatus.error && (
               <span className="text-xs text-destructive">
-                {(bulkStatus.error as Error).message}
+                <UserError error={bulkStatus.error} />
               </span>
             )}
           </div>
@@ -1035,7 +1038,7 @@ function OrdersTableRow({
               </Button>
               {override.error && (
                 <span className="text-xs text-destructive">
-                  {(override.error as Error).message}
+                  <UserError error={override.error} />
                 </span>
               )}
             </div>
@@ -1223,7 +1226,9 @@ function RefundDialogBody({
             </p>
           )}
           {refund.error && (
-            <p className="text-xs text-destructive">{(refund.error as Error).message}</p>
+            <p className="text-xs text-destructive">
+              <UserError error={refund.error} />
+            </p>
           )}
           {refund.isSuccess && <p className="text-xs text-emerald-600">Refund issued.</p>}
         </div>
@@ -1277,8 +1282,12 @@ function RefundHistoryTable({ payments }: { payments: OrderRefundInfo['payments'
             <TableRow key={p.id}>
               <TableCell className="text-xs">{formatDateTime(p.createdAt)}</TableCell>
               <TableCell className="text-xs">{formatPence(-p.amountPence)}</TableCell>
-              <TableCell className="max-w-48 truncate text-xs" title={p.failureReason ?? ''}>
-                {p.failureReason ?? '-'}
+              <TableCell className="max-w-48 truncate text-xs">
+                {p.failureReason ? (
+                  <UserError error={p} message="This payment could not be completed." />
+                ) : (
+                  '-'
+                )}
               </TableCell>
               <TableCell className="text-xs">
                 {actor}

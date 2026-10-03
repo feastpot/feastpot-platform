@@ -1,4 +1,5 @@
 'use client';
+import { UserError, userErrorMessage } from '@/lib/user-error';
 
 import { Badge, Button, Card, CardContent, Input } from '@feastpot/ui';
 import {
@@ -86,10 +87,10 @@ export function MenuImportClient({ vendorId }: { vendorId: string }) {
         setFiles([]);
         toast({ title: 'Import started', description: 'We are reading your menu now.' });
       },
-      onError: (error) =>
+      onError: async (error) =>
         toast({
           title: 'Could not read those files',
-          description: error.message,
+          description: await userErrorMessage(error),
           variant: 'destructive',
         }),
     });
@@ -200,7 +201,10 @@ export function MenuImportClient({ vendorId }: { vendorId: string }) {
       {currentId && detail.error && (
         <ErrorCard
           message={
-            detail.error instanceof Error ? detail.error.message : 'Try loading this import again.'
+            <UserError
+              error={detail.error}
+              message="Could not load this import. Please try again."
+            />
           }
           onRetry={() => detail.refetch()}
         />
@@ -253,7 +257,7 @@ function LoadingCard() {
     </Card>
   );
 }
-function ErrorCard({ message, onRetry }: { message: string; onRetry: () => void }) {
+function ErrorCard({ message, onRetry }: { message: React.ReactNode; onRetry: () => void }) {
   return (
     <Card className="border-red-200">
       <CardContent className="flex items-center gap-3 p-5 text-sm">
@@ -316,11 +320,11 @@ function ReviewImport({
       { ...values, itemId },
       {
         onSuccess: (saved: ImportItem) => onSuccess?.(saved),
-        onError: (e) => (
+        onError: async (e) => (
           onFailure?.(),
           toast({
             title: 'Could not save allergens',
-            description: e.message,
+            description: await userErrorMessage(e),
             variant: 'destructive',
           })
         ),
@@ -335,8 +339,12 @@ function ReviewImport({
           toast({ title: 'Draft dishes added to your menu' });
           router.push(`/menu/${menuId}`);
         },
-        onError: (e) =>
-          toast({ title: 'Could not add dishes', description: e.message, variant: 'destructive' }),
+        onError: async (e) =>
+          toast({
+            title: 'Could not add dishes',
+            description: await userErrorMessage(e),
+            variant: 'destructive',
+          }),
       },
     );
   };
@@ -361,11 +369,8 @@ function ReviewImport({
         <Card className="border-amber-300 bg-amber-50">
           <CardContent className="p-4 text-sm text-amber-950">
             <strong>Some dishes may be missing.</strong>{' '}
-            {importData.errorMessage ??
-              importData.error ??
-              importData.message ??
-              'The menu could not be fully read.'}{' '}
-            You can still add each missed dish manually below.
+            <UserError error={importData} message="The menu could not be fully read." /> You can
+            still add each missed dish manually below.
           </CardContent>
         </Card>
       )}
@@ -610,8 +615,12 @@ function ImportItemCard({
           textDirty.current = false;
           setDirty(false);
         },
-        onError: (e: Error) =>
-          toast({ title: 'Could not save change', description: e.message, variant: 'destructive' }),
+        onError: async (e: Error) =>
+          toast({
+            title: 'Could not save change',
+            description: await userErrorMessage(e),
+            variant: 'destructive',
+          }),
       },
     );
   const toggle = (id: string) => {
@@ -803,10 +812,10 @@ function ImportItemCard({
                     setAllergenDraftDirty(false);
                     toast({ title: 'Allergens copied and saved' });
                   },
-                  onError: (error: Error) =>
+                  onError: async (error: Error) =>
                     toast({
                       title: 'Could not copy allergens',
-                      description: error.message,
+                      description: await userErrorMessage(error),
                       variant: 'destructive',
                     }),
                 },
@@ -848,10 +857,10 @@ function ManualAdd({ add, toast }: { add: ImportMutation; toast: ToastFn }) {
               setName('');
               toast({ title: 'Dish added' });
             },
-            onError: (err: Error) =>
+            onError: async (err: Error) =>
               toast({
                 title: 'Could not add dish',
-                description: err.message,
+                description: await userErrorMessage(err),
                 variant: 'destructive',
               }),
           },

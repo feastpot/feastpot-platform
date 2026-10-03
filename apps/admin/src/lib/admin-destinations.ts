@@ -31,6 +31,7 @@ export const ADMIN_DESTINATION_ROLES = {
   '/audit-log': ['admin', 'compliance'],
   '/dead-letters': ['admin'],
   '/queues': ['admin'],
+  '/storage-reconciliation': ['admin', 'compliance'],
   '/settings': ['admin'],
   '/users': STAFF_ROLES,
   '/user-guide': STAFF_ROLES,

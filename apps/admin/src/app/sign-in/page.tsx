@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { Button, Card, CardContent, Input } from '@feastpot/ui';
 import { Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react';
@@ -90,7 +91,7 @@ function SignInForm() {
       const supabase = createClient();
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) {
-        setError(signInError.message);
+        setError(await userErrorMessage(signInError, 'Could not sign you in. Please try again.'));
         return;
       }
       router.push(next);
@@ -102,25 +103,10 @@ function SignInForm() {
 
   return (
     <SignInChrome>
-      <form onSubmit={submit} className="space-y-4" autoComplete="off">
-        {/* Honeypot fields - some browsers will autofill the first
-            email/password pair they see; sacrificing hidden ones here
-            keeps the real inputs clean. */}
-        <input
-          type="text"
-          name="fakeusernameremembered"
-          className="hidden"
-          tabIndex={-1}
-          aria-hidden
-        />
-        <input
-          type="password"
-          name="fakepasswordremembered"
-          className="hidden"
-          tabIndex={-1}
-          aria-hidden
-        />
-
+      <form method="post" onSubmit={submit} className="space-y-4" autoComplete="off">
+        {/* Keep one credential pair: hidden decoy passwords confuse Chrome's
+            form classification. Read-only-on-focus and autocomplete controls
+            below retain the shared-workstation autofill protection. */}
         <div className="space-y-1.5">
           <label htmlFor="email" className="text-sm font-medium">
             Email

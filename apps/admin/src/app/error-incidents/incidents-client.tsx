@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { useCallback, useEffect, useState } from 'react';
 
@@ -46,7 +47,7 @@ export function IncidentsClient({ accessToken, apiUrl }: Props) {
         const data = await res.json();
         setIncidents(Array.isArray(data) ? (data as Incident[]) : [data as Incident]);
       } catch (e) {
-        setError((e as Error).message);
+        setError(await userErrorMessage(e, 'Could not load error incidents.'));
       } finally {
         setLoading(false);
       }

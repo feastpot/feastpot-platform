@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { Check, ChevronDown, Clock, LifeBuoy, MessageCircle, Phone, Star, X } from 'lucide-react';
 import Link from 'next/link';
@@ -125,9 +126,9 @@ export default function OrderTrackingPage() {
       } else if (e instanceof ApiError && e.status === 400) {
         // Surface the server's customer-facing message verbatim
         // (e.g. "already being prepared", "already on the way").
-        setCancelMsg(e.message);
+        setCancelMsg(await userErrorMessage(e, 'Could not cancel this order.'));
       } else if (e instanceof Error) {
-        setCancelMsg(e.message);
+        setCancelMsg(await userErrorMessage(e, 'Could not cancel this order.'));
       } else {
         setCancelMsg('Could not cancel - please contact support@feastpot.co.uk');
       }
@@ -644,9 +645,7 @@ function RefundRequest({ orderId }: { orderId: string }) {
       });
       setSubmitted(true);
     } catch (caught) {
-      setError(
-        caught instanceof Error ? caught.message : 'We could not submit your refund request.',
-      );
+      setError(await userErrorMessage(caught, 'We could not submit your refund request.'));
     } finally {
       setSubmitting(false);
     }

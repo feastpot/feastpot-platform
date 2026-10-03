@@ -11,9 +11,11 @@ describe('ErrorIncidentsService', () => {
   const prisma = {
     vendor: {
       findUnique: jest.fn(),
+      findFirst: jest.fn(),
     },
     errorIncident: {
       create: jest.fn(),
+      findFirst: jest.fn(),
       findUnique: jest.fn(),
       findMany: jest.fn(),
       groupBy: jest.fn(),
@@ -129,10 +131,44 @@ describe('ErrorIncidentsService', () => {
         ref: created.ref,
         app: 'admin',
         route: '/error-incidents',
-        message: 'Lookup failed',
+        message:
+          'An operation could not be completed. Use the reference to find the private diagnostic log.',
         digest: 'digest-123',
         createdAt: persistedAt,
       }),
     );
+  });
+
+  it('joins concurrent Next server and browser reports to one saved reference', async () => {
+    prisma.errorIncident.findFirst.mockResolvedValue(null);
+    const dto = {
+      app: 'vendor' as const,
+      route: '/menu',
+      digest: 'digest-123',
+      message: 'Server error',
+    };
+    const [server, browser] = await Promise.all([
+      service.create({ ...dto, detail: 'Original provider stack' }, null),
+      service.create({ ...dto, message: 'Next sanitized error' }, null),
+    ]);
+    expect(server.ref).toBe(browser.ref);
+    expect(prisma.errorIncident.create).toHaveBeenCalledTimes(1);
+  });
+
+  it('reuses an already persisted digest while keeping the later full server diagnostic', async () => {
+    const saved = { ref: 'FP-ABCD-1234', app: 'vendor', route: '/menu' };
+    prisma.errorIncident.findFirst.mockResolvedValue(saved);
+    const report = await service.create(
+      {
+        app: 'vendor',
+        route: '/menu',
+        digest: 'digest-123',
+        message: 'Original provider error',
+        detail: 'Full private provider stack',
+      },
+      null,
+    );
+    expect(report.ref).toBe(saved.ref);
+    expect(prisma.errorIncident.create).not.toHaveBeenCalled();
   });
 });

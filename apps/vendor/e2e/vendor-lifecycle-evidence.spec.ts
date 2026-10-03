@@ -11,7 +11,7 @@ const API_URL = process.env.TEST_API_URL ?? 'http://localhost:3001';
  * provisioned vendor, then reconciled below; no browser routes are mocked.
  */
 test.describe.serial('factory vendor lifecycle evidence chain', () => {
-  test('public application → A1 approval → vendor tax/document/menu/order/payout chain', async ({
+  test('public application → A2 approval → vendor tax/document/menu/order/payout chain', async ({
     request,
   }) => {
     test.setTimeout(360_000);
@@ -26,7 +26,7 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
     let orderId: string | undefined;
     let payoutId: string | undefined;
     try {
-      admin = await factory.create('A1');
+      admin = await factory.create('A2');
       const runId = Date.now().toString(36);
       const applicationEmail = `tf-${namespace}-lifecycle-${runId}@test.feastpot.co.uk`;
       const applicationPhone = `07000${Date.now().toString().slice(-6)}`;
@@ -52,7 +52,8 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
       applicationId = created.id;
       expect(created.status).toBe('pending');
 
-      const adminToken = await factory.issueAccessToken(admin);
+      if (!admin.accessToken) throw new Error('LIFECYCLE_REAL_AAL2_TOKEN_REQUIRED');
+      const adminToken = admin.accessToken;
       const approval = await request.patch(
         `${API_URL}/v1/admin/vendor-applications/${applicationId}`,
         {

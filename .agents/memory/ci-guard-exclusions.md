@@ -3,8 +3,8 @@ name: CI guard exclusions
 description: Which directories the CI lint guards must exclude, and why
 ---
 
-Both the em-dash guard and the FeastPot-capitalisation guard in `.github/workflows/ci.yml`
-use recursive grep over the whole repo.  They must exclude:
+The brand-capitalisation guard uses recursive grep over the repository.
+It must exclude:
 
 - `--exclude-dir=node_modules`
 - `--exclude-dir=.next`
@@ -21,15 +21,23 @@ file that quotes the wrong capitalisation or uses em-dashes to fail CI.
 **Why:** Memory files intentionally contain the "wrong" strings as counter-examples
 or in bullet-point comparisons.  They are not source code.
 
-The em-dash guard additionally excludes:
+Typography checks retain the root-level agent, uploaded-input and operator-report
+exemptions, but workspace documentation must remain covered. Do not globally
+exclude every directory named docs or audit.
 
-- `--exclude-dir=.cache` (ignored, generated local scan reports)
-- `--exclude-dir=docs`
-- `--exclude-dir=audit`
+**Why:** Operator reports legitimately use narrative punctuation and quote
+counterexamples. The user requires all workspaces and source file types to be
+checked; a broad directory exclusion could hide application legal copy.
 
-**Why:** The em-dash rule is a source-code style constraint. Documentation and audit
-reports legitimately use narrative punctuation, while `.cache` is not repository content.
+**How to apply:** Limit report exemptions to repository-root report directories.
+Construct forbidden-character fixtures without embedding literal forbidden
+bytes in the test source.
 
-**How to apply:** When adding new guards to ci.yml, copy the full exclusion list above.
-When writing tests that need to reference a forbidden string (e.g. the wrong brand name),
-split the string literal so the grep doesn't match: `'Feast' + 'Pot'`.
+Do not rewrite applied SQL migrations merely to satisfy a broader typography
+check. Grandfather only exact historical snapshots, not all migration files.
+
+**Why:** Prisma stores applied migration checksums; even a comment-only
+punctuation edit changes the checksum and can break migration history checks.
+
+**How to apply:** Keep applied migrations byte-identical, allow only their pinned
+historical snapshots, and check new or changed SQL files normally.

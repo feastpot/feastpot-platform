@@ -96,11 +96,12 @@ import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import compression from 'compression';
-import express from 'express';
+import * as express from 'express';
 import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 
 import { AppModule } from './app.module';
+import { API_CORS_ALLOWED_HEADERS } from './common/config/cors-headers';
 import {
   DEV_SUPABASE_REF,
   getSupabaseEnvironment,
@@ -113,6 +114,8 @@ import {
   PrismaValidationFilter,
 } from './common/filters/prisma-exception.filter';
 import { ThrottlerExceptionFilter } from './common/filters/throttler-exception.filter';
+import { UserErrorFieldsInterceptor } from './common/interceptors/user-error-fields.interceptor';
+import { ErrorIncidentsService } from './modules/error-incidents/error-incidents.service';
 
 const ALLOWED_ORIGINS = [
   'https://feastpot.co.uk',
@@ -266,7 +269,7 @@ async function bootstrap(): Promise<void> {
     origin: ALLOWED_ORIGINS,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-request-id'],
+    allowedHeaders: API_CORS_ALLOWED_HEADERS,
   });
 
   app.useGlobalPipes(
@@ -301,11 +304,12 @@ async function bootstrap(): Promise<void> {
   // before the Prisma-specific filters, making them dead code and causing raw
   // Prisma error messages (table names, file paths) to appear in 500 responses.
   app.useGlobalFilters(
-    new HttpExceptionFilter(),
-    new PrismaValidationFilter(),
-    new PrismaExceptionFilter(),
-    new ThrottlerExceptionFilter(),
+    new HttpExceptionFilter(app.get(ErrorIncidentsService)),
+    new PrismaValidationFilter(app.get(ErrorIncidentsService)),
+    new PrismaExceptionFilter(app.get(ErrorIncidentsService)),
+    new ThrottlerExceptionFilter(app.get(ErrorIncidentsService)),
   );
+  app.useGlobalInterceptors(new UserErrorFieldsInterceptor(app.get(ErrorIncidentsService)));
 
   if (env !== 'production') {
     const swaggerConfig = new DocumentBuilder()

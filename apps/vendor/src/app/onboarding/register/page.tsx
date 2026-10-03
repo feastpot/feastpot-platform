@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { Check, Clock } from 'lucide-react';
 import Image from 'next/image';
@@ -127,7 +128,7 @@ export default function VendorRegisterInterestPage() {
           "We're not quite ready to take applications online yet. Please email your details to hello@feastpot.co.uk and we'll get straight back to you.",
         );
       } else if (e instanceof ApiError) {
-        setServerError(e.message);
+        setServerError(await userErrorMessage(e, 'Could not submit your application.'));
       } else {
         setServerError('Something went wrong. Please try again.');
       }

@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { useEffect, useState } from 'react';
 
@@ -160,7 +161,7 @@ export function EarningsClient() {
         const json: unknown = await res.json().catch(() => null);
         if (!cancelled) setData(asEarningsData(json));
       } catch (e) {
-        if (!cancelled) setError((e as Error).message);
+        if (!cancelled) setError(await userErrorMessage(e, 'Could not load earnings.'));
       } finally {
         if (!cancelled) setLoading(false);
       }

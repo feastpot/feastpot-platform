@@ -4,6 +4,12 @@ description: Use the working GitHub connection when shell credentials reject pus
 ---
 
 ## Authentication fallback
+Resolve the GitHub CLI path with `command -v gh` at the time of use; do not retain an absolute Nix-store path across workspace restarts.
+
+**Why:** A previously working Nix-store executable path disappeared after an environment restart even though `gh` was still available.
+
+**How to apply:** Resolve the executable dynamically when configuring a process-scoped Git credential helper.
+
 Git and the GitHub CLI can reject their stored credentials while the installed GitHub connection still works. Prefer that connection over requesting another token, but successful reads do not prove write access.
 
 **Why:** Shell push and CLI authentication failed independently, but authenticated connector requests successfully uploaded the same changes and opened a pull request.
@@ -41,3 +47,10 @@ This repository does not allow GitHub automatic merging. Required checks still g
 **Why:** GitHub explicitly rejected enabling auto-merge while required checks were pending.
 
 **How to apply:** Check the current repository capability rather than promising automatic merging. Do not bypass branch protection; report pending checks as an external blocker.
+
+## Failure logs before the whole CI run finishes
+Completed job logs can be available through GitHub's job-log API while the overall run is still active.
+
+**Why:** The CLI's run-log reader refused an unfinished run even though the failed jobs had already completed. Direct job-log responses also required explicit acceptance of terminal escape sequences.
+
+**How to apply:** Retrieve the completed job's logs rather than waiting for unrelated jobs; strip terminal control sequences and redact credentials before presenting output.

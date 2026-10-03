@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { createClient } from '@/lib/supabase/server';
 
@@ -26,7 +27,13 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     .maybeSingle();
 
   if (error) {
-    return NextResponse.json({ error: 'FETCH_FAILED', message: error.message }, { status: 502 });
+    return NextResponse.json(
+      {
+        error: 'FETCH_FAILED',
+        message: await userErrorMessage(error, 'Could not load the order status.'),
+      },
+      { status: 502 },
+    );
   }
   if (!data) {
     // RLS may legitimately hide a row that exists - same response as a

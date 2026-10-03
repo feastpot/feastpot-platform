@@ -59,14 +59,19 @@ test.describe('D1: correct credentials', () => {
     await page.fill(SIGNIN.email, 'ok@example.com');
     await page.fill(SIGNIN.password, 'StrongPass1!');
 
-    const errorsBefore = await page.locator('[role="alert"]').count();
+    const errorsBefore = await page
+      .getByRole('region', { name: 'Sign in', exact: true })
+      .getByRole('alert')
+      .count();
     expect(errorsBefore).toBe(0);
 
     await page.click(SIGNIN.submit);
     await page.waitForTimeout(500);
 
     // No alert rendered during or after submit.
-    await expect(page.locator('[role="alert"]')).not.toBeVisible();
+    await expect(
+      page.getByRole('region', { name: 'Sign in', exact: true }).getByRole('alert'),
+    ).not.toBeVisible();
   });
 });
 
@@ -80,7 +85,7 @@ test.describe('D2: incorrect password', () => {
 
     await fillSignIn(page, 'real@example.com', 'WrongPassword1!');
 
-    const alert = page.getByRole('alert');
+    const alert = page.getByRole('region', { name: 'Sign in', exact: true }).getByRole('alert');
     await expect(alert).toBeVisible({ timeout: 5_000 });
     await expect(alert).toContainText(/invalid email or password/i);
 
@@ -110,7 +115,7 @@ test.describe('D3: unconfirmed account sign-in', () => {
     await fillSignIn(page, 'unconfirmed@example.com', 'StrongPass1!');
 
     // Must show the unconfirmed-specific panel (not the generic error).
-    const alert = page.getByRole('alert');
+    const alert = page.getByRole('region', { name: 'Sign in', exact: true }).getByRole('alert');
     await expect(alert).toBeVisible({ timeout: 5_000 });
     await expect(alert).toContainText(/confirm/i);
 
@@ -127,7 +132,7 @@ test.describe('D3: unconfirmed account sign-in', () => {
 
     await fillSignIn(page, 'unconfirmed@example.com', 'StrongPass1!');
 
-    const alert = page.getByRole('alert');
+    const alert = page.getByRole('region', { name: 'Sign in', exact: true }).getByRole('alert');
     await expect(alert).toBeVisible({ timeout: 5_000 });
 
     const resendBtn = alert.getByRole('button', { name: /resend/i });
@@ -156,7 +161,7 @@ test.describe('D4: non-existent account enumeration safety', () => {
 
     await fillSignIn(page, 'ghost@example.com', 'AnyPassword1!');
 
-    const alert = page.getByRole('alert');
+    const alert = page.getByRole('region', { name: 'Sign in', exact: true }).getByRole('alert');
     await expect(alert).toBeVisible({ timeout: 5_000 });
     await expect(alert).toContainText(/invalid email or password/i);
     await expect(alert).not.toContainText(/not found/i);
@@ -176,7 +181,9 @@ test.describe('D4: non-existent account enumeration safety', () => {
       await page.fill(SIGNIN.email, 'real@example.com');
       await page.fill(SIGNIN.password, 'Wrong1!');
       await page.click(SIGNIN.submit);
-      await expect(page.getByRole('alert')).toBeVisible();
+      await expect(
+        page.getByRole('region', { name: 'Sign in', exact: true }).getByRole('alert'),
+      ).toBeVisible();
       times.wrongPwd.push(Date.now() - t0);
     }
 
@@ -187,7 +194,9 @@ test.describe('D4: non-existent account enumeration safety', () => {
       await page.fill(SIGNIN.email, 'ghost@example.com');
       await page.fill(SIGNIN.password, 'AnyPass1!');
       await page.click(SIGNIN.submit);
-      await expect(page.getByRole('alert')).toBeVisible();
+      await expect(
+        page.getByRole('region', { name: 'Sign in', exact: true }).getByRole('alert'),
+      ).toBeVisible();
       times.ghost.push(Date.now() - t0);
     }
 

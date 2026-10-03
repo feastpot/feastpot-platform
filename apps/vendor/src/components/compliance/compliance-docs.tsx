@@ -154,6 +154,7 @@ export function DocumentRow({
   doc,
   uploading,
   onPick,
+  onDelete,
 }: {
   /**
    * Optional DOM id used by the "View missing" CTA on the standalone
@@ -176,6 +177,7 @@ export function DocumentRow({
   doc: VendorDocument | null;
   uploading: boolean;
   onPick: (file: File, expiresAt?: string) => void;
+  onDelete?: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const { token } = useAccessToken();
@@ -238,6 +240,17 @@ export function DocumentRow({
             {doc && (
               <p className="mt-2 text-[11px] text-mid">
                 {doc.fileName ?? '(file)'}
+                {onDelete && (
+                  <button
+                    type="button"
+                    onClick={onDelete}
+                    disabled={uploading}
+                    className="ml-2 text-xs font-semibold text-red-700 underline disabled:opacity-50"
+                    aria-label={`Delete ${label}`}
+                  >
+                    Delete
+                  </button>
+                )}
                 <SecureDownload
                   url={`${API_URL}/v1/vendors/${doc.vendorId}/documents/${doc.id}/download`}
                   token={token}

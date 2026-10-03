@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import {
   AlertTriangle,
@@ -233,9 +234,9 @@ function TaxProfileSection({ profile }: { profile: VendorTaxProfile | null | und
           vatNumber: previous.vatNumber || p.vatNumber || '',
         }));
       },
-      onError: (err) => {
-        const message = err instanceof Error ? err.message : 'Could not reconcile Stripe details';
-        if (!message.includes('Complete Stripe onboarding first')) setError(message);
+      onError: async (err) => {
+        const message = await userErrorMessage(err, 'Could not reconcile payment account details.');
+        if ((err as { code?: string })?.code !== 'NO_STRIPE_ACCOUNT') setError(message);
       },
     });
   }, []);
@@ -336,7 +337,8 @@ function TaxProfileSection({ profile }: { profile: VendorTaxProfile | null | und
               setSuccess(true);
               setEditing(false);
             },
-            onError: (err) => setError(err instanceof Error ? err.message : 'Save failed'),
+            onError: async (err) =>
+              setError(await userErrorMessage(err, 'Could not save your tax information.')),
           });
         }}
       >

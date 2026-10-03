@@ -410,7 +410,7 @@ async function sendSetupEmail(supabase, email, confirmed, confirmUrl, resend, se
     {
       from: process.env.EMAIL_FROM ?? 'Feastpot <noreply@feastpot.co.uk>',
       to: email,
-      subject: 'Demo vendor portal setup — Lagos Table',
+      subject: 'Demo vendor portal setup - Lagos Table',
       html: `
         <div style="margin:0 auto;max-width:560px;padding:32px 24px;font-family:Arial,sans-serif;color:#18343b">
           <p style="margin:0 0 18px;font-size:12px;font-weight:700;letter-spacing:.12em;color:#b45309">DEMO ACCOUNT</p>

@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import {
   Button,
@@ -89,7 +90,7 @@ export function CoverageClient() {
     } catch (err) {
       toast({
         title: 'CSV download failed',
-        description: (err as Error).message,
+        description: await userErrorMessage(err, 'Could not download the CSV.'),
         variant: 'destructive',
       });
     }

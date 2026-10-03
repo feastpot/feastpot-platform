@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -34,7 +35,7 @@ export default function NewAddressPage() {
               await create.mutateAsync(input);
               router.push('/account/addresses');
             } catch (err) {
-              setServerError(err instanceof Error ? err.message : 'Failed to save address.');
+              setServerError(await userErrorMessage(err, 'Could not save your address.'));
             }
           }}
           onCancel={() => router.push('/account/addresses')}

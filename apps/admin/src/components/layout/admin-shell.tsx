@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import {
   Button,
@@ -153,6 +154,12 @@ export const NAV_GROUPS = [
       roles: R('/dead-letters'),
     },
     { href: '/queues', label: 'Job queues', icon: Layers, roles: R('/queues') },
+    {
+      href: '/storage-reconciliation',
+      label: 'Storage reconciliation',
+      icon: Layers,
+      roles: R('/storage-reconciliation'),
+    },
     { href: '/settings', label: 'Settings', icon: Settings, roles: R('/settings') },
     {
       href: '/users',
@@ -312,7 +319,7 @@ export function AdminShell({
       await request('/admin/payouts/run-batch', { method: 'POST' });
       setFeedback('Payout batch started successfully.');
     } catch (error) {
-      setFeedback(`Payout batch failed: ${(error as Error).message}`);
+      setFeedback(await userErrorMessage(error, 'Could not create the payout batch.'));
     }
   }
   function runAuditExport() {

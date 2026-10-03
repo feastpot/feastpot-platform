@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import {
   DndContext,
@@ -310,7 +311,7 @@ export function ItemEditorClient({
     } catch (err) {
       toast({
         title: 'Could not save item',
-        description: err instanceof Error ? err.message : '',
+        description: await userErrorMessage(err),
         variant: 'destructive',
       });
     }
@@ -337,7 +338,7 @@ export function ItemEditorClient({
     } catch (err) {
       toast({
         title: 'Upload failed',
-        description: err instanceof Error ? err.message : '',
+        description: await userErrorMessage(err),
         variant: 'destructive',
       });
     }
@@ -367,7 +368,7 @@ export function ItemEditorClient({
       setForm((s) => ({ ...s, images: prev }));
       toast({
         title: 'Could not remove photo',
-        description: err instanceof Error ? err.message : '',
+        description: await userErrorMessage(err),
         variant: 'destructive',
       });
     }
@@ -392,7 +393,7 @@ export function ItemEditorClient({
       setForm((s) => ({ ...s, images: prev }));
       toast({
         title: 'Could not save photo order',
-        description: err instanceof Error ? err.message : '',
+        description: await userErrorMessage(err),
         variant: 'destructive',
       });
     }
@@ -637,11 +638,11 @@ export function ItemEditorClient({
                 toggleAvail.mutate(
                   { itemId, isAvailable: checked },
                   {
-                    onError: (err) => {
+                    onError: async (err) => {
                       setForm((s) => ({ ...s, isAvailable: prev }));
                       toast({
                         title: 'Could not update availability',
-                        description: err instanceof Error ? err.message : '',
+                        description: await userErrorMessage(err),
                         variant: 'destructive',
                       });
                     },

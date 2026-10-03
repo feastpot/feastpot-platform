@@ -1,5 +1,6 @@
 - [Admin UI conventions](admin-ui-conventions.md) - server page (requireStaff) → client component; gate mutating UI to match backend @Roles, not the broader page-view roles.
 - [Exception filter LIFO ordering](exception-filter-lifo.md) - NestJS resolves global filters in reverse registration order; a catch-all @Catch() filter must be registered FIRST (lowest LIFO priority); also: never let non-HttpException.message reach the response body.
+- [User-facing error references](user-error-references.md) — plain messages and private diagnostics share a persisted reference; Next digests are not saved incidents.
 - [Prisma array defaults drift](prisma-array-defaults-drift.md) - Postgres normalises ARRAY[]::VARCHAR(n)[] to a longer cast expression; @default([]) in schema never matches introspected DbGenerated form; use @default(dbgenerated("(ARRAY[]::character varying[])::character varying(n)[]")) to silence migrate diff.
 - [Prisma enum names without map](prisma-enum-names-no-map.md) - enum names without @@map must match exactly between schema and DB; hand-written snake_case names in migrations vs PascalCase in schema = CI drift; fix with ALTER TYPE RENAME in an idempotent DO block.
 - [Monorepo commands](monorepo-commands.md) - repo is npm workspaces + Turborepo; attached CHECK-FIRST prompts say `--filter=` (turbo) but per-app scripts run via `npm run X --workspace=@feastpot/<app>`.
@@ -61,7 +62,7 @@
 - [Config CJS runtime entries](config-cjs-runtime.md) - packages/config exports .ts by default; Node prod can't load .ts → crash-loop; fix is require condition → .cjs.js files; changes to the 3 .ts files MUST mirror the .cjs.js copies.
 - [Image upload fix](image-upload-fix.md) — next.config.ts remotePatterns for Supabase URLs; ImageSlot uses <img> for blob preview; feastpot-media bucket auto-created in onModuleInit.
 - [Account compliance merge](account-compliance-merge.md) — /compliance + /account-status + /terms merged into /account-and-compliance; old routes redirect; embedded prop on ComplianceClient suppresses h1.
-- [CI guard exclusions](ci-guard-exclusions.md) — em-dash and FeastPot guards must exclude .agents (committed memory files legitimately use both); split test literals to avoid grep matches.
+- [CI guard exclusions](ci-guard-exclusions.md) — retain root report/agent exemptions without hiding workspace docs; preserve applied migration checksums during typography cleanup.
 - [db push missing migrations](db-push-missing-migrations.md) — db push banned on shared DBs; CI drift gate (prisma-validate job, migrate diff --exit-code) catches this at PR time; checksum repair pattern inside.
 - [Prettier full-repo formatting](prettier-full-repo.md) — must cover all workspaces (admin, vendor e2e, web e2e, docs); verification-banner-mocks.ts is in .prettierignore (JSDoc parse error).
 - [Admin panel audit](admin-panel-audit.md) — live findings: 2FA not enforced; no debounce on search; commission-rates used wrong API URL (fixed); platform defaults 12%/weekly/GBP; admin client components must import API_URL from @/lib/env.
@@ -90,3 +91,6 @@
 - [Rate Schedule version entries](rate-schedule-version-entries.md) - every effective Rate Schedule version must receive a complete entry snapshot atomically; repair empty current versions, never reactivate old ones.
 - [Browser HEIC conversion](upload-conversion-choice.md) - preserve the user's infrastructure-cost choice; dependency fixes do not authorise API-side HEIC decoding.
 - [Runtime audit isolation](runtime-audit-isolation.md) — cold portal sweeps can exhaust 16 GB; snapshot financial rejection probes and verify the intended rejection reason.
+- [Storage lifecycle privacy](storage-lifecycle-privacy.md) — privacy outranks storage cost; inventories stay report-only, and ambiguous Supabase HEAD responses need structured absence verification.
+- [Auth form fallbacks](auth-form-fallbacks.md) — native authentication submissions must remain credential-safe; browser tests need hydrated controls, not readonly bypasses.
+- [Sitemap release gate](sitemap-release-gate.md) — missing eligible vendor data must block releases; never substitute a successful static-only sitemap.

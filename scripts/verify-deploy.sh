@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# verify-deploy.sh — automated, repeatable verification that:
+# verify-deploy.sh - automated, repeatable verification that:
 #   1. The live legal pages on https://feastpot.co.uk return 200 with
 #      the expected post-task content.
 #   2. The branch protection on `main` matches the committed payload
 #      at .github/branch-protection.main.json.
 #
 # This is the executable counterpart to docs/git-workflow-verification.md
-# — narrative log + this script together = airtight evidence.
+# - narrative log + this script together = airtight evidence.
 #
 # USAGE
 #   bash scripts/verify-deploy.sh
@@ -25,7 +25,7 @@ set -uo pipefail
 
 readonly SITE="https://feastpot.co.uk"
 readonly API_URLS=(
-  "https://api.feastpot.co.uk"          # authoritative (DNS pending — see LAUNCH_CHECKLIST)
+  "https://api.feastpot.co.uk"          # authoritative (DNS pending - see LAUNCH_CHECKLIST)
   "https://feastpot-platform.replit.app" # Replit Autoscale fallback
 )
 readonly API_PATHS=(/healthz /livez /health)
@@ -37,7 +37,7 @@ fail() { printf '  FAIL  %s\n          %s\n' "$1" "$2"; failures=$((failures+1))
 
 failures=0
 
-echo "verify-deploy.sh — live endpoint + branch-protection probes"
+echo "verify-deploy.sh - live endpoint + branch-protection probes"
 echo
 
 # ---------- Endpoint probes ----------
@@ -73,7 +73,7 @@ probe_endpoint "/legal/privacy" "privacy" \
 # Tries the authoritative domain first, then the Replit Autoscale
 # fallback. Tries /healthz then /livez then /health on each. The API
 # probe is WARN-not-FAIL because api.feastpot.co.uk DNS is still
-# pending (LAUNCH_CHECKLIST §"DNS / domains") — once it's wired this
+# pending (LAUNCH_CHECKLIST §"DNS / domains") - once it's wired this
 # probe automatically upgrades to PASS without any code change here.
 api_health_status="not-found"
 api_health_url=""
@@ -92,7 +92,7 @@ done
 if [[ "${api_health_status}" == "ok" ]]; then
   pass "API health (${api_health_url} HTTP 200)"
 else
-  warn "API health" "no candidate URL returned 200 — expected once api.feastpot.co.uk DNS lands. Tried: ${API_URLS[*]} × ${API_PATHS[*]}"
+  warn "API health" "no candidate URL returned 200 - expected once api.feastpot.co.uk DNS lands. Tried: ${API_URLS[*]} × ${API_PATHS[*]}"
 fi
 
 # ---------- Branch protection check ----------
@@ -160,7 +160,7 @@ fi
 
 echo
 if [[ $failures -gt 0 ]]; then
-  echo "FAILED — ${failures} check(s) did not pass."
+  echo "FAILED - ${failures} check(s) did not pass."
   exit 1
 fi
 echo "All checks passed."

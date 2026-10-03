@@ -10,6 +10,7 @@ import {
 
 import { SupabaseService } from '../../auth/supabase.service';
 import { validateUpload } from '../../common/uploads/validate-upload';
+import { StorageLifecycleService } from '../storage-lifecycle/storage-lifecycle.service';
 
 import { STORAGE_BUCKET } from './catalogue.constants';
 
@@ -56,7 +57,22 @@ export interface UploadedImage {
 export class SupabaseStorageService implements OnModuleInit {
   private readonly logger = new Logger(SupabaseStorageService.name);
 
-  constructor(private readonly supabase: SupabaseService) {}
+  constructor(
+    private readonly supabase: SupabaseService,
+    private readonly lifecycle: StorageLifecycleService,
+  ) {}
+
+  async commitImage(image: UploadedImage): Promise<void> {
+    await this.lifecycle.committed(STORAGE_BUCKET, image.path);
+  }
+
+  async compensateImage(image: UploadedImage): Promise<void> {
+    await this.lifecycle.compensate(STORAGE_BUCKET, image.path);
+  }
+
+  async commitPrivate(path: string): Promise<void> {
+    await this.lifecycle.committed(DOCUMENTS_BUCKET, path);
+  }
 
   /**
    * Ensure the shared media bucket exists. Supabase Storage returns
@@ -155,13 +171,15 @@ export class SupabaseStorageService implements OnModuleInit {
       });
     }
     const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
-    const path = `vendor-applications/${params.applicationId}/menu/${Date.now()}-${safeName}`;
+    const path = `vendor-applications/${params.applicationId}/menu/${randomUUID()}-${safeName}`;
     const storage = this.supabase.getClient().storage.from(DOCUMENTS_BUCKET);
+    await this.lifecycle.reserve(DOCUMENTS_BUCKET, path);
     const { error } = await storage.upload(path, file.buffer, {
       contentType: file.mimetype,
       upsert: false,
     });
     if (error) {
+      await this.lifecycle.compensate(DOCUMENTS_BUCKET, path);
       throw new InternalServerErrorException({
         code: 'IMAGE_UPLOAD_FAILED',
         message: 'Could not upload image',
@@ -169,6 +187,7 @@ export class SupabaseStorageService implements OnModuleInit {
     }
     const { data, error: signedError } = await storage.createSignedUrl(path, 30 * 24 * 60 * 60);
     if (signedError) {
+      await this.lifecycle.compensate(DOCUMENTS_BUCKET, path);
       throw new InternalServerErrorException({
         code: 'IMAGE_PREVIEW_FAILED',
         message: 'Could not create image preview',
@@ -200,6 +219,7 @@ export class SupabaseStorageService implements OnModuleInit {
     const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120) || 'source';
     // Never allow retries or duplicate filenames to overwrite an original.
     const path = `vendors/${params.vendorId}/menu-imports/${params.importId}/${randomUUID()}-${safeName}`;
+    await this.lifecycle.reserve(DOCUMENTS_BUCKET, path);
     const { error } = await this.supabase
       .getClient()
       .storage.from(DOCUMENTS_BUCKET)
@@ -208,6 +228,7 @@ export class SupabaseStorageService implements OnModuleInit {
         upsert: false,
       });
     if (error) {
+      await this.lifecycle.compensate(DOCUMENTS_BUCKET, path);
       this.logger.error(`Menu import upload failed: ${error.message}`);
       throw new InternalServerErrorException({
         code: 'IMPORT_UPLOAD_FAILED',
@@ -245,13 +266,11 @@ export class SupabaseStorageService implements OnModuleInit {
   }
 
   async removePrivateImage(path: string): Promise<void> {
-    const { error } = await this.supabase.getClient().storage.from(DOCUMENTS_BUCKET).remove([path]);
-    if (error) this.logger.warn(`Could not remove private image "${path}": ${error.message}`);
+    await this.lifecycle.compensate(DOCUMENTS_BUCKET, path);
   }
 
   async removePublicImage(path: string): Promise<void> {
-    const { error } = await this.supabase.getClient().storage.from(STORAGE_BUCKET).remove([path]);
-    if (error) this.logger.warn(`Could not remove public image "${path}": ${error.message}`);
+    await this.lifecycle.compensate(STORAGE_BUCKET, path);
   }
 
   /**
@@ -295,15 +314,17 @@ export class SupabaseStorageService implements OnModuleInit {
     }
 
     const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
-    const filename = `${Date.now()}-${safeName}`;
+    const filename = `${randomUUID()}-${safeName}`;
     const path = `${folder}/${filename}`;
 
     const storage = this.supabase.getClient().storage.from(STORAGE_BUCKET);
+    await this.lifecycle.reserve(STORAGE_BUCKET, path);
     const { error } = await storage.upload(path, file.buffer, {
       contentType: file.mimetype,
       upsert: false,
     });
     if (error) {
+      await this.lifecycle.compensate(STORAGE_BUCKET, path);
       this.logger.error(`Supabase upload failed: ${error.message}`);
       throw new InternalServerErrorException({
         code: 'IMAGE_UPLOAD_FAILED',

@@ -1,7 +1,17 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": ["tsconfig.json", "turbo.json", ".env"],
+  "globalDependencies": [
+    "tsconfig.json",
+    "turbo.json",
+    ".env",
+    "scripts/coverage-baselines.json",
+    "scripts/no-skipped-tests.cjs",
+    "scripts/test-factory/**/*.ts"
+  ],
   "globalEnv": [
+    "FEASTPOT_TEST_ENVIRONMENT",
+    "ADMIN_REQUIRE_AAL2",
+    "ADMIN_E2E_ALLOW_AAL1",
     "NODE_ENV",
     "PORT",
     "DATABASE_URL",
@@ -29,9 +39,28 @@
     "RESEND_FROM_EMAIL"
   ],
   "tasks": {
+    "@feastpot/web#build": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "env": ["NEXT_PUBLIC_API_URL", "NEXT_PUBLIC_SITE_URL", "SITEMAP_API_URL"],
+      "outputs": [
+        "dist/**",
+        ".next/**",
+        "!.next/cache/**",
+        "public/sitemap*.xml",
+        "public/robots.txt"
+      ]
+    },
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", ".next/**", "!.next/cache/**"]
+      "env": ["NEXT_PUBLIC_API_URL", "NEXT_PUBLIC_SITE_URL", "SITEMAP_API_URL"],
+      "outputs": [
+        "dist/**",
+        ".next/**",
+        "!.next/cache/**",
+        "public/sitemap*.xml",
+        "public/robots.txt"
+      ]
     },
     "dev": {
       "cache": false,

@@ -1,4 +1,4 @@
-# CI workflow — runs on every PR targeting `main` or `develop`.
+# CI workflow - runs on every PR targeting `main` or `develop`.
 #
 # Each job is its own runner so they execute in parallel where possible. The
 # `setup` job exists only to prime the npm + turbo caches that the other jobs
@@ -17,13 +17,16 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  FEASTPOT_TEST_ENVIRONMENT: authoritative
+  ADMIN_REQUIRE_AAL2: 'true'
+  ADMIN_E2E_ALLOW_AAL1: 'false'
   # Force colour output and a stable Turbo cache location.
   FORCE_COLOR: 1
   TURBO_TELEMETRY_DISABLED: 1
 
 jobs:
   # ----------------------------------------------------------------------------
-  # 1. Setup — install dependencies once and warm caches for downstream jobs.
+  # 1. Setup - install dependencies once and warm caches for downstream jobs.
   # ----------------------------------------------------------------------------
   setup:
     name: Setup
@@ -58,7 +61,7 @@ jobs:
             turbo-${{ runner.os }}-
 
   # ----------------------------------------------------------------------------
-  # 2. Typecheck — every workspace must satisfy `tsc --noEmit`.
+  # 2. Typecheck - every workspace must satisfy `tsc --noEmit`.
   # ----------------------------------------------------------------------------
   typecheck:
     name: Typecheck
@@ -114,20 +117,9 @@ jobs:
       - name: Prettier check
         run: npm run format:check
       - name: No em-dash guard
-        run: |
-          if grep -rn $'\u2014' . \
-            --include="*.ts" --include="*.tsx" \
-            --include="*.js" --include="*.jsx" \
-            --include="*.json" --include="*.md" \
-            --include="*.html" --include="*.css" \
-            --exclude-dir=node_modules --exclude-dir=.next \
-            --exclude-dir=dist --exclude-dir=.turbo --exclude-dir=.cache \
-            --exclude-dir=.git --exclude-dir=.local \
-            --exclude-dir=.agents --exclude-dir=attached_assets \
-            --exclude-dir=docs --exclude-dir=audit; then
-            echo "ERROR: em dash (U+2014) detected. See CONTRIBUTING.md for approved alternatives."
-            exit 1
-          fi
+        run: node scripts/no-em-dash.mjs
+      - name: No em-dash regression checks (committed negative fixtures)
+        run: node --test scripts/no-em-dash.test.mjs
       - name: No FeastPot miscapitalisation
         run: |
           if grep -rn "FeastPot" . \
@@ -257,7 +249,7 @@ jobs:
         # `--check` exits non-zero when the file would be reformatted.
         run: npx prisma format --schema=./prisma/schema.prisma --check
       - name: Create Supabase roles for drift check
-        # Postgres roles are cluster-level — creating them once in any database
+        # Postgres roles are cluster-level - creating them once in any database
         # makes them available in the shadow DB that Prisma creates and manages.
         # This is the same set of roles that the test job creates for migrate deploy.
         run: |
@@ -275,7 +267,7 @@ jobs:
           PGPASSWORD=feastpot psql -h localhost -U feastpot -d feastpot_validate \
             -v ON_ERROR_STOP=1 \
             -c "CREATE DATABASE feastpot_shadow;"
-      - name: Drift check — migrations must reproduce schema.prisma exactly
+      - name: Drift check - migrations must reproduce schema.prisma exactly
         # Exit 1 means prisma/migrations does not reproduce prisma/schema.prisma.
         # Root cause: a schema change was applied with `prisma db push` (no migration
         # file produced) or a migration file was hand-edited after being applied.
@@ -293,16 +285,15 @@ jobs:
             --exit-code
 
   # ----------------------------------------------------------------------------
-  # 5. Test — runs Jest/Vitest with coverage. Uses a Neon test branch URL
+  # 5. Test - runs Jest/Vitest with coverage. Uses a Neon test branch URL
   #    provided via secrets so integration tests can hit a real Postgres.
   # ----------------------------------------------------------------------------
   test:
     name: Test (coverage thresholds)
     needs: [setup]
     runs-on: ubuntu-latest
-    # Throwaway Postgres service — no external secrets needed. DB-gated
-    # integration tests skip themselves when they detect a non-seeded DB;
-    # the nightly workflow covers those against a real database.
+    # Throwaway Postgres runs unit and database tests; externally authenticated
+    # acceptance suites run in their explicitly credentialed jobs, not as skips.
     services:
       postgres:
         image: postgres:16
@@ -322,6 +313,7 @@ jobs:
       # Prisma datasource reads SUPABASE_DB_URL / SUPABASE_DIRECT_URL (see
       # prisma/schema.prisma), NOT DATABASE_URL / DIRECT_URL.
       SUPABASE_DB_URL: postgresql://feastpot:feastpot@localhost:5432/feastpot_test
+      FEASTPOT_TEST_ENVIRONMENT: database
       SUPABASE_DIRECT_URL: postgresql://feastpot:feastpot@localhost:5432/feastpot_test
     steps:
       - uses: actions/checkout@v5
@@ -344,8 +336,8 @@ jobs:
           PGPASSWORD=feastpot psql -h localhost -U feastpot -d feastpot_test -v ON_ERROR_STOP=1 \
             -c "CREATE ROLE anon NOLOGIN; CREATE ROLE authenticated NOLOGIN; CREATE ROLE service_role NOLOGIN; CREATE ROLE supabase_auth_admin NOLOGIN;"
       - name: Apply migrations from scratch (from-scratch validation)
-        # Failure here means either (a) a migration ordering problem — one migration
-        # references an object created by a later one — or (b) schema drift that
+        # Failure here means either (a) a migration ordering problem - one migration
+        # references an object created by a later one - or (b) schema drift that
         # slipped past the drift-check job.  To diagnose, run locally:
         #   npx prisma migrate diff --from-migrations ./prisma/migrations \
         #     --to-schema-datamodel ./prisma/schema.prisma \
@@ -353,9 +345,20 @@ jobs:
         run: npx prisma migrate deploy --schema=./prisma/schema.prisma
       - name: Run tests with coverage
         # Only workspaces with real Jest suites belong in this coverage gate.
-        # The vendor workspace has an e2e-only echo script, so including it
-        # would make test discovery appear healthy without running assertions.
+        # Vendor has no unit suite. Its removed echo script was not a test;
+        # the separate required Playwright job is its current release gate.
         run: npx turbo run test --filter=@feastpot/api --filter=@feastpot/web -- --coverage --ci
+      - name: Verify complete production source denominator
+        run: node scripts/coverage-guard.cjs database
+      - name: Publish complete coverage reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workspace-coverage
+          path: |
+            apps/api/coverage/
+            apps/web/coverage/
+          if-no-files-found: error
       - name: Upload coverage to Codecov (optional)
         if: always()
         uses: codecov/codecov-action@v4
@@ -419,12 +422,12 @@ jobs:
   #    fails loudly if D3 is skipped, ensuring this can never pass silently.
   #
   #    BRANCH PROTECTION: after this job appears in the Checks tab for the
-  #    first time, add "e2e-vendor" to the required status checks for `main`
+  #    first time, add "E2E (vendor authoritative lifecycle)" for `main`
   #    in GitHub > Settings > Branches > Branch protection rules.
   # ----------------------------------------------------------------------------
   e2e-vendor:
     name: E2E (vendor authoritative lifecycle)
-    needs: [setup, e2e-customer]
+    needs: [setup, cross-surface-consistency]
     runs-on: ubuntu-latest
     env:
       # Vendor dev server origin consumed by Playwright.
@@ -616,7 +619,7 @@ jobs:
       SESSION_SECRET: admin-e2e-test-only-session-secret-34125348434
       ADMIN_REQUIRE_AAL2: 'true'
       NEXT_PUBLIC_ADMIN_REQUIRE_AAL2: 'true'
-      ADMIN_E2E_ALLOW_AAL1: 'true'
+      ADMIN_E2E_ALLOW_AAL1: 'false'
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -900,7 +903,7 @@ jobs:
   # --------------------------------------------------------------------------
   cross-surface-consistency:
     name: Cross-surface consistency (Parts A-D)
-    needs: [setup]
+    needs: [setup, e2e-customer]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     services:
@@ -1121,5 +1124,9 @@ jobs:
           restore-keys: turbo-${{ runner.os }}-
       - name: Generate Prisma client
         run: npm run db:generate
+      - name: Sitemap contract regression tests
+        run: npm run test:sitemap --workspace=@feastpot/web
       - name: Build (api, web, vendor, admin)
+        # Web postbuild always queries and verifies the complete live catalogue.
+        # Never turn a missing vendor catalogue into a green release.
         run: npx turbo run build

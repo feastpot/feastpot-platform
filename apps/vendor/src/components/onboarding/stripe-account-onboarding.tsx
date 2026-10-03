@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { AlertTriangle, CheckCircle2, LockKeyhole } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
@@ -73,7 +74,8 @@ export function StripeAccountOnboarding({
         if (!cancelled) mountElement.appendChild(onboarding);
       } catch (cause) {
         initialized.current = false;
-        if (!cancelled) setError(cause instanceof Error ? cause.message : 'Stripe could not load.');
+        if (!cancelled)
+          setError(await userErrorMessage(cause, 'Could not load payment account setup.'));
       }
     })();
     return () => {

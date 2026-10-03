@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import {
   Button,
@@ -379,7 +380,7 @@ function EnquiriesTab({ role }: { role: string }) {
       loadPage();
     } catch (err: unknown) {
       const code = (err as { data?: { code?: string; message?: string } })?.data?.code;
-      const msg = (err as { data?: { message?: string } })?.data?.message ?? 'Assignment failed';
+      const msg = await userErrorMessage(err, 'Could not assign this booking.');
       const detail =
         code === 'VENDOR_NOT_CATERING_CAPABLE'
           ? 'That vendor has not enabled catering quotes in their profile.'
@@ -901,7 +902,7 @@ function BookingsTab({
         setHasMore(data.length === 30);
         setCursor(data[data.length - 1]?.id);
       } catch (e) {
-        setError((e as Error).message);
+        setError(await userErrorMessage(e, 'Could not complete this catering action.'));
       } finally {
         setLoading(false);
       }

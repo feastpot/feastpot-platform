@@ -53,7 +53,8 @@ export class AuthPublicController {
   @Post('notify-password-changed')
   @HttpCode(HttpStatus.OK)
   async notifyPasswordChanged(@CurrentUser() user: AuthUser): Promise<{ notified: boolean }> {
-    const email = user.email ?? (user as any).user_metadata?.email;
+    // AuthUser comes from the verified guard, not untrusted user metadata.
+    const email = user.email;
     if (email) {
       await this.authPublicService.notifyPasswordChanged(email);
     }

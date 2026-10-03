@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import {
   Button,
@@ -203,7 +204,7 @@ export function CateringEnquiriesClient() {
       loadPage();
     } catch (err: unknown) {
       const code = (err as { data?: { code?: string; message?: string } })?.data?.code;
-      const msg = (err as { data?: { message?: string } })?.data?.message ?? 'Assignment failed';
+      const msg = await userErrorMessage(err, 'Could not assign this enquiry.');
       const detail =
         code === 'VENDOR_NOT_CATERING_CAPABLE'
           ? 'That vendor has not enabled catering quotes in their profile.'

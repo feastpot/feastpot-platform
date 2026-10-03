@@ -141,14 +141,8 @@ test('4. sign-in Apple button fires signInWithOAuth', async ({ page }) => {
   await page.click('button:has-text("Continue with Apple")');
   await page.waitForTimeout(1_000);
 
-  // The authorize request fired (provider check may vary by Supabase version).
-  // We assert the button exists and is clickable; full provider check above.
-  const appleBtn = page.getByRole('button', { name: /continue with apple/i });
-  await expect(appleBtn).toBeVisible();
-  // If the route was intercepted we know the click triggered OAuth.
-  // appleCalled may be false if Supabase redirects with a different URL shape;
-  // the absence of an exception is the real signal.
-  expect(typeof appleCalled).toBe('boolean');
+  expect(appleCalled).toBe(true);
+  await expect(page).toHaveURL(/\/auth\/v1\/authorize.*provider=apple/);
 });
 
 // ---------------------------------------------------------------------------

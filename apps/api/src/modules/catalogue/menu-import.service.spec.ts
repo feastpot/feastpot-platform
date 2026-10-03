@@ -43,7 +43,11 @@ describe('MenuImportService', () => {
     menu: { findFirst: jest.fn() },
     $transaction: jest.fn(),
   } as unknown as PrismaService;
-  const storage = { uploadMenuImportSource: jest.fn() } as unknown as SupabaseStorageService;
+  const storage = {
+    uploadMenuImportSource: jest.fn(),
+    commitPrivate: jest.fn(),
+    removePrivateImage: jest.fn(),
+  } as unknown as SupabaseStorageService;
   const ocr = { extract: jest.fn() } as unknown as MenuImportOcrService;
   let service: MenuImportService;
 

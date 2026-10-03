@@ -561,7 +561,7 @@ test('D6: every control on the delivery page produces an observable, correct con
   await postcodeInput.fill('');
   await postcodeInput.blur();
   // Area label should disappear when the field is cleared.
-  await expect(page.getByText(KITCHEN_DISTRICT))
+  await expect(postcodeInput.locator('../../..').getByText(KITCHEN_DISTRICT, { exact: true }))
     .toBeHidden({ timeout: 3_000 })
     .catch(() => {
       noEffect.push('Kitchen postcode (clearing did not remove area label)');
@@ -569,7 +569,7 @@ test('D6: every control on the delivery page produces an observable, correct con
   // Re-enter the postcode.
   await postcodeInput.fill(KITCHEN_POSTCODE);
   await postcodeInput.blur();
-  await expect(page.getByText(KITCHEN_DISTRICT))
+  await expect(postcodeInput.locator('../../..').getByText(KITCHEN_DISTRICT, { exact: true }))
     .toBeVisible({ timeout: 8_000 })
     .catch(() => {
       noEffect.push('Kitchen postcode (entering valid postcode did not show area label)');

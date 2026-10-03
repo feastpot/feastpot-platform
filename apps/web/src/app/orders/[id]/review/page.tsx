@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { Check, X } from 'lucide-react';
 import { useParams, useRouter } from 'next/navigation';
@@ -99,8 +100,10 @@ export default function ReviewPage() {
       }
       setSubmitted(true);
     } catch (e) {
-      if (e instanceof ApiError) setError(e.message);
-      else if (e instanceof Error) setError(e.message);
+      if (e instanceof ApiError)
+        setError(await userErrorMessage(e, 'Could not submit your review.'));
+      else if (e instanceof Error)
+        setError(await userErrorMessage(e, 'Could not submit your review.'));
       else setError('Could not submit review.');
     } finally {
       setSubmitting(false);

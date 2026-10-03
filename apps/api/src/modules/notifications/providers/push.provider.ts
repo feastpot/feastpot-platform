@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import webpush from 'web-push';
+import * as webpush from 'web-push';
 
 import { PrismaService } from '../../../prisma/prisma.service';
 

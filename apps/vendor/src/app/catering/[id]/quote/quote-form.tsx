@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import {
   calculateCateringDeposit,
@@ -214,7 +215,7 @@ export function CateringQuoteForm({
       }
       router.push('/catering');
     } catch (err) {
-      setServerError((err as Error).message);
+      setServerError(await userErrorMessage(err, 'Could not save your quote.'));
     }
   }
 
@@ -224,7 +225,7 @@ export function CateringQuoteForm({
       await send.mutateAsync();
       setSendSuccess(true);
     } catch (err) {
-      setServerError((err as Error).message);
+      setServerError(await userErrorMessage(err, 'Could not send your quote.'));
     }
   }
 

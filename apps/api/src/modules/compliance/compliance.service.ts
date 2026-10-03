@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+
 import {
   BadRequestException,
   ForbiddenException,
@@ -24,6 +26,7 @@ import { DOCUMENTS_BUCKET } from '../catalogue/supabase-storage.service';
 import { InboxService } from '../inbox/inbox.service';
 import { NotificationEvent } from '../notifications/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
+import { StorageLifecycleService } from '../storage-lifecycle/storage-lifecycle.service';
 import {
   VENDOR_COMPLIANCE_ROLES,
   VendorMembersService,
@@ -54,6 +57,7 @@ export class ComplianceService {
     // T010: server-side RBAC across vendor team members.
     private readonly members: VendorMembersService,
     private readonly recovery: VendorRecoveryService,
+    private readonly lifecycle: StorageLifecycleService,
     @Optional() private readonly analytics?: AnalyticsService,
   ) {}
 
@@ -108,15 +112,21 @@ export class ComplianceService {
     file: { originalname: string; buffer: Buffer; mimetype: string; size: number },
     dto: UploadDocumentDto,
     user: AuthUser,
+    replacementId?: string,
   ) {
     await this.assertCanManageVendor(vendorId, user);
+    if (
+      replacementId &&
+      !(await this.prisma.vendorDocument.findFirst({ where: { id: replacementId, vendorId } }))
+    )
+      throw new NotFoundException({ code: 'DOCUMENT_NOT_FOUND', message: 'Document not found' });
     validateUpload(file, 10 * 1024 * 1024, true);
     if (file.size > 10 * 1024 * 1024) {
       throw new BadRequestException({ code: 'FILE_TOO_LARGE', message: 'Max 10 MB per document' });
     }
 
     const safeName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 100);
-    const path = `vendors/${vendorId}/${dto.type}/${Date.now()}-${safeName}`;
+    const path = `vendors/${vendorId}/${dto.type}/${randomUUID()}-${safeName}`;
     const namespace = process.env.TEST_FACTORY_NAMESPACE;
     const useTestStorage =
       process.env.NODE_ENV === 'test' &&
@@ -130,24 +140,44 @@ export class ComplianceService {
       publicUrl = `https://test-storage.invalid/${DOCUMENTS_BUCKET}/${path}`;
     } else {
       const storage = this.supabase.getClient().storage.from(DOCUMENTS_BUCKET);
+      await this.lifecycle.reserve(DOCUMENTS_BUCKET, path);
       const { error } = await storage.upload(path, file.buffer, {
         contentType: file.mimetype,
+        cacheControl: '0',
         upsert: false,
       });
-      if (error) throw new BadRequestException({ code: 'UPLOAD_FAILED', message: error.message });
+      if (error) {
+        await this.lifecycle.compensate(DOCUMENTS_BUCKET, path);
+        throw new BadRequestException(
+          { code: 'UPLOAD_FAILED', message: 'Could not upload this document. Please try again.' },
+          { cause: error },
+        );
+      }
       publicUrl = storage.getPublicUrl(path).data.publicUrl;
     }
 
-    const document = await this.prisma.vendorDocument.create({
-      data: {
-        vendorId,
-        type: dto.type,
-        status: DocumentStatus.pending,
-        fileUrl: publicUrl,
-        fileName: file.originalname.slice(0, 255),
-        expiresAt: dto.expiresAt ?? null,
-      },
-    });
+    const documentData = {
+      vendorId,
+      type: dto.type,
+      status: DocumentStatus.pending,
+      fileUrl: publicUrl,
+      fileName: file.originalname.slice(0, 255),
+      expiresAt: dto.expiresAt ?? null,
+    };
+    let document;
+    try {
+      document = replacementId
+        ? await this.prisma.vendorDocument.update({
+            where: { id: replacementId, vendorId },
+            data: { ...documentData, reviewedBy: null, reviewedAt: null, rejectReason: null },
+          })
+        : await this.prisma.vendorDocument.create({ data: documentData });
+    } catch (error) {
+      if (!useTestStorage) await this.lifecycle.compensate(DOCUMENTS_BUCKET, path);
+      throw error;
+    }
+    if (!useTestStorage) await this.lifecycle.committed(DOCUMENTS_BUCKET, path);
+    await this.lifecycle.drain();
     const stepByType: Partial<Record<DocumentType, VendorOnboardingStepName>> = {
       [DocumentType.kitchen_reg]: VendorOnboardingStepName.food_business_registration,
       [DocumentType.insurance]: VendorOnboardingStepName.public_liability_insurance,
@@ -162,6 +192,20 @@ export class ComplianceService {
       });
     }
     return document;
+  }
+
+  async deleteDocument(vendorId: string, documentId: string, user: AuthUser) {
+    await this.assertCanManageVendor(vendorId, user);
+    const document = await this.prisma.vendorDocument.findFirst({
+      where: { id: documentId, vendorId },
+    });
+    if (!document)
+      throw new NotFoundException({ code: 'DOCUMENT_NOT_FOUND', message: 'Document not found' });
+    // The trigger writes deletion intent in this SAME database transaction.
+    await this.prisma.vendorDocument.delete({ where: { id: documentId, vendorId } });
+    const ref = this.lifecycle.parse(document.fileUrl);
+    const removed = ref ? await this.lifecycle.compensate(ref.bucket, ref.path) : true;
+    return { deleted: true, storageCleanup: removed ? 'complete' : 'pending' };
   }
 
   async verifyDocument(

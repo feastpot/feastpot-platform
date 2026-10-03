@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import type { UserIdentity } from '@supabase/supabase-js';
 import { Camera } from 'lucide-react';
@@ -116,7 +117,7 @@ export default function ProfilePage() {
       setToast('Profile photo updated');
     } catch (err) {
       setPreviewAvatar(null);
-      setFormError(err instanceof Error ? err.message : 'Could not upload photo.');
+      setFormError(await userErrorMessage(err, 'Could not upload the photo.'));
     } finally {
       setAvatarUploading(false);
       // Revoke after the update settles to avoid flashing the placeholder
@@ -147,7 +148,7 @@ export default function ProfilePage() {
       });
       setToast('Profile updated');
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Could not save profile.');
+      setFormError(await userErrorMessage(err, 'Could not save your profile.'));
     }
   };
 
@@ -159,7 +160,7 @@ export default function ProfilePage() {
       await supabase.auth.signOut();
       router.replace('/sign-in?deleted=1');
     } catch (err) {
-      setDeleteError(err instanceof Error ? err.message : 'Could not delete account.');
+      setDeleteError(await userErrorMessage(err, 'Could not delete your account.'));
     }
   };
 

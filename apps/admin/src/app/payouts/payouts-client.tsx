@@ -1,4 +1,5 @@
 'use client';
+import { UserError, userErrorMessage } from '@/lib/user-error';
 
 import {
   Badge,
@@ -107,7 +108,7 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
     } catch (err) {
       toast({
         title: 'Failed to queue payout batch',
-        description: (err as Error).message,
+        description: await userErrorMessage(err, 'Could not queue the payout batch.'),
         variant: 'destructive',
       });
     } finally {
@@ -118,7 +119,7 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
     }
   }
 
-  const draftRows = data?.data ?? [];
+  const draftRows = useMemo(() => data?.data ?? [], [data?.data]);
   const totalSelectedPence = useMemo(
     () => draftRows.filter((r) => selected.has(r.id)).reduce((sum, r) => sum + r.amountPence, 0),
     [draftRows, selected],
@@ -195,10 +196,10 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
           setHoldTarget(null);
           setHoldReason('');
         },
-        onError: (err) =>
+        onError: async (err) =>
           toast({
             title: 'Hold failed',
-            description: (err as Error).message,
+            description: await userErrorMessage(err, 'Could not hold the payout.'),
             variant: 'destructive',
           }),
       },
@@ -208,10 +209,10 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
   function reconcile(id: string) {
     reconcileMutation.mutate(id, {
       onSuccess: (res) => setReconcileResult(res),
-      onError: (err) =>
+      onError: async (err) =>
         toast({
           title: 'Reconcile failed',
-          description: (err as Error).message,
+          description: await userErrorMessage(err, 'Could not reconcile payouts.'),
           variant: 'destructive',
         }),
     });
@@ -306,7 +307,7 @@ export function PayoutsClient({ role }: PayoutsClientProps) {
       {error && (
         <Card className="mb-4 border-destructive/40 bg-destructive/5">
           <CardContent className="py-3 text-sm text-destructive">
-            Failed to load payouts: {(error as Error).message}
+            <UserError error={error} message="Could not load payouts." />
           </CardContent>
         </Card>
       )}

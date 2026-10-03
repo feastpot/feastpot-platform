@@ -10,6 +10,9 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 
+import type { AuthUser } from '../../auth/types';
+import { ErrorIncidentsService } from '../../modules/error-incidents/error-incidents.service';
+
 interface ErrorBody {
   code: string;
   message: string;
@@ -25,8 +28,9 @@ interface ErrorBody {
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
+  constructor(private readonly incidents?: ErrorIncidentsService) {}
 
-  catch(exception: unknown, host: ArgumentsHost): void {
+  async catch(exception: unknown, host: ArgumentsHost): Promise<void> {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
@@ -86,14 +90,81 @@ export class HttpExceptionFilter implements ExceptionFilter {
       this.logger.error(`[${correlationId}] Unknown exception type: ${String(exception)}`);
     }
 
-    const body: ErrorBody = {
+    // An HttpException is not a trust boundary: services can wrap provider text
+    // in a 400/404 just as easily as they can accidentally expose a 500.
+    const messages: Record<number, string> = {
+      400: 'Please check your information and try again.',
+      401: 'Please sign in again to continue.',
+      403: 'You do not have permission to do this.',
+      404: 'We could not find the requested item.',
+      409: 'This information has changed. Please refresh and try again.',
+      422: 'Please check your information and try again.',
+      429: 'You have made too many requests. Please wait before trying again.',
+    };
+    let ref: string | null = null;
+    const error = exception as { message?: string; stack?: string; cause?: unknown };
+    const seen = new WeakSet<object>();
+    const diagnostic = JSON.stringify(
+      {
+        message: error?.message ?? String(exception),
+        stack: error?.stack,
+        cause: error?.cause,
+        response: exception instanceof HttpException ? exception.getResponse() : undefined,
+      },
+      (_key, value: unknown) => {
+        if (typeof value === 'bigint') return String(value);
+        if (value && typeof value === 'object') {
+          if (seen.has(value)) return '[circular]';
+          seen.add(value);
+        }
+        return value instanceof Error
+          ? {
+              ...value,
+              name: value.name,
+              message: value.message,
+              stack: value.stack,
+              cause: value.cause,
+            }
+          : value;
+      },
+    );
+    if (this.incidents && !request.url.startsWith('/v1/error-incidents')) {
+      try {
+        const principal = (request as Request & { user?: AuthUser }).user ?? null;
+        const incident = await this.incidents.create(
+          {
+            app:
+              principal?.role === 'vendor'
+                ? 'vendor'
+                : principal && principal.role !== 'customer'
+                  ? 'admin'
+                  : 'web',
+            route: request.url.split('?')[0] ?? '/',
+            message: error?.message ?? 'Unknown exception',
+            detail: diagnostic.slice(0, 20000),
+          },
+          principal,
+        );
+        ref = incident.ref;
+      } catch {
+        this.logger.error({ event: 'incident_persistence_failed', correlationId });
+      }
+    }
+    this.logger.error({ event: 'http_exception', ref, correlationId, statusCode, diagnostic });
+    message = messages[statusCode] ?? 'We could not complete this request. Please try again.';
+    details = undefined;
+    const body: ErrorBody & { ref: string | null; retryAfter?: number } = {
       code,
       message,
       statusCode,
       correlationId,
+      ref,
       timestamp: new Date().toISOString(),
       path: request.url,
       ...(details !== undefined ? { details } : {}),
+      ...(statusCode === 429
+        ? { retryAfter: Number(response.getHeader?.('Retry-After')) || 60 }
+        : {}),
     };
 
     response.status(statusCode).json(body);

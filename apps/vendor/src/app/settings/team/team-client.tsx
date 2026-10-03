@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { cn } from '@feastpot/ui';
 import {
@@ -146,7 +147,7 @@ export function TeamClient() {
     } catch (err) {
       toast({
         title: 'Could not send invite',
-        description: err instanceof Error ? err.message : '',
+        description: await userErrorMessage(err, 'Could not send the invitation.'),
         variant: 'destructive',
       });
     }

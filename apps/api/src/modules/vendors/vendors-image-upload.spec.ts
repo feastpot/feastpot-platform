@@ -87,6 +87,7 @@ function makeService() {
 
   const storage = {
     uploadVendorImage: jest.fn(),
+    commitImage: jest.fn().mockResolvedValue(undefined),
   } as unknown as jest.Mocked<SupabaseStorageService>;
 
   const cache: jest.Mocked<Pick<RedisCacheService, 'get' | 'set' | 'del' | 'delByPattern'>> = {
@@ -143,6 +144,10 @@ describe('VendorsService.uploadIdentityImage', () => {
 
     // URL must be persisted on the vendor row.
     expect(repo.update).toHaveBeenCalledWith('v-1', { logoUrl: publicUrl });
+    expect(storage.commitImage).toHaveBeenCalledWith(result);
+    expect((storage.commitImage as jest.Mock).mock.invocationCallOrder[0]).toBeGreaterThan(
+      repo.update.mock.invocationCallOrder[0],
+    );
 
     // Profile cache must be busted so the next request sees the new logo.
     expect(cache.del).toHaveBeenCalledWith('vendors:profile:v-1');

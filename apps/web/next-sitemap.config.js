@@ -7,10 +7,10 @@
  *
  * Account/checkout/order pages are excluded - they require auth and have no
  * SEO value. Vendor profile pages are added dynamically by querying the live
- * API for `status=live` vendors (capped at 1000 per call). If the API is
- * unreachable at build time we silently fall back to an empty list rather
- * than failing the whole build.
+ * API for `status=live` vendors, following every cursor at the API's
+ * 100-row limit. Missing required vendor data fails the build.
  */
+const { fetchVendorPaths } = require('./scripts/sitemap-vendors.cjs');
 
 /** @type {import('next-sitemap').IConfig} */
 module.exports = {
@@ -76,32 +76,10 @@ module.exports = {
       priority: 0.7,
     }));
 
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://api.feastpot.co.uk';
-    try {
-      const res = await fetch(`${apiUrl}/v1/vendors?limit=1000&status=live`, {
-        // 15 s ceiling - we'd rather ship a smaller sitemap than block the build.
-        signal: AbortSignal.timeout(15_000),
-      });
-      if (!res.ok) {
-        // eslint-disable-next-line no-console
-        console.warn(`[sitemap] vendor fetch returned ${res.status}; skipping vendor URLs`);
-        return occasionPaths;
-      }
-      const json = await res.json();
-      const vendors = Array.isArray(json?.data) ? json.data : [];
-      const vendorPaths = vendors
-        .filter((v) => v && typeof v.slug === 'string')
-        .map((v) => ({
-          loc: `/vendors/${v.slug}`,
-          lastmod: v.updatedAt || new Date().toISOString(),
-          changefreq: 'weekly',
-          priority: 0.8,
-        }));
-      return [...occasionPaths, ...vendorPaths];
-    } catch (err) {
-      // eslint-disable-next-line no-console
-      console.warn('[sitemap] vendor fetch failed; building without vendor URLs', err);
-      return occasionPaths;
-    }
+    const apiUrl =
+      process.env.SITEMAP_API_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      'https://api.feastpot.co.uk';
+    return [...occasionPaths, ...(await fetchVendorPaths(apiUrl))];
   },
 };

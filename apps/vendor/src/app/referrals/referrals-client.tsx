@@ -204,6 +204,9 @@ export function ReferralsClient({ link: initialLink, vendorId }: ReferralsClient
         </h2>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
           {qrSrc ? (
+            // Keep the printable QR's original pixels and initial native-image
+            // fallback; optimisation is unnecessary for this generated asset.
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={qrSrc}
               alt={`QR code for ${link.referralUrl}`}

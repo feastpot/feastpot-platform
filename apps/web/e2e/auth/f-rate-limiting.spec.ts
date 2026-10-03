@@ -48,7 +48,7 @@ test.describe('F1: sign-up rate limit', () => {
     await page.check(REG.terms);
     await page.click(REG.submit);
 
-    const alert = page.getByRole('alert');
+    const alert = page.getByRole('region', { name: 'Sign in', exact: true }).getByRole('alert');
     await expect(alert).toBeVisible({ timeout: 5_000 });
 
     const body = await page.textContent('body');
@@ -83,7 +83,9 @@ test.describe('F1: sign-in rate limit', () => {
 
     // Sign-in error handler shows generic "Invalid email or password" for all
     // auth errors; a 429 is treated as an auth failure (no enumeration risk).
-    const alert = page.getByRole('alert');
+    const alert = page
+      .getByRole('region', { name: 'Create account', exact: true })
+      .getByRole('alert');
     await expect(alert).toBeVisible({ timeout: 5_000 });
     const body = await page.textContent('body');
     expect(body).not.toMatch(/over_request_rate_limit/);

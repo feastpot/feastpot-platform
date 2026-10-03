@@ -1,4 +1,5 @@
 'use client';
+import { UserError } from '@/lib/user-error';
 
 import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { cn } from '@feastpot/ui';
@@ -192,7 +193,7 @@ export function PayoutsClient() {
 
       {error && (
         <div className="fp-card border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {error instanceof Error ? error.message : 'Could not load payouts'}
+          <UserError error={error} message="Could not load payouts." />
         </div>
       )}
 

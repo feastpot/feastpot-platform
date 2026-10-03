@@ -48,6 +48,7 @@ export default function Error({
       app: 'vendor',
       route,
       message: error.message || 'Unknown error',
+      detail: error.stack,
       digest: error.digest,
     }).then((r) => {
       setRef(r);
@@ -74,9 +75,7 @@ export default function Error({
             ? 'Logging\u2026'
             : ref
               ? `Ref: ${ref}`
-              : error.digest
-                ? `Diagnostic: ${error.digest}`
-                : null}
+              : 'Support reference unavailable. Please contact support.'}
         </p>
 
         <div className="mt-6 flex flex-col gap-2">

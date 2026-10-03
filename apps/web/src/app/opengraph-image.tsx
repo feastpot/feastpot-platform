@@ -1,6 +1,7 @@
 import { ImageResponse } from 'next/og';
 
-export const runtime = 'edge';
+// This image has no request-specific data. The default Node runtime lets Next
+// prerender it rather than disabling static generation with the edge runtime.
 export const alt = 'Feastpot - Authentic African & Caribbean Food Delivered';
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';

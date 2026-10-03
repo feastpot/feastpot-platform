@@ -148,7 +148,11 @@ describe('MenuItemsService.uploadImage - draft visibility', () => {
     vendorMember: { findFirst: jest.Mock };
     user: { findMany: jest.Mock };
   };
-  let storage: { uploadMenuItemImage: jest.Mock };
+  let storage: {
+    uploadMenuItemImage: jest.Mock;
+    commitImage: jest.Mock;
+    compensateImage: jest.Mock;
+  };
   let service: MenuItemsService;
 
   beforeEach(() => {
@@ -161,7 +165,13 @@ describe('MenuItemsService.uploadImage - draft visibility', () => {
       vendorMember: { findFirst: jest.fn().mockResolvedValue(null) },
       user: { findMany: jest.fn().mockResolvedValue([]) },
     };
-    storage = { uploadMenuItemImage: jest.fn().mockResolvedValue({ publicUrl: uploadedUrl }) };
+    storage = {
+      uploadMenuItemImage: jest
+        .fn()
+        .mockResolvedValue({ path: 'new-image.png', publicUrl: uploadedUrl }),
+      commitImage: jest.fn(),
+      compensateImage: jest.fn(),
+    };
 
     service = new MenuItemsService(
       prisma as never,
@@ -222,7 +232,7 @@ describe('MenuItemsService.uploadImage - draft visibility', () => {
       file: fakeFile,
     });
 
-    expect(result).toEqual({ publicUrl: uploadedUrl });
+    expect(result).toEqual({ path: 'new-image.png', publicUrl: uploadedUrl });
     expect(storage.uploadMenuItemImage).toHaveBeenCalledWith(
       expect.objectContaining({ vendorId, itemId }),
     );
@@ -236,6 +246,42 @@ describe('MenuItemsService.uploadImage - draft visibility', () => {
         }),
       }),
     );
+  });
+  it('rejects a sixth image before uploading anything', async () => {
+    prisma.menuItem.findUnique.mockResolvedValueOnce({
+      ...draftItem,
+      imageUrls: ['1', '2', '3', '4', '5'],
+    });
+    prisma.vendor.findUnique.mockResolvedValueOnce({ userId: ownerUserId });
+    await expect(
+      service.uploadImage({
+        vendorId,
+        menuId,
+        itemId,
+        caller: makeVendorCaller(ownerUserId),
+        file: fakeFile,
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(storage.uploadMenuItemImage).not.toHaveBeenCalled();
+  });
+  it('compensates the uploaded image after a database failure', async () => {
+    prisma.menuItem.findUnique.mockResolvedValueOnce(draftItem);
+    prisma.vendor.findUnique.mockResolvedValueOnce({ userId: ownerUserId });
+    prisma.menuItem.update.mockRejectedValueOnce(new Error('Database write failed'));
+    await expect(
+      service.uploadImage({
+        vendorId,
+        menuId,
+        itemId,
+        caller: makeVendorCaller(ownerUserId),
+        file: fakeFile,
+      }),
+    ).rejects.toThrow('Database write failed');
+    expect(storage.compensateImage).toHaveBeenCalledWith({
+      path: 'new-image.png',
+      publicUrl: uploadedUrl,
+    });
+    expect(storage.commitImage).not.toHaveBeenCalled();
   });
 
   it('throws NotFoundException for a vendor who does not own the item (different userId)', async () => {

@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 import { prepareUpload } from '@feastpot/ui/upload';
 
 import { ArrowRight, Check, CircleAlert, ImagePlus, Loader2, Mail, Sparkles } from 'lucide-react';
@@ -192,6 +193,9 @@ function StorefrontPreview({ draft, localImage }: { draft: Draft; localImage: st
       </div>
       <div className="mt-4 overflow-hidden rounded-2xl bg-[#fffaf1] text-[#26231f]">
         {image ? (
+          // Blob/data URL preview must remain local; next/image optimisation
+          // cannot fetch browser-owned files and would delay preview feedback.
+          // eslint-disable-next-line @next/next/no-img-element
           <img src={image} alt="Your uploaded menu" className="h-36 w-full object-cover" />
         ) : (
           <div className="flex h-36 items-center justify-center bg-[#ead6b8] text-sm text-[#6c665d]">
@@ -829,9 +833,7 @@ function ApplicationFlow({
       }
     } catch (requestError) {
       setError(
-        requestError instanceof ApiError
-          ? requestError.message
-          : 'We could not save that yet. Please try again.',
+        await userErrorMessage(requestError, 'We could not save that yet. Please try again.'),
       );
     } finally {
       setBusy(false);
@@ -841,7 +843,7 @@ function ApplicationFlow({
     try {
       file = await prepareUpload(file);
     } catch (error) {
-      setError(error instanceof Error ? error.message : 'Could not prepare the photo.');
+      setError(await userErrorMessage(error, 'Could not prepare the photo.'));
       return;
     }
     if (
@@ -886,11 +888,7 @@ function ApplicationFlow({
       setDraft((current) => ({ ...current, currentStep: 'submitted' }));
       setCompleted(true);
     } catch (requestError) {
-      setError(
-        requestError instanceof ApiError
-          ? requestError.message
-          : 'We could not submit yet. Please try again.',
-      );
+      setError(await userErrorMessage(requestError, 'We could not submit yet. Please try again.'));
     } finally {
       setBusy(false);
     }

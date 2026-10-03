@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import {
   calculateCateringDeposit,
@@ -119,7 +120,7 @@ export function QuoteForm({ enquiryId, accessToken }: { enquiryId: string; acces
       });
       router.push('/events');
     } catch (err) {
-      setServerError((err as Error).message);
+      setServerError(await userErrorMessage(err, 'Could not send your quote.'));
     }
   }
 

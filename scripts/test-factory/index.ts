@@ -384,7 +384,17 @@ export class TestDataFactory {
     if (this.ownsPrisma) await this.prisma.$disconnect();
   }
 
-  /** Issue a normal Supabase password-session token for a factory identity. */
+  /** Complete real MFA. Call serially because enrollment shares an auth client. */
+  async issueAal2AccessToken(identity: TestIdentity): Promise<string> {
+    if (identity.state === 'A2' && identity.accessToken) return identity.accessToken;
+    return this.enrolAal2({
+      id: identity.userId,
+      email: identity.credentials.email,
+      password: identity.credentials.password ?? null,
+    });
+  }
+
+  /** A password sign-in yields AAL1, even for an identity that previously completed MFA. */
   async issueAccessToken(identity: TestIdentity): Promise<string> {
     if (!this.anon || !identity.credentials.password) {
       throw new Error(
@@ -1616,7 +1626,7 @@ export class TestDataFactory {
     return booking.id;
   }
 
-  private async enrolAal2(user: FactoryUser): Promise<string> {
+  private async enrolAal2(user: Pick<FactoryUser, 'id' | 'email' | 'password'>): Promise<string> {
     if (!this.anon || !user.password) {
       throw new Error(
         'TEST_FACTORY_AAL2_REQUIRES_SUPABASE: configure Supabase URL, anon key, service role key, and TEST_FACTORY_PASSWORD.',

@@ -1,4 +1,5 @@
 'use client';
+import { UserError } from '@/lib/user-error';
 
 import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -98,7 +99,7 @@ function JobRow({
         </Badge>
       </TableCell>
       <TableCell className="max-w-xs truncate text-xs text-muted-foreground">
-        {job.failedReason ?? '–'}
+        {job.failedReason ? <UserError error={job} message="This background task failed." /> : '–'}
       </TableCell>
       <TableCell className="text-sm font-medium text-destructive text-center">
         {job.attemptsMade}
@@ -203,7 +204,7 @@ export function BullJobsPanel() {
       {error && (
         <Card className="mb-4 border-destructive/40 bg-destructive/5">
           <CardContent className="py-3 text-sm text-destructive">
-            Failed to load dead-letter jobs: {(error as Error).message}
+            <UserError error={error} message="Could not load dead-letter jobs." />
           </CardContent>
         </Card>
       )}
@@ -211,7 +212,10 @@ export function BullJobsPanel() {
       {(retry.isError || discard.isError) && (
         <Card className="mb-4 border-destructive/40 bg-destructive/5">
           <CardContent className="py-3 text-sm text-destructive">
-            Action failed: {((retry.error ?? discard.error) as Error | null)?.message}
+            <UserError
+              error={retry.error ?? discard.error}
+              message="Could not complete the queue action."
+            />
           </CardContent>
         </Card>
       )}

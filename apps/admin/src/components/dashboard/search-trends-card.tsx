@@ -1,4 +1,5 @@
 'use client';
+import { UserError } from '@/lib/user-error';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@feastpot/ui';
 import { Bar, BarChart, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
@@ -45,7 +46,7 @@ export function SearchTrendsCard() {
       <CardContent>
         {error && (
           <p className="text-sm text-destructive">
-            Failed to load search analytics: {(error as Error).message}
+            <UserError error={error} message="Could not load search analytics." />
           </p>
         )}
         {isLoading && <p className="text-sm text-muted-foreground">Loading search data…</p>}

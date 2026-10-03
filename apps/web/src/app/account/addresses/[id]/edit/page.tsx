@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { useParams, useRouter } from 'next/navigation';
 import { useState } from 'react';
@@ -75,7 +76,7 @@ export default function EditAddressPage() {
               await update.mutateAsync({ id: address.id, input });
               router.push('/account/addresses');
             } catch (err) {
-              setServerError(err instanceof Error ? err.message : 'Failed to update address.');
+              setServerError(await userErrorMessage(err, 'Could not update your address.'));
             }
           }}
           onCancel={() => router.push('/account/addresses')}

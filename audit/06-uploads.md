@@ -1,5 +1,35 @@
 # Phase 6: Image uploads and file handling
 
+## Storage lifecycle remediation (3 October 2026)
+
+The orphan-storage findings below are historical. Uploads now journal deletion intent
+before sending bytes; failed record writes and partially uploaded review batches
+compensate their uploads. Replacement, explicit deletion and cascading deletion
+write detached-object cleanup work in the same database transaction as the record
+change. Workers re-check every known owner before deleting, verify physical removal,
+and durably retain failures for retry every five minutes.
+
+Covered references: vendor branding, menu images, review photos, compliance documents,
+dispute evidence, application originals/public promotions, menu import originals and
+generated referral QR variants. Replacement paths are unique, not overwritten.
+Compliance documents support replacement and deletion in the vendor portal.
+A sixth menu image is rejected before upload, not silently substituted for the first.
+
+The scheduled two-direction inventory runs daily at 04:00 UTC and saves reports of
+unreferenced storage objects AND rows referencing missing objects. The first run and
+every subsequent inventory run are report-only: discovered orphans never become
+automatic deletion jobs. Admin/compliance can inspect or refresh the report at
+`/storage-reconciliation`. Known failed/detached uploads are independent cleanup work.
+
+Verification: focused API regression tests plus real development Supabase upload,
+replacement, deletion, foreign-key-write compensation, public-image compensation
+and seeded two-direction reporting. Physical deletion invalidated a previously issued
+private signed URL. Reporting left the seeded orphan intact; test fixtures were removed.
+Production migration/publication have not been performed.
+
+The remaining historical findings in this audit are not implicitly resolved by this
+storage lifecycle work.
+
 Audited commit: `9c03ecad89f258adad72cb9e768d75b53b03d4eb`
 
 ## Upload paths found

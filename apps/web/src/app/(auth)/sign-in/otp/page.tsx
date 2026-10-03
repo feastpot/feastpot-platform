@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
@@ -41,7 +42,7 @@ export default function OtpSignInPage() {
     const { error: err } = await supabase.auth.signInWithOtp({ phone });
     setBusy(false);
     if (err) {
-      setError(err.message);
+      setError(await userErrorMessage(err, 'Could not verify your sign-in code.'));
       return;
     }
     setStep('code');
@@ -54,7 +55,7 @@ export default function OtpSignInPage() {
     const { error: err } = await supabase.auth.verifyOtp({ phone, token, type: 'sms' });
     setBusy(false);
     if (err) {
-      setError(err.message);
+      setError(await userErrorMessage(err, 'Could not send your sign-in code.'));
       return;
     }
     router.push('/');

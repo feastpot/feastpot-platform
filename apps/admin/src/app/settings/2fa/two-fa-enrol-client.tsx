@@ -1,4 +1,5 @@
 'use client';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import { Button, Input } from '@feastpot/ui';
 import { AlertTriangle, KeyRound, ShieldCheck, ShieldOff } from 'lucide-react';
@@ -74,7 +75,10 @@ export function TwoFaEnrolClient({ next, user: _user }: { next: string; user: St
       setVerifying(false);
       toast({
         title: 'Challenge failed',
-        description: challengeResult.error?.message ?? 'Please try again.',
+        description: await userErrorMessage(
+          challengeResult.error,
+          'Could not verify your authentication code.',
+        ),
         variant: 'destructive',
       });
       return;

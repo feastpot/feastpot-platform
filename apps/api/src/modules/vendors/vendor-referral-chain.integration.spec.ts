@@ -20,10 +20,9 @@ import { DeliveryType, OrderStatus, PaymentStatus, UserRole, VendorStatus } from
 
 import { PrismaService } from '../../prisma/prisma.service';
 
-const d = process.env.SUPABASE_DB_URL ? describe : describe.skip;
+const d = describe;
 if (!process.env.SUPABASE_DB_URL) {
-  // eslint-disable-next-line no-console
-  console.warn('[vendor-referral-chain] skipping: SUPABASE_DB_URL not set');
+  throw new Error('REFERRAL_DATABASE_REQUIRED: SUPABASE_DB_URL is missing');
 }
 
 const RUN = Date.now();
