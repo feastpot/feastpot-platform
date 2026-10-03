@@ -18,6 +18,7 @@ import { Test } from '@nestjs/testing';
 
 import { SupabaseService } from '../../auth/supabase.service';
 import { PrismaService } from '../../prisma/prisma.service';
+import { StorageLifecycleService } from '../storage-lifecycle/storage-lifecycle.service';
 
 import { GENERATE_REFERRAL_QR_JOB } from './attribution-qr.jobs';
 import { AttributionService } from './attribution.service';
@@ -36,6 +37,11 @@ describe('AttributionService - QR performance contract', () => {
     getJob: jest.fn().mockResolvedValue(null),
     add: jest.fn().mockResolvedValue({}),
   };
+  const mockLifecycle = {
+    reserve: jest.fn(),
+    committed: jest.fn(),
+    compensate: jest.fn(),
+  };
 
   const VENDOR_ID = 'vendor-uuid-001';
   const LINK_ID = 'link-uuid-001';
@@ -44,6 +50,7 @@ describe('AttributionService - QR performance contract', () => {
   const SVG_URL = 'https://cdn.example.com/referral-qr/link-uuid-001/qr.svg';
 
   beforeEach(async () => {
+    jest.clearAllMocks();
     const mockStorage = {
       from: jest.fn().mockReturnValue({
         upload: jest.fn().mockResolvedValue({ error: null }),
@@ -92,6 +99,7 @@ describe('AttributionService - QR performance contract', () => {
           useValue: { get: () => 'https://feastpot.co.uk' },
         },
         { provide: getQueueToken('attribution-qr'), useValue: mockQueue },
+        { provide: StorageLifecycleService, useValue: mockLifecycle },
       ],
     }).compile();
 
@@ -111,6 +119,8 @@ describe('AttributionService - QR performance contract', () => {
       { linkId: LINK_ID },
       { jobId: `referral-qr:${LINK_ID}` },
     );
+    expect(mockLifecycle.reserve).not.toHaveBeenCalled();
+    expect(mockLifecycle.committed).not.toHaveBeenCalled();
   });
 
   it('getOrCreateLink returns qrUrls: null gracefully when storage fails', async () => {
@@ -153,6 +163,7 @@ describe('AttributionService - QR performance contract', () => {
         },
         { provide: ConfigService, useValue: { get: () => 'https://feastpot.co.uk' } },
         { provide: getQueueToken('attribution-qr'), useValue: mockQueue },
+        { provide: StorageLifecycleService, useValue: mockLifecycle },
       ],
     }).compile();
 
