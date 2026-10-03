@@ -193,14 +193,14 @@ content_type = "text/markdown"
 id = "A_hcyMesg2LAnTZESVyYm"
 uri = "file://docs/security/dependency-risk-note.md"
 type = "text"
-title = "Dependency risk note"
-description = "Remaining vulnerabilities, compensating controls, 63/63 upload results and the Sharp approval scope."
+title = "Updated dependency risk note"
+description = "Approved Sharp upgrade verified; npm audit is clean, with one documented build-tool finding in the broader scan."
 logical_id = "2e294112-91ba-4af1-96bd-583f3e0a6b47"
-content_hash = "sha256:cbdd70af6d4d578f14ef338af950d241551ebdeca988d65a72e4987718420294"
-size = 8131
-mtime_ms = 1790984898272
-storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/2e294112-91ba-4af1-96bd-583f3e0a6b47/6ca86f46-2a3a-4237-be5c-cbbe1ce0568b"
-storage_version_token = "1790984922831542"
+content_hash = "sha256:06a27f8a98c5d3b75168e7eb5c46fa5b167523f67eb3078ac6b40af475b7c159"
+size = 5208
+mtime_ms = 1790987110348
+storage_uri = "gcs://replit-rams-assets-spock/rams/assets/repl:467550d6-cf1f-45bf-b36c-58a8f6d79f33/2e294112-91ba-4af1-96bd-583f3e0a6b47/8ad841fb-e1e3-43a4-8d1c-1bc82c991483"
+storage_version_token = "1790987123973809"
 content_type = "text/markdown"
 
 [[outputs]]

@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-02T23:40:46.971Z",
+  "at": "2026-10-03T00:24:19.418Z",
   "environment": "development",
   "results": [
     {
@@ -9,17 +9,32 @@
       "expected": "accept",
       "pass": true,
       "code": null,
-      "uprightPixels": [24, 32],
+      "uprightPixels": [
+        24,
+        32
+      ],
       "exifOrientation": null,
       "orientationPass": true,
       "viewport1280": {
-        "natural": [24, 32],
-        "rendered": [24, 32],
+        "natural": [
+          24,
+          32
+        ],
+        "rendered": [
+          24,
+          32
+        ],
         "correctRatio": true
       },
       "viewport375": {
-        "natural": [24, 32],
-        "rendered": [24, 32],
+        "natural": [
+          24,
+          32
+        ],
+        "rendered": [
+          24,
+          32
+        ],
         "correctRatio": true
       }
     },
@@ -30,16 +45,31 @@
       "expected": "accept",
       "pass": true,
       "code": null,
-      "uprightPixels": [32, 24],
+      "uprightPixels": [
+        32,
+        24
+      ],
       "exifOrientation": null,
       "viewport1280": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
         "correctRatio": true
       },
       "viewport375": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
         "correctRatio": true
       }
     },
@@ -50,16 +80,31 @@
       "expected": "accept",
       "pass": true,
       "code": null,
-      "uprightPixels": [32, 24],
+      "uprightPixels": [
+        32,
+        24
+      ],
       "exifOrientation": null,
       "viewport1280": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
         "correctRatio": true
       },
       "viewport375": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
         "correctRatio": true
       }
     },
@@ -70,16 +115,31 @@
       "expected": "accept",
       "pass": true,
       "code": null,
-      "uprightPixels": [1280, 854],
+      "uprightPixels": [
+        1280,
+        854
+      ],
       "exifOrientation": null,
       "viewport1280": {
-        "natural": [1280, 854],
-        "rendered": [1248, 832.640625],
+        "natural": [
+          1280,
+          854
+        ],
+        "rendered": [
+          1248,
+          832.640625
+        ],
         "correctRatio": true
       },
       "viewport375": {
-        "natural": [1280, 854],
-        "rendered": [343, 228.84375],
+        "natural": [
+          1280,
+          854
+        ],
+        "rendered": [
+          343,
+          228.84375
+        ],
         "correctRatio": true
       }
     },
@@ -130,17 +190,32 @@
       "expected": "accept",
       "pass": true,
       "code": null,
-      "uprightPixels": [24, 32],
+      "uprightPixels": [
+        24,
+        32
+      ],
       "exifOrientation": null,
       "orientationPass": true,
       "viewport1280": {
-        "natural": [24, 32],
-        "rendered": [24, 32],
+        "natural": [
+          24,
+          32
+        ],
+        "rendered": [
+          24,
+          32
+        ],
         "correctRatio": true
       },
       "viewport375": {
-        "natural": [24, 32],
-        "rendered": [24, 32],
+        "natural": [
+          24,
+          32
+        ],
+        "rendered": [
+          24,
+          32
+        ],
         "correctRatio": true
       }
     },
@@ -151,16 +226,31 @@
       "expected": "accept",
       "pass": true,
       "code": null,
-      "uprightPixels": [32, 24],
+      "uprightPixels": [
+        32,
+        24
+      ],
       "exifOrientation": null,
       "viewport1280": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
         "correctRatio": true
       },
       "viewport375": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
         "correctRatio": true
       }
     },
@@ -171,16 +261,31 @@
       "expected": "accept",
       "pass": true,
       "code": null,
-      "uprightPixels": [32, 24],
+      "uprightPixels": [
+        32,
+        24
+      ],
       "exifOrientation": null,
       "viewport1280": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
         "correctRatio": true
       },
       "viewport375": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
         "correctRatio": true
       }
     },
@@ -191,16 +296,31 @@
       "expected": "accept",
       "pass": true,
       "code": null,
-      "uprightPixels": [1280, 854],
+      "uprightPixels": [
+        1280,
+        854
+      ],
       "exifOrientation": null,
       "viewport1280": {
-        "natural": [1280, 854],
-        "rendered": [1248, 832.640625],
+        "natural": [
+          1280,
+          854
+        ],
+        "rendered": [
+          1248,
+          832.640625
+        ],
         "correctRatio": true
       },
       "viewport375": {
-        "natural": [1280, 854],
-        "rendered": [343, 228.84375],
+        "natural": [
+          1280,
+          854
+        ],
+        "rendered": [
+          343,
+          228.84375
+        ],
         "correctRatio": true
       }
     },
@@ -251,17 +371,32 @@
       "expected": "accept",
       "pass": true,
       "code": null,
-      "uprightPixels": [24, 32],
+      "uprightPixels": [
+        24,
+        32
+      ],
       "exifOrientation": null,
       "orientationPass": true,
       "viewport1280": {
-        "natural": [24, 32],
-        "rendered": [24, 32],
+        "natural": [
+          24,
+          32
+        ],
+        "rendered": [
+          24,
+          32
+        ],
         "correctRatio": true
       },
       "viewport375": {
-        "natural": [24, 32],
-        "rendered": [24, 32],
+        "natural": [
+          24,
+          32
+        ],
+        "rendered": [
+          24,
+          32
+        ],
         "correctRatio": true
       }
     },
@@ -272,16 +407,31 @@
       "expected": "accept",
       "pass": true,
       "code": null,
-      "uprightPixels": [32, 24],
+      "uprightPixels": [
+        32,
+        24
+      ],
       "exifOrientation": null,
       "viewport1280": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
         "correctRatio": true
       },
       "viewport375": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
         "correctRatio": true
       }
     },
@@ -292,16 +442,31 @@
       "expected": "accept",
       "pass": true,
       "code": null,
-      "uprightPixels": [32, 24],
+      "uprightPixels": [
+        32,
+        24
+      ],
       "exifOrientation": null,
       "viewport1280": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
         "correctRatio": true
       },
       "viewport375": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
         "correctRatio": true
       }
     },
@@ -312,263 +477,36 @@
       "expected": "accept",
       "pass": true,
       "code": null,
-      "uprightPixels": [1280, 854],
+      "uprightPixels": [
+        1280,
+        854
+      ],
       "exifOrientation": null,
       "viewport1280": {
-        "natural": [1280, 854],
-        "rendered": [1248, 832.640625],
+        "natural": [
+          1280,
+          854
+        ],
+        "rendered": [
+          1248,
+          832.640625
+        ],
         "correctRatio": true
       },
       "viewport375": {
-        "natural": [1280, 854],
-        "rendered": [343, 228.84375],
+        "natural": [
+          1280,
+          854
+        ],
+        "rendered": [
+          343,
+          228.84375
+        ],
         "correctRatio": true
       }
     },
     {
       "path": "menu import",
-      "format": "PDF",
-      "http": 201,
-      "expected": "accept",
-      "pass": true,
-      "code": null
-    },
-    {
-      "path": "menu import",
-      "format": "SVG",
-      "http": 400,
-      "expected": "reject",
-      "pass": true,
-      "code": "INVALID_FILE_CONTENT"
-    },
-    {
-      "path": "menu import",
-      "format": "zero-byte",
-      "http": 400,
-      "expected": "reject",
-      "pass": true,
-      "code": "FILE_EMPTY"
-    },
-    {
-      "path": "menu import",
-      "format": "mismatch",
-      "http": 400,
-      "expected": "reject",
-      "pass": true,
-      "code": "INVALID_FILE_CONTENT"
-    },
-    {
-      "path": "menu import",
-      "format": ">10MB",
-      "http": 413,
-      "expected": "reject",
-      "pass": true,
-      "code": "PayloadTooLargeException"
-    },
-    {
-      "path": "menu item",
-      "format": "jpg",
-      "http": 201,
-      "expected": "accept",
-      "pass": true,
-      "code": null,
-      "uprightPixels": [24, 32],
-      "exifOrientation": null,
-      "orientationPass": true,
-      "viewport1280": {
-        "natural": [24, 32],
-        "rendered": [24, 32],
-        "correctRatio": true
-      },
-      "viewport375": {
-        "natural": [24, 32],
-        "rendered": [24, 32],
-        "correctRatio": true
-      }
-    },
-    {
-      "path": "menu item",
-      "format": "png",
-      "http": 201,
-      "expected": "accept",
-      "pass": true,
-      "code": null,
-      "uprightPixels": [32, 24],
-      "exifOrientation": null,
-      "viewport1280": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
-        "correctRatio": true
-      },
-      "viewport375": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
-        "correctRatio": true
-      }
-    },
-    {
-      "path": "menu item",
-      "format": "webp",
-      "http": 201,
-      "expected": "accept",
-      "pass": true,
-      "code": null,
-      "uprightPixels": [32, 24],
-      "exifOrientation": null,
-      "viewport1280": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
-        "correctRatio": true
-      },
-      "viewport375": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
-        "correctRatio": true
-      }
-    },
-    {
-      "path": "menu item",
-      "format": "HEIC",
-      "http": 201,
-      "expected": "accept",
-      "pass": true,
-      "code": null,
-      "uprightPixels": [1280, 854],
-      "exifOrientation": null,
-      "viewport1280": {
-        "natural": [1280, 854],
-        "rendered": [1248, 832.640625],
-        "correctRatio": true
-      },
-      "viewport375": {
-        "natural": [1280, 854],
-        "rendered": [343, 228.84375],
-        "correctRatio": true
-      }
-    },
-    {
-      "path": "menu item",
-      "format": "PDF",
-      "http": 400,
-      "expected": "reject",
-      "pass": true,
-      "code": "BadRequestException"
-    },
-    {
-      "path": "menu item",
-      "format": "SVG",
-      "http": 400,
-      "expected": "reject",
-      "pass": true,
-      "code": "BadRequestException"
-    },
-    {
-      "path": "menu item",
-      "format": "zero-byte",
-      "http": 400,
-      "expected": "reject",
-      "pass": true,
-      "code": "BadRequestException"
-    },
-    {
-      "path": "menu item",
-      "format": "mismatch",
-      "http": 400,
-      "expected": "reject",
-      "pass": true,
-      "code": "BadRequestException"
-    },
-    {
-      "path": "menu item",
-      "format": ">10MB",
-      "http": 413,
-      "expected": "reject",
-      "pass": true,
-      "code": "PayloadTooLargeException"
-    },
-    {
-      "path": "compliance",
-      "format": "jpg",
-      "http": 201,
-      "expected": "accept",
-      "pass": true,
-      "code": null,
-      "uprightPixels": [24, 32],
-      "exifOrientation": null,
-      "orientationPass": true,
-      "viewport1280": {
-        "natural": [24, 32],
-        "rendered": [24, 32],
-        "correctRatio": true
-      },
-      "viewport375": {
-        "natural": [24, 32],
-        "rendered": [24, 32],
-        "correctRatio": true
-      }
-    },
-    {
-      "path": "compliance",
-      "format": "png",
-      "http": 201,
-      "expected": "accept",
-      "pass": true,
-      "code": null,
-      "uprightPixels": [32, 24],
-      "exifOrientation": null,
-      "viewport1280": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
-        "correctRatio": true
-      },
-      "viewport375": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
-        "correctRatio": true
-      }
-    },
-    {
-      "path": "compliance",
-      "format": "webp",
-      "http": 201,
-      "expected": "accept",
-      "pass": true,
-      "code": null,
-      "uprightPixels": [32, 24],
-      "exifOrientation": null,
-      "viewport1280": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
-        "correctRatio": true
-      },
-      "viewport375": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
-        "correctRatio": true
-      }
-    },
-    {
-      "path": "compliance",
-      "format": "HEIC",
-      "http": 201,
-      "expected": "accept",
-      "pass": true,
-      "code": null,
-      "uprightPixels": [1280, 854],
-      "exifOrientation": null,
-      "viewport1280": {
-        "natural": [1280, 854],
-        "rendered": [1248, 832.640625],
-        "correctRatio": true
-      },
-      "viewport375": {
-        "natural": [1280, 854],
-        "rendered": [343, 228.84375],
-        "correctRatio": true
-      }
-    },
-    {
-      "path": "compliance",
       "format": "PDF",
       "http": 201,
       "expected": "accept",
@@ -576,6 +514,368 @@
       "code": null
     },
     {
+      "path": "menu import",
+      "format": "SVG",
+      "http": 400,
+      "expected": "reject",
+      "pass": true,
+      "code": "INVALID_FILE_CONTENT"
+    },
+    {
+      "path": "menu import",
+      "format": "zero-byte",
+      "http": 400,
+      "expected": "reject",
+      "pass": true,
+      "code": "FILE_EMPTY"
+    },
+    {
+      "path": "menu import",
+      "format": "mismatch",
+      "http": 400,
+      "expected": "reject",
+      "pass": true,
+      "code": "INVALID_FILE_CONTENT"
+    },
+    {
+      "path": "menu import",
+      "format": ">10MB",
+      "http": 413,
+      "expected": "reject",
+      "pass": true,
+      "code": "PayloadTooLargeException"
+    },
+    {
+      "path": "menu item",
+      "format": "jpg",
+      "http": 201,
+      "expected": "accept",
+      "pass": true,
+      "code": null,
+      "uprightPixels": [
+        24,
+        32
+      ],
+      "exifOrientation": null,
+      "orientationPass": true,
+      "viewport1280": {
+        "natural": [
+          24,
+          32
+        ],
+        "rendered": [
+          24,
+          32
+        ],
+        "correctRatio": true
+      },
+      "viewport375": {
+        "natural": [
+          24,
+          32
+        ],
+        "rendered": [
+          24,
+          32
+        ],
+        "correctRatio": true
+      }
+    },
+    {
+      "path": "menu item",
+      "format": "png",
+      "http": 201,
+      "expected": "accept",
+      "pass": true,
+      "code": null,
+      "uprightPixels": [
+        32,
+        24
+      ],
+      "exifOrientation": null,
+      "viewport1280": {
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
+        "correctRatio": true
+      },
+      "viewport375": {
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
+        "correctRatio": true
+      }
+    },
+    {
+      "path": "menu item",
+      "format": "webp",
+      "http": 201,
+      "expected": "accept",
+      "pass": true,
+      "code": null,
+      "uprightPixels": [
+        32,
+        24
+      ],
+      "exifOrientation": null,
+      "viewport1280": {
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
+        "correctRatio": true
+      },
+      "viewport375": {
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
+        "correctRatio": true
+      }
+    },
+    {
+      "path": "menu item",
+      "format": "HEIC",
+      "http": 201,
+      "expected": "accept",
+      "pass": true,
+      "code": null,
+      "uprightPixels": [
+        1280,
+        854
+      ],
+      "exifOrientation": null,
+      "viewport1280": {
+        "natural": [
+          1280,
+          854
+        ],
+        "rendered": [
+          1248,
+          832.640625
+        ],
+        "correctRatio": true
+      },
+      "viewport375": {
+        "natural": [
+          1280,
+          854
+        ],
+        "rendered": [
+          343,
+          228.84375
+        ],
+        "correctRatio": true
+      }
+    },
+    {
+      "path": "menu item",
+      "format": "PDF",
+      "http": 400,
+      "expected": "reject",
+      "pass": true,
+      "code": "BadRequestException"
+    },
+    {
+      "path": "menu item",
+      "format": "SVG",
+      "http": 400,
+      "expected": "reject",
+      "pass": true,
+      "code": "BadRequestException"
+    },
+    {
+      "path": "menu item",
+      "format": "zero-byte",
+      "http": 400,
+      "expected": "reject",
+      "pass": true,
+      "code": "BadRequestException"
+    },
+    {
+      "path": "menu item",
+      "format": "mismatch",
+      "http": 400,
+      "expected": "reject",
+      "pass": true,
+      "code": "BadRequestException"
+    },
+    {
+      "path": "menu item",
+      "format": ">10MB",
+      "http": 413,
+      "expected": "reject",
+      "pass": true,
+      "code": "PayloadTooLargeException"
+    },
+    {
+      "path": "compliance",
+      "format": "jpg",
+      "http": 201,
+      "expected": "accept",
+      "pass": true,
+      "code": null,
+      "uprightPixels": [
+        24,
+        32
+      ],
+      "exifOrientation": null,
+      "orientationPass": true,
+      "viewport1280": {
+        "natural": [
+          24,
+          32
+        ],
+        "rendered": [
+          24,
+          32
+        ],
+        "correctRatio": true
+      },
+      "viewport375": {
+        "natural": [
+          24,
+          32
+        ],
+        "rendered": [
+          24,
+          32
+        ],
+        "correctRatio": true
+      }
+    },
+    {
+      "path": "compliance",
+      "format": "png",
+      "http": 201,
+      "expected": "accept",
+      "pass": true,
+      "code": null,
+      "uprightPixels": [
+        32,
+        24
+      ],
+      "exifOrientation": null,
+      "viewport1280": {
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
+        "correctRatio": true
+      },
+      "viewport375": {
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
+        "correctRatio": true
+      }
+    },
+    {
+      "path": "compliance",
+      "format": "webp",
+      "http": 201,
+      "expected": "accept",
+      "pass": true,
+      "code": null,
+      "uprightPixels": [
+        32,
+        24
+      ],
+      "exifOrientation": null,
+      "viewport1280": {
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
+        "correctRatio": true
+      },
+      "viewport375": {
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
+        "correctRatio": true
+      }
+    },
+    {
+      "path": "compliance",
+      "format": "HEIC",
+      "http": 201,
+      "expected": "accept",
+      "pass": true,
+      "code": null,
+      "uprightPixels": [
+        1280,
+        854
+      ],
+      "exifOrientation": null,
+      "viewport1280": {
+        "natural": [
+          1280,
+          854
+        ],
+        "rendered": [
+          1248,
+          832.640625
+        ],
+        "correctRatio": true
+      },
+      "viewport375": {
+        "natural": [
+          1280,
+          854
+        ],
+        "rendered": [
+          343,
+          228.84375
+        ],
+        "correctRatio": true
+      }
+    },
+    {
+      "path": "compliance",
+      "format": "PDF",
+      "http": 201,
+      "expected": "accept",
+      "pass": true,
+      "code": null
+    },
+    {
       "path": "compliance",
       "format": "SVG",
       "http": 400,
@@ -614,17 +914,32 @@
       "expected": "accept",
       "pass": true,
       "code": null,
-      "uprightPixels": [24, 32],
+      "uprightPixels": [
+        24,
+        32
+      ],
       "exifOrientation": null,
       "orientationPass": true,
       "viewport1280": {
-        "natural": [24, 32],
-        "rendered": [24, 32],
+        "natural": [
+          24,
+          32
+        ],
+        "rendered": [
+          24,
+          32
+        ],
         "correctRatio": true
       },
       "viewport375": {
-        "natural": [24, 32],
-        "rendered": [24, 32],
+        "natural": [
+          24,
+          32
+        ],
+        "rendered": [
+          24,
+          32
+        ],
         "correctRatio": true
       }
     },
@@ -635,16 +950,31 @@
       "expected": "accept",
       "pass": true,
       "code": null,
-      "uprightPixels": [32, 24],
+      "uprightPixels": [
+        32,
+        24
+      ],
       "exifOrientation": null,
       "viewport1280": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
         "correctRatio": true
       },
       "viewport375": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
         "correctRatio": true
       }
     },
@@ -655,16 +985,31 @@
       "expected": "accept",
       "pass": true,
       "code": null,
-      "uprightPixels": [32, 24],
+      "uprightPixels": [
+        32,
+        24
+      ],
       "exifOrientation": null,
       "viewport1280": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
         "correctRatio": true
       },
       "viewport375": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
         "correctRatio": true
       }
     },
@@ -675,16 +1020,31 @@
       "expected": "accept",
       "pass": true,
       "code": null,
-      "uprightPixels": [1280, 854],
+      "uprightPixels": [
+        1280,
+        854
+      ],
       "exifOrientation": null,
       "viewport1280": {
-        "natural": [1280, 854],
-        "rendered": [1248, 832.640625],
+        "natural": [
+          1280,
+          854
+        ],
+        "rendered": [
+          1248,
+          832.640625
+        ],
         "correctRatio": true
       },
       "viewport375": {
-        "natural": [1280, 854],
-        "rendered": [343, 228.84375],
+        "natural": [
+          1280,
+          854
+        ],
+        "rendered": [
+          343,
+          228.84375
+        ],
         "correctRatio": true
       }
     },
@@ -735,17 +1095,32 @@
       "expected": "accept",
       "pass": true,
       "code": null,
-      "uprightPixels": [24, 32],
+      "uprightPixels": [
+        24,
+        32
+      ],
       "exifOrientation": null,
       "orientationPass": true,
       "viewport1280": {
-        "natural": [24, 32],
-        "rendered": [24, 32],
+        "natural": [
+          24,
+          32
+        ],
+        "rendered": [
+          24,
+          32
+        ],
         "correctRatio": true
       },
       "viewport375": {
-        "natural": [24, 32],
-        "rendered": [24, 32],
+        "natural": [
+          24,
+          32
+        ],
+        "rendered": [
+          24,
+          32
+        ],
         "correctRatio": true
       }
     },
@@ -756,16 +1131,31 @@
       "expected": "accept",
       "pass": true,
       "code": null,
-      "uprightPixels": [32, 24],
+      "uprightPixels": [
+        32,
+        24
+      ],
       "exifOrientation": null,
       "viewport1280": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
         "correctRatio": true
       },
       "viewport375": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
         "correctRatio": true
       }
     },
@@ -776,16 +1166,31 @@
       "expected": "accept",
       "pass": true,
       "code": null,
-      "uprightPixels": [32, 24],
+      "uprightPixels": [
+        32,
+        24
+      ],
       "exifOrientation": null,
       "viewport1280": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
         "correctRatio": true
       },
       "viewport375": {
-        "natural": [32, 24],
-        "rendered": [32, 24],
+        "natural": [
+          32,
+          24
+        ],
+        "rendered": [
+          32,
+          24
+        ],
         "correctRatio": true
       }
     },
@@ -796,16 +1201,31 @@
       "expected": "accept",
       "pass": true,
       "code": null,
-      "uprightPixels": [1280, 854],
+      "uprightPixels": [
+        1280,
+        854
+      ],
       "exifOrientation": null,
       "viewport1280": {
-        "natural": [1280, 854],
-        "rendered": [1248, 832.640625],
+        "natural": [
+          1280,
+          854
+        ],
+        "rendered": [
+          1248,
+          832.640625
+        ],
         "correctRatio": true
       },
       "viewport375": {
-        "natural": [1280, 854],
-        "rendered": [343, 228.84375],
+        "natural": [
+          1280,
+          854
+        ],
+        "rendered": [
+          343,
+          228.84375
+        ],
         "correctRatio": true
       }
     },
