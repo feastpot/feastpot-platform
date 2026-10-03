@@ -103,6 +103,7 @@ describe('VendorsService two-phase application drafts', () => {
         }),
         removePrivateImage: jest.fn().mockResolvedValue(undefined),
         removePublicImage: jest.fn().mockResolvedValue(undefined),
+        commitImage: jest.fn().mockResolvedValue(undefined),
       } as unknown as SupabaseStorageService,
       {} as VendorMembersService,
       {} as TermsService,

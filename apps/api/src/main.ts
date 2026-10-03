@@ -101,6 +101,7 @@ import helmet from 'helmet';
 import { Logger } from 'nestjs-pino';
 
 import { AppModule } from './app.module';
+import { API_CORS_ALLOWED_HEADERS } from './common/config/cors-headers';
 import {
   DEV_SUPABASE_REF,
   getSupabaseEnvironment,
@@ -268,7 +269,7 @@ async function bootstrap(): Promise<void> {
     origin: ALLOWED_ORIGINS,
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'x-request-id'],
+    allowedHeaders: API_CORS_ALLOWED_HEADERS,
   });
 
   app.useGlobalPipes(
