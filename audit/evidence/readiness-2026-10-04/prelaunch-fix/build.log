@@ -1,0 +1,134 @@
+
+> feastpot-platform@0.1.0 build
+> turbo run build --filter=@feastpot/web
+
+
+   • Packages in scope: @feastpot/web
+   • Running build in 1 package
+   • Remote caching disabled
+
+@feastpot/types:build: cache miss, executing ce7169aef22a6e25
+@feastpot/types:build: 
+@feastpot/types:build: > @feastpot/types@0.1.0 build
+@feastpot/types:build: > tsc --build
+@feastpot/types:build: 
+@feastpot/web:build: cache bypass, force executing d118e81fe9f73251
+@feastpot/web:build: 
+@feastpot/web:build: > @feastpot/web@0.1.0 build
+@feastpot/web:build: > next build
+@feastpot/web:build: 
+@feastpot/web:build: ⚠ No build cache found. Please configure build caching for faster rebuilds. Read more: https://nextjs.org/docs/messages/no-cache
+@feastpot/web:build: Attention: Next.js now collects completely anonymous telemetry regarding usage.
+@feastpot/web:build: This information is used to shape Next.js' roadmap and prioritize features.
+@feastpot/web:build: You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+@feastpot/web:build: https://nextjs.org/telemetry
+@feastpot/web:build: 
+@feastpot/web:build:    ▲ Next.js 15.5.25
+@feastpot/web:build: 
+@feastpot/web:build:    Creating an optimized production build ...
+@feastpot/web:build:  ✓ (pwa) Compiling for server...
+@feastpot/web:build:  ✓ (pwa) Compiling for server...
+@feastpot/web:build:  ✓ (pwa) Compiling for client (static)...
+@feastpot/web:build:  ○ (pwa) Service worker: /tmp/feastpot-prelaunch-build-ecCH9B/apps/web/public/sw.js
+@feastpot/web:build:  ○ (pwa)   URL: /sw.js
+@feastpot/web:build:  ○ (pwa)   Scope: /
+@feastpot/web:build:  ○ (pwa) This app will fallback to these precached routes when fetching from the cache and the network fails:
+@feastpot/web:build:  ○ (pwa)   Documents (pages): /offline
+@feastpot/web:build:  ○ (pwa) Custom runtimeCaching array found, using it instead of the default one.
+@feastpot/web:build:  ✓ Compiled successfully in 23.8s
+@feastpot/web:build:    Linting and checking validity of types ...
+@feastpot/web:build:    Collecting page data ...
+@feastpot/web:build:    Generating static pages (0/55) ...
+@feastpot/web:build:    Generating static pages (13/55) 
+@feastpot/web:build:    Generating static pages (27/55) 
+@feastpot/web:build:    Generating static pages (41/55) 
+@feastpot/web:build:  ✓ Generating static pages (55/55)
+@feastpot/web:build:    Finalizing page optimization ...
+@feastpot/web:build:    Collecting build traces ...
+@feastpot/web:build: 
+@feastpot/web:build: Route (app)                                 Size  First Load JS  Revalidate  Expire
+@feastpot/web:build: ┌ ƒ /                                    4.89 kB         263 kB
+@feastpot/web:build: ├ ○ /_not-found                            160 B         105 kB
+@feastpot/web:build: ├ ○ /account                             8.34 kB         256 kB
+@feastpot/web:build: ├ ○ /account/addresses                   4.64 kB         252 kB
+@feastpot/web:build: ├ ƒ /account/addresses/[id]/edit         4.86 kB         252 kB
+@feastpot/web:build: ├ ○ /account/addresses/new               4.68 kB         252 kB
+@feastpot/web:build: ├ ○ /account/feastpass                    5.6 kB         190 kB
+@feastpot/web:build: ├ ○ /account/notifications               4.26 kB         187 kB
+@feastpot/web:build: ├ ○ /account/orders                        201 B         262 kB
+@feastpot/web:build: ├ ○ /account/profile                     7.04 kB         254 kB
+@feastpot/web:build: ├ ƒ /api/orders/[id]/status                429 B         173 kB
+@feastpot/web:build: ├ ○ /apple-icon.png                          0 B            0 B
+@feastpot/web:build: ├ ƒ /auth/callback                         429 B         173 kB
+@feastpot/web:build: ├ ○ /auth/confirm                        3.87 kB         185 kB
+@feastpot/web:build: ├ ○ /auth/reset/start                    1.59 kB         115 kB
+@feastpot/web:build: ├ ○ /auth/reset/update                   3.82 kB         185 kB
+@feastpot/web:build: ├ ○ /become-a-vendor                     17.7 kB         255 kB
+@feastpot/web:build: ├ ○ /caribbean-food-delivery-london        447 B         177 kB          1h      1y
+@feastpot/web:build: ├ ○ /catering                            7.95 kB         184 kB
+@feastpot/web:build: ├ ○ /checkout                            13.6 kB         278 kB
+@feastpot/web:build: ├ ○ /events                               1.5 kB         252 kB
+@feastpot/web:build: ├ ƒ /events/[id]                         2.73 kB         259 kB
+@feastpot/web:build: ├ ƒ /events/[id]/confirmed               1.72 kB         252 kB
+@feastpot/web:build: ├ ○ /events/new                          1.94 kB         253 kB
+@feastpot/web:build: ├ ○ /feastpass                           8.22 kB         181 kB
+@feastpot/web:build: ├ ○ /forgot-password                     2.15 kB         172 kB
+@feastpot/web:build: ├ ○ /ghanaian-food-delivery-london         447 B         177 kB          1h      1y
+@feastpot/web:build: ├ ○ /help                                  177 B         108 kB
+@feastpot/web:build: ├ ○ /icon.png                                0 B            0 B
+@feastpot/web:build: ├ ○ /join                                2.34 kB         110 kB
+@feastpot/web:build: ├ ○ /legal                                 177 B         108 kB
+@feastpot/web:build: ├ ○ /legal/allergens                       160 B         105 kB
+@feastpot/web:build: ├ ○ /legal/cookies                         160 B         105 kB
+@feastpot/web:build: ├ ○ /legal/privacy                         160 B         105 kB
+@feastpot/web:build: ├ ○ /legal/terms                           160 B         105 kB
+@feastpot/web:build: ├ ○ /legal/vendor-terms                  1.17 kB         169 kB          1h      1y
+@feastpot/web:build: ├ ○ /legal/vendor-terms/history            177 B         108 kB          1h      1y
+@feastpot/web:build: ├ ○ /nigerian-food-delivery-london         447 B         177 kB          1h      1y
+@feastpot/web:build: ├ ● /occasions/[slug]                     4.9 kB         181 kB
+@feastpot/web:build: ├   ├ /occasions/sunday-family-meal
+@feastpot/web:build: ├   ├ /occasions/birthday-party-trays
+@feastpot/web:build: ├   ├ /occasions/wedding-and-events
+@feastpot/web:build: ├   └ [+5 more paths]
+@feastpot/web:build: ├ ○ /offline                             2.05 kB         110 kB
+@feastpot/web:build: ├ ○ /opengraph-image                       160 B         105 kB
+@feastpot/web:build: ├ ○ /orders                              1.02 kB         263 kB
+@feastpot/web:build: ├ ƒ /orders/[id]/confirmation            4.66 kB         197 kB
+@feastpot/web:build: ├ ƒ /orders/[id]/review                  5.01 kB         259 kB
+@feastpot/web:build: ├ ƒ /orders/[id]/tracking                7.84 kB         258 kB
+@feastpot/web:build: ├ ƒ /platform-facts                        160 B         105 kB
+@feastpot/web:build: ├ ○ /register                              178 B         113 kB
+@feastpot/web:build: ├ ○ /register/create-account               160 B         105 kB
+@feastpot/web:build: ├ ○ /sign-in                               60 kB         236 kB
+@feastpot/web:build: ├ ○ /sign-in/otp                          3.3 kB         241 kB
+@feastpot/web:build: ├ ○ /status                              1.58 kB         106 kB
+@feastpot/web:build: ├ ○ /trust                                 177 B         108 kB
+@feastpot/web:build: ├ ƒ /v/[slug]                              160 B         105 kB
+@feastpot/web:build: ├ ○ /vendor-readiness                      177 B         108 kB
+@feastpot/web:build: ├ ○ /vendors                             11.6 kB         264 kB
+@feastpot/web:build: ├ ƒ /vendors/[slug]                      7.36 kB         261 kB
+@feastpot/web:build: ├ ƒ /vendors/[slug]/opengraph-image        160 B         105 kB
+@feastpot/web:build: └ ○ /waitlist                            5.95 kB         182 kB
+@feastpot/web:build: + First Load JS shared by all             105 kB
+@feastpot/web:build:   ├ chunks/9684-e316406b585d782a.js      48.5 kB
+@feastpot/web:build:   ├ chunks/b29f437b-ffc7f96072229b8e.js  54.2 kB
+@feastpot/web:build:   └ other shared chunks (total)          1.99 kB
+@feastpot/web:build: 
+@feastpot/web:build: 
+@feastpot/web:build: ƒ Middleware                              110 kB
+@feastpot/web:build: 
+@feastpot/web:build: ○  (Static)   prerendered as static content
+@feastpot/web:build: ●  (SSG)      prerendered as static HTML (uses generateStaticParams)
+@feastpot/web:build: ƒ  (Dynamic)  server-rendered on demand
+@feastpot/web:build: 
+@feastpot/web:build: 
+@feastpot/web:build: > @feastpot/web@0.1.0 postbuild
+@feastpot/web:build: > node scripts/generate-sitemap.cjs
+@feastpot/web:build: 
+@feastpot/web:build: [sitemap] Pre-launch/non-release build: indexing disabled; no sitemap published
+
+ Tasks:    2 successful, 2 total
+Cached:    0 cached, 2 total
+  Time:    49.976s 
+
+ WARNING  no output files found for task @feastpot/types#build. Please check your `outputs` key in `turbo.json`

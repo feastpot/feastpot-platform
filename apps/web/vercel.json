@@ -1,5 +1,5 @@
 {
-  "buildCommand": "cd ../.. && npm run build -- --filter=@feastpot/web",
+  "buildCommand": "cd ../.. && FEASTPOT_RELEASE_MODE=${FEASTPOT_RELEASE_MODE:-prelaunch} npm run build -- --filter=@feastpot/web",
   "outputDirectory": ".next",
   "installCommand": "cd ../.. && npm install",
   "framework": "nextjs",
@@ -25,12 +25,6 @@
     {
       "source": "/_next/static/(.*)",
       "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }]
-    }
-  ],
-  "rewrites": [
-    {
-      "source": "/sitemap.xml",
-      "destination": "/api/sitemap"
     }
   ]
 }

@@ -1,0 +1,57 @@
+{
+  "startedAt": "2026-10-04T16:31:08.815Z",
+  "finishedAt": "2026-10-04T16:31:09.861Z",
+  "scope": "Isolated built production/prelaunch server; mode variables deliberately absent at runtime; public GETs only; not hosted Vercel release proof",
+  "checks": [
+    {
+      "path": "/",
+      "status": 200,
+      "robotsHeader": "noindex, nofollow, noarchive",
+      "robotsMeta": [
+        "noindex, nofollow, noarchive"
+      ]
+    },
+    {
+      "path": "/legal/vendor-terms",
+      "status": 200,
+      "robotsHeader": "noindex, nofollow, noarchive",
+      "robotsMeta": [
+        "noindex, nofollow, noarchive"
+      ]
+    },
+    {
+      "path": "/robots.txt",
+      "status": 200,
+      "robotsHeader": "noindex, nofollow, noarchive",
+      "robotsMeta": [],
+      "body": "User-agent: *\nDisallow: /\n"
+    },
+    {
+      "path": "/sitemap.xml",
+      "status": 404,
+      "robotsHeader": "noindex, nofollow, noarchive",
+      "robotsMeta": [
+        "noindex",
+        "noindex, nofollow"
+      ]
+    },
+    {
+      "path": "/sitemap-0.xml",
+      "status": 404,
+      "robotsHeader": "noindex, nofollow, noarchive",
+      "robotsMeta": [
+        "noindex",
+        "noindex, nofollow"
+      ]
+    },
+    {
+      "path": "/api/sitemap",
+      "status": 404,
+      "robotsHeader": "noindex, nofollow, noarchive",
+      "robotsMeta": [
+        "noindex",
+        "noindex, nofollow"
+      ]
+    }
+  ]
+}

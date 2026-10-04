@@ -1,0 +1,22 @@
+{
+  "startedAt": "2026-10-04T16:29:33.335Z",
+  "finishedAt": "2026-10-04T16:30:24.872Z",
+  "directory": "/tmp/feastpot-prelaunch-build-ecCH9B",
+  "scope": "Full Turbo customer production/prelaunch build in isolated source copy; no live .next directories touched; test publishable key; public API GETs only",
+  "command": "npm run build -- --filter=@feastpot/web",
+  "exit": 0,
+  "sitemapFiles": [],
+  "robots": "User-agent: *\nDisallow: /\n",
+  "indexingHeaders": [
+    {
+      "source": "/:path*",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow, noarchive"
+        }
+      ],
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
+    }
+  ]
+}

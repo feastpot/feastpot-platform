@@ -10,6 +10,7 @@ const { test } = require('node:test');
 const { fetchVendorPaths } = require('./sitemap-vendors.cjs');
 const { verifySitemap } = require('./verify-sitemap.cjs');
 const { isNonReleaseBuild } = require('./generate-sitemap.cjs');
+const { isIndexingDisabled } = require('./release-policy.cjs');
 const execute = promisify(execFile);
 const vendor = (slug) => ({ slug, status: 'live', publicDemo: false });
 const response = (data, nextCursor = null) => ({
@@ -108,6 +109,7 @@ test('real postbuild writes vendor XML and exits nonzero for missing data or mis
     env: {
       ...process.env,
       VERCEL_ENV: 'production',
+      FEASTPOT_RELEASE_MODE: 'launch',
       SITEMAP_API_URL: apiUrl,
       NEXT_PUBLIC_SITE_URL: 'https://example.test',
     },
@@ -192,21 +194,47 @@ test('only explicit non-release environments omit sitemaps', () => {
   );
 });
 
-test('Vercel previews send noindex headers, while production does not', async () => {
+test('only explicit pre-launch or non-release builds disable indexing', () => {
+  assert.equal(isIndexingDisabled({}), false);
+  assert.equal(isIndexingDisabled({ VERCEL_ENV: 'production', CI: 'true' }), false);
+  assert.equal(
+    isIndexingDisabled({ VERCEL_ENV: 'production', FEASTPOT_RELEASE_MODE: 'launch' }),
+    false,
+  );
+  assert.equal(
+    isIndexingDisabled({ VERCEL_ENV: 'production', FEASTPOT_RELEASE_MODE: 'prelaunch' }),
+    true,
+  );
+  assert.equal(
+    isIndexingDisabled({ VERCEL_ENV: 'preview', FEASTPOT_RELEASE_MODE: 'launch' }),
+    true,
+  );
+  assert.throws(
+    () => isIndexingDisabled({ FEASTPOT_RELEASE_MODE: 'typo' }),
+    /must be launch or prelaunch/,
+  );
+});
+
+test('preview and production pre-launch headers and metadata agree; launch remains indexable', async () => {
   const configPath = path.resolve(__dirname, '../next.config.mjs');
-  for (const environment of ['preview', 'production']) {
+  for (const [environment, mode, disabled] of [
+    ['preview', 'launch', true],
+    ['production', 'launch', false],
+    ['production', 'prelaunch', true],
+  ]) {
     const result = await execute(
       process.execPath,
       [
         '--input-type=module',
         '-e',
         `const config = (await import(${JSON.stringify(configPath)})).default;
-         console.log(JSON.stringify(await config.headers()));`,
+         console.log(JSON.stringify({headers: await config.headers(), disabled: config.env.FEASTPOT_INDEXING_DISABLED}));`,
       ],
-      { env: { ...process.env, VERCEL_ENV: environment } },
+      { env: { ...process.env, VERCEL_ENV: environment, FEASTPOT_RELEASE_MODE: mode } },
     );
-    const headers = JSON.parse(result.stdout.trim());
-    if (environment === 'production') assert.deepEqual(headers, []);
+    const { headers, disabled: metadataFlag } = JSON.parse(result.stdout.trim());
+    assert.equal(metadataFlag, String(disabled));
+    if (!disabled) assert.deepEqual(headers, []);
     else {
       assert.deepEqual(headers, [
         {
@@ -218,29 +246,55 @@ test('Vercel previews send noindex headers, while production does not', async ()
   }
 });
 
-test('non-release postbuild deletes stale sitemaps and blocks crawlers without fetching vendors', async () => {
-  const directory = await mkdtemp(path.join(os.tmpdir(), 'feastpot-preview-sitemap-'));
-  const command = path.resolve(__dirname, 'generate-sitemap.cjs');
-  try {
-    await mkdir(path.join(directory, 'public'));
-    await writeFile(
-      path.join(directory, 'next-sitemap.config.js'),
-      'module.exports = { additionalPaths: async () => { throw new Error("must not fetch"); } };',
+for (const [environment, mode] of [
+  ['preview', 'launch'],
+  ['production', 'prelaunch'],
+]) {
+  test(`${environment}/${mode} postbuild removes stale sitemaps and blocks crawlers without fetching`, async () => {
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'feastpot-preview-sitemap-'));
+    const command = path.resolve(__dirname, 'generate-sitemap.cjs');
+    try {
+      await mkdir(path.join(directory, 'public'));
+      await writeFile(
+        path.join(directory, 'next-sitemap.config.js'),
+        'module.exports = { additionalPaths: async () => { throw new Error("must not fetch"); } };',
+      );
+      await writeFile(path.join(directory, 'public/sitemap.xml'), 'stale production sitemap');
+      await writeFile(path.join(directory, 'public/sitemap-0.xml'), 'stale vendor profiles');
+      await writeFile(path.join(directory, 'public/robots.txt'), 'User-agent: *\nAllow: /');
+      const result = await execute(process.execPath, [command], {
+        cwd: directory,
+        env: { ...process.env, VERCEL_ENV: environment, FEASTPOT_RELEASE_MODE: mode },
+      });
+      assert.match(result.stdout, /indexing disabled; no sitemap published/);
+      assert.deepEqual(await readdir(path.join(directory, 'public')), ['robots.txt']);
+      assert.equal(
+        await readFile(path.join(directory, 'public/robots.txt'), 'utf8'),
+        'User-agent: *\nDisallow: /\n',
+      );
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+}
+
+test('Vercel build defaults to explicit pre-launch, allows launch override and Turbo forwards the mode', async () => {
+  const config = JSON.parse(await readFile(path.resolve(__dirname, '../vercel.json'), 'utf8'));
+  assert.match(config.buildCommand, /FEASTPOT_RELEASE_MODE=\$\{FEASTPOT_RELEASE_MODE:-prelaunch\}/);
+  assert.equal(config.rewrites?.some((r) => r.source === '/sitemap.xml') ?? false, false);
+  const turbo = JSON.parse(await readFile(path.resolve(__dirname, '../../../turbo.json'), 'utf8'));
+  assert.ok(turbo.tasks['@feastpot/web#build'].env.includes('FEASTPOT_RELEASE_MODE'));
+  for (const value of ['', 'launch']) {
+    const result = await execute(
+      'bash',
+      [
+        '-c',
+        'FEASTPOT_RELEASE_MODE=${FEASTPOT_RELEASE_MODE:-prelaunch} node -p process.env.FEASTPOT_RELEASE_MODE',
+      ],
+      {
+        env: { ...process.env, FEASTPOT_RELEASE_MODE: value },
+      },
     );
-    await writeFile(path.join(directory, 'public/sitemap.xml'), 'stale production sitemap');
-    await writeFile(path.join(directory, 'public/sitemap-0.xml'), 'stale vendor profiles');
-    await writeFile(path.join(directory, 'public/robots.txt'), 'User-agent: *\nAllow: /');
-    const result = await execute(process.execPath, [command], {
-      cwd: directory,
-      env: { ...process.env, VERCEL_ENV: 'preview' },
-    });
-    assert.match(result.stdout, /Non-release build/);
-    assert.deepEqual(await readdir(path.join(directory, 'public')), ['robots.txt']);
-    assert.equal(
-      await readFile(path.join(directory, 'public/robots.txt'), 'utf8'),
-      'User-agent: *\nDisallow: /\n',
-    );
-  } finally {
-    await rm(directory, { recursive: true, force: true });
+    assert.equal(result.stdout.trim(), value || 'prelaunch');
   }
 });

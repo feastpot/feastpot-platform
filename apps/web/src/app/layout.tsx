@@ -77,7 +77,10 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     site: '@feastpot',
   },
-  robots: { index: true, follow: true },
+  robots:
+    process.env.FEASTPOT_INDEXING_DISABLED === 'true'
+      ? { index: false, follow: false, noarchive: true }
+      : { index: true, follow: true },
 };
 
 export const viewport: Viewport = {
