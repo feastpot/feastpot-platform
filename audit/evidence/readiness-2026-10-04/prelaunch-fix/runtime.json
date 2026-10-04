@@ -7,17 +7,13 @@
       "path": "/",
       "status": 200,
       "robotsHeader": "noindex, nofollow, noarchive",
-      "robotsMeta": [
-        "noindex, nofollow, noarchive"
-      ]
+      "robotsMeta": ["noindex, nofollow, noarchive"]
     },
     {
       "path": "/legal/vendor-terms",
       "status": 200,
       "robotsHeader": "noindex, nofollow, noarchive",
-      "robotsMeta": [
-        "noindex, nofollow, noarchive"
-      ]
+      "robotsMeta": ["noindex, nofollow, noarchive"]
     },
     {
       "path": "/robots.txt",
@@ -30,28 +26,19 @@
       "path": "/sitemap.xml",
       "status": 404,
       "robotsHeader": "noindex, nofollow, noarchive",
-      "robotsMeta": [
-        "noindex",
-        "noindex, nofollow"
-      ]
+      "robotsMeta": ["noindex", "noindex, nofollow"]
     },
     {
       "path": "/sitemap-0.xml",
       "status": 404,
       "robotsHeader": "noindex, nofollow, noarchive",
-      "robotsMeta": [
-        "noindex",
-        "noindex, nofollow"
-      ]
+      "robotsMeta": ["noindex", "noindex, nofollow"]
     },
     {
       "path": "/api/sitemap",
       "status": 404,
       "robotsHeader": "noindex, nofollow, noarchive",
-      "robotsMeta": [
-        "noindex",
-        "noindex, nofollow"
-      ]
+      "robotsMeta": ["noindex", "noindex, nofollow"]
     }
   ]
 }
