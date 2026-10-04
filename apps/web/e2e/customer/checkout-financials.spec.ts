@@ -22,7 +22,7 @@ const failures: CheckoutFailure[] = [
     name: 'basket below the vendor minimum',
     status: 400,
     code: 'BELOW_MIN_ORDER',
-    message: 'Order must be at least 2500p (vendor minimum)',
+    message: "Your basket is below this vendor's minimum order value.",
   },
   {
     name: 'delivery slot became unavailable',
@@ -74,13 +74,15 @@ async function prepareCheckout(
   const session = mockSession('checkout@example.test');
   await mockSignin(page, session);
   await page.route(SB.user, (route) => route.fulfill({ json: session.user }));
-  await page.goto('/sign-in?next=/checkout');
+  await page.goto('/sign-in?next=/vendors');
   await page.locator('#signin-email').fill('checkout@example.test');
   await page.locator('#signin-password').fill('Password1!');
   await page.getByRole('button', { name: /sign in/i }).click();
-  await page.waitForURL(/\/(?:vendors|checkout)(?:[/?#]|$)/, { timeout: 20_000 });
+  await page.waitForURL((url) => ['/vendors', '/checkout'].includes(url.pathname), {
+    timeout: 20_000,
+  });
 
-  await page.evaluate(
+  await page.addInitScript(
     ({ discount, activeFeastPass, vendorId, menuItemId, firstVisiblePricePence }) => {
       localStorage.setItem(
         'feastpot.basket.v1',
@@ -286,7 +288,7 @@ test.describe('browser checkout failure contracts', () => {
 
     const submit = page.getByRole('button', { name: 'Place order securely' }).first();
     await submit.dblclick({ delay: 20 });
-    await expect(page.getByText('Payment confirmation timed out. Please try again.')).toBeVisible();
+    await expect(page.getByText('Could not complete checkout.', { exact: false })).toBeVisible();
     expect(creates).toBe(1);
   });
 });

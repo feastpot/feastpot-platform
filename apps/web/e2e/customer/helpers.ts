@@ -1,3 +1,5 @@
+import { createHash, randomUUID } from 'node:crypto';
+
 import { expect, test as base, type APIRequestContext, type Page } from '@playwright/test';
 
 import {
@@ -16,7 +18,19 @@ import { calcServiceFeePence } from '../../src/lib/service-fee';
  * is supplied by CI, but never creates data against production (the factory
  * has a production URL guard).
  */
-export const test = base.extend<{ customer: CustomerFixture }>({
+export const test = base.extend<{ customer: CustomerFixture; cookieConsent: void }>({
+  cookieConsent: [
+    async ({ page }, use) => {
+      await page.addLocatorHandler(
+        page.getByRole('dialog', { name: 'Cookie notice' }),
+        async () => {
+          await page.getByRole('button', { name: 'Essential only', exact: true }).click();
+        },
+      );
+      await use();
+    },
+    { auto: true },
+  ],
   customer: async ({ page }, provide) => {
     await provide(new CustomerFixture(page));
   },
@@ -109,6 +123,13 @@ export function assertCustomerSmokeEnvironment(): void {
 }
 
 export class CustomerFixture {
+  // One namespace per test/retry; permutations within a test intentionally
+  // share their vendor so payout comparisons use the same trading account.
+  private readonly namespace = `${createHash('sha256')
+    .update(process.env.TEST_FACTORY_NAMESPACE ?? 'customer')
+    .digest('hex')
+    .slice(0, 12)}-${randomUUID().replaceAll('-', '').slice(0, 12)}`;
+
   constructor(readonly page: Page) {}
 
   async mockVendorSearch(
@@ -120,6 +141,12 @@ export class CustomerFixture {
       // Card extras has a distinct response contract.
       if (url.pathname.endsWith('/card-extras')) {
         await route.fulfill({ json: cardExtras });
+        return;
+      }
+      // Discovery may be mocked while detail/menu reads remain real, notably
+      // in the mobile purchase journey. Never return a list envelope for them.
+      if (!url.pathname.endsWith('/vendors')) {
+        await route.fallback();
         return;
       }
       await route.fulfill({ json: { data: vendors, nextCursor: null } });
@@ -139,10 +166,16 @@ export class CustomerFixture {
         'CUSTOMER_E2E_FACTORY_DISABLED: set CUSTOMER_E2E_USE_FACTORY=true with a safe SUPABASE_DB_URL.',
       );
     }
-    const factory = TestDataFactory.fromEnvironment();
+    const factory = TestDataFactory.fromEnvironment({
+      namespace: this.namespace,
+    });
     const identities: TestIdentity[] = [];
     try {
-      for (const state of states) identities.push(await factory.create(state));
+      for (const state of states) {
+        identities.push(
+          state === 'V9' ? await factory.createPurchaseVendor() : await factory.create(state),
+        );
+      }
       return {
         factory,
         identities,
@@ -165,7 +198,9 @@ export class CustomerFixture {
         'CUSTOMER_E2E_FACTORY_DISABLED: set CUSTOMER_E2E_USE_FACTORY=true with a safe SUPABASE_DB_URL.',
       );
     }
-    const factory = TestDataFactory.fromEnvironment();
+    const factory = TestDataFactory.fromEnvironment({
+      namespace: this.namespace,
+    });
     try {
       return { factory, fixture: await factory.createCheckoutScenario(scenario) };
     } catch (error) {
@@ -256,7 +291,11 @@ export async function inspectFactoryPaymentState(
   request: APIRequestContext,
   accessToken: string,
 ): Promise<InspectedPaymentState> {
-  const namespace = process.env.TEST_FACTORY_NAMESPACE;
+  if (!process.env.TEST_FACTORY_NAMESPACE) throw new Error('CUSTOMER_E2E_NAMESPACE_REQUIRED');
+  const claims = JSON.parse(Buffer.from(accessToken.split('.')[1], 'base64url').toString());
+  const namespace = /^tf-([a-z0-9-]+)-c\d+@test\.feastpot\.co\.uk$/i.exec(
+    String(claims.email ?? ''),
+  )?.[1];
   if (!namespace) throw new Error('CUSTOMER_E2E_NAMESPACE_REQUIRED');
   const response = await request.get(`${process.env.TEST_API_URL}/v1/test/payment-state`, {
     headers: {
@@ -273,4 +312,33 @@ export async function inspectFactoryPaymentState(
     for (const payment of order.payments) expect(payment.orderId).toBe(order.id);
   }
   return state;
+}
+
+/** Manual capture must authorise the full total without marking it captured. */
+export async function expectFactoryPaymentAuthorised(
+  factory: TestDataFactory,
+  state: InspectedPaymentState,
+): Promise<void> {
+  expect(state.orders).toHaveLength(1);
+  const order = state.orders[0]!;
+  expect(order.payments).toHaveLength(1);
+  expect(order.payments[0]!.status).toBe('pending');
+  const payment = await factory.prisma.payment.findUniqueOrThrow({
+    where: { id: order.payments[0]!.id },
+  });
+  expect(payment.amountPence).toBe(order.totalPence);
+  expect(payment.stripePaymentIntentId).toBeTruthy();
+  const response = await fetch(
+    `https://api.stripe.com/v1/payment_intents/${payment.stripePaymentIntentId}`,
+    {
+      headers: { Authorization: `Bearer ${process.env.STRIPE_SECRET_KEY_TEST}` },
+      signal: AbortSignal.timeout(30_000),
+    },
+  );
+  expect(response.ok).toBe(true);
+  const intent = await response.json();
+  expect(intent.status).toBe('requires_capture');
+  expect(intent.amount).toBe(order.totalPence);
+  expect(intent.amount_capturable).toBe(order.totalPence);
+  expect(intent.metadata.orderId).toBe(order.id);
 }

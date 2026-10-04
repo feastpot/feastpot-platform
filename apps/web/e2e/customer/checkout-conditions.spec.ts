@@ -61,7 +61,7 @@ const orderFailures: OrderFailure[] = [
     name: 'basket below vendor minimum is blocked with the vendor explanation',
     status: 400,
     code: 'BELOW_MIN_ORDER',
-    message: 'Order must be at least 2001p (vendor minimum)',
+    message: "Your basket is below this vendor's minimum order value.",
     mutate: async (factory, fixture) => {
       await factory.prisma.deliveryConfig.update({
         where: { vendorId: fixture.vendor.vendorId! },
@@ -119,7 +119,7 @@ async function openCheckout(
     // past time. This verifies the page surfaces the API's stale-slot rejection.
     await page.addInitScript(() => {
       const RealDate = Date;
-      const offset = 48 * 60 * 60 * 1000;
+      const offset = 16 * 24 * 60 * 60 * 1000;
       class CheckoutPastDate extends RealDate {
         constructor(...args: any[]) {
           super(...(args.length ? args : [RealDate.now() - offset]));
@@ -132,29 +132,29 @@ async function openCheckout(
     });
   }
 
-  await page.goto('/sign-in?next=/checkout');
+  await page.goto('/sign-in?next=/vendors');
   await page.locator('#signin-email').fill(fixture.customer.credentials.email);
   await page.locator('#signin-password').fill(fixture.customer.credentials.password!);
   await page.getByRole('button', { name: /sign in/i }).click();
-  await expect(page).toHaveURL(/\/vendors(?:[/?#]|$)/);
+  await expect(page).toHaveURL((url) => url.pathname === '/vendors');
 
-  await page.evaluate(
-    ({ fixture, quantity, marketplace, discountCode }) => {
-      const price = fixture.vendor.menuItemPricePence!;
-      const vendorId = fixture.vendor.vendorId!;
+  await page.addInitScript(
+    ({ vendor, referral, quantity, marketplace, discountCode }) => {
+      const price = vendor.menuItemPricePence!;
+      const vendorId = vendor.vendorId!;
       localStorage.setItem(
         'feastpot.basket.v1',
         JSON.stringify({
           state: {
             vendor: {
               id: vendorId,
-              name: fixture.vendor.vendorSlug!,
-              slug: fixture.vendor.vendorSlug!,
+              name: vendor.vendorSlug!,
+              slug: vendor.vendorSlug!,
             },
             items: [
               {
                 lineId: 'checkout-condition',
-                menuItemId: fixture.vendor.menuItemId!,
+                menuItemId: vendor.menuItemId!,
                 menuItemName: 'Customer checkout smoke dish',
                 quantity,
                 unitPricePence: price,
@@ -167,12 +167,18 @@ async function openCheckout(
       );
       if (marketplace) localStorage.setItem(`fp_mp_${vendorId}`, String(Date.now()));
       if (discountCode) sessionStorage.setItem('feastpot.discount.v1', discountCode);
-      if (fixture.referral) {
-        document.cookie = `fp_ref=${fixture.referral.linkId}|${fixture.referral.clickId}|${Date.now()}; path=/`;
+      if (referral) {
+        document.cookie = `fp_ref=${referral.linkId}|${referral.clickId}|${Date.now()}; path=/`;
       }
     },
     {
-      fixture,
+      vendor: {
+        vendorId: fixture.vendor.vendorId,
+        vendorSlug: fixture.vendor.vendorSlug,
+        menuItemId: fixture.vendor.menuItemId,
+        menuItemPricePence: fixture.vendor.menuItemPricePence,
+      },
+      referral: fixture.referral,
       quantity: options.quantity ?? 1,
       marketplace: options.marketplace,
       discountCode: options.discountCode,
@@ -212,11 +218,14 @@ async function interceptOrderFailure(page: Page, failure: OrderFailure): Promise
 }
 
 test.describe('customer checkout conditions and first-price disclosure', () => {
+  // These tests include remote Auth provisioning and teardown, not just UI.
+  test.describe.configure({ timeout: 120_000 });
   test.describe.configure({ mode: 'default', retries: 0 });
 
   test('all five checkout financial snapshots preserve the same vendor payout', async ({
     customer,
   }) => {
+    test.setTimeout(240_000);
     assertCustomerSmokeEnvironment();
     const provisions: Array<{
       factory: TestDataFactory;
@@ -283,10 +292,15 @@ test.describe('customer checkout conditions and first-price disclosure', () => {
       try {
         await openCheckout(page, fixture, scenario);
         const price = fixture.vendor.menuItemPricePence!;
-        const summary = page.locator('section').filter({ hasText: 'Order summary' });
-        await expect(summary.getByText('Subtotal', { exact: true })).toBeVisible();
+        const summary = page.locator('section').filter({ hasText: 'Review your feast' });
+        await expect(summary.getByText('Subtotal', { exact: true })).toBeVisible({
+          timeout: 30_000,
+        });
         await expect(
-          summary.getByText(`£${(price / 100).toFixed(2)}`, { exact: true }),
+          summary
+            .getByText('Subtotal', { exact: true })
+            .locator('..')
+            .getByText(`£${(price / 100).toFixed(2)}`, { exact: true }),
         ).toBeVisible();
         await expect(summary.getByText('Delivery', { exact: true })).toBeVisible();
         await expect(summary.getByText('£2.50', { exact: true })).toBeVisible();
@@ -314,8 +328,13 @@ test.describe('customer checkout conditions and first-price disclosure', () => {
     );
     try {
       await openCheckout(page, fixture, { marketplace: true, quantity: 3 });
-      const summary = page.locator('section').filter({ hasText: 'Order summary' });
-      await expect(summary.getByText('£60.00', { exact: true }).first()).toBeVisible();
+      const summary = page.locator('section').filter({ hasText: 'Review your feast' });
+      await expect(summary.getByText('Subtotal', { exact: true })).toBeVisible({
+        timeout: 30_000,
+      });
+      await expect(
+        summary.getByText('Subtotal', { exact: true }).locator('..').getByText('£60.00'),
+      ).toBeVisible();
       await expect(summary.getByText('Service fee', { exact: false })).toContainText(
         '5% capped at £2.99',
       );
@@ -352,7 +371,7 @@ test.describe('customer checkout conditions and first-price disclosure', () => {
         });
       });
       await page.getByRole('button', { name: 'Place order securely' }).first().click();
-      await expect(page.getByText('Reached order pricing')).toBeVisible();
+      await expect(page.getByText('Could not complete checkout.', { exact: false })).toBeVisible();
       expect(posted).toBe(true);
     } finally {
       await factory.teardown(fixture.customer);
@@ -387,7 +406,7 @@ test.describe('customer checkout conditions and first-price disclosure', () => {
   }
 
   for (const discount of [
-    { name: 'valid', code: 'VALID', status: 400, message: 'Discount accepted by pricing' },
+    { name: 'valid', code: 'VALID', status: 400, message: 'Could not complete checkout.' },
     { name: 'expired', code: 'EXPIRED', status: 400, message: 'This discount code has expired' },
     { name: 'used', code: 'USED', status: 400, message: 'This code has reached its usage limit' },
     {
@@ -406,11 +425,13 @@ test.describe('customer checkout conditions and first-price disclosure', () => {
         'MARKETPLACE_NEW_NON_MEMBER',
       );
       let otherVendor: Awaited<ReturnType<typeof factory.create>> | undefined;
+      const code = `${discount.code}-${fixture.customer.userId.slice(0, 8)}`.toUpperCase();
+      let posted = 0;
       try {
         otherVendor = await factory.create('V8');
         await factory.prisma.discountCode.create({
           data: {
-            code: discount.code,
+            code,
             type: 'flat',
             value: 100,
             minOrderPence: 0,
@@ -427,15 +448,33 @@ test.describe('customer checkout conditions and first-price disclosure', () => {
             createdByUserId: fixture.customer.userId,
           },
         });
-        await openCheckout(page, fixture, { marketplace: true, discountCode: discount.code });
+        await openCheckout(page, fixture, { marketplace: true, discountCode: code });
         await chooseCheckoutDetails(page, fixture);
-        await page.route('**/v1/orders', (route) =>
-          route.fulfill({ status: discount.status, json: { message: discount.message } }),
-        );
+        await page.route('**/v1/orders', async (route) => {
+          posted += 1;
+          expect(route.request().postDataJSON().discountCode).toBe(code);
+          await route.fulfill({
+            status: discount.status,
+            json: {
+              code:
+                discount.name === 'expired'
+                  ? 'DISCOUNT_EXPIRED'
+                  : discount.name === 'used'
+                    ? 'DISCOUNT_EXHAUSTED'
+                    : discount.name === 'wrong vendor'
+                      ? 'DISCOUNT_VENDOR_MISMATCH'
+                      : 'PRICING_REACHED',
+              message: 'Private pricing diagnostic',
+            },
+          });
+        });
         await page.getByRole('button', { name: 'Place order securely' }).first().click();
         await expect(page.getByText(discount.message)).toBeVisible();
+        expect(posted).toBe(1);
       } finally {
-        await factory.prisma.discountCode.deleteMany({ where: { code: discount.code } });
+        await factory.prisma.discountCode.deleteMany({
+          where: { code, createdByUserId: fixture.customer.userId },
+        });
         if (otherVendor) await factory.teardown(otherVendor);
         await factory.teardown(fixture.customer);
         await factory.teardown(fixture.vendor);

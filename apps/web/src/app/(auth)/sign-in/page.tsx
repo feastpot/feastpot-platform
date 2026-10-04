@@ -434,9 +434,15 @@ function SignInPane({ onSwitchToRegister }: { onSwitchToRegister: () => void }) 
         </div>
       )}
 
-      <form onSubmit={form.handleSubmit(onSubmit)} className="mt-5 space-y-3.5" noValidate>
+      <form
+        method="post"
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="mt-5 space-y-3.5"
+        noValidate
+      >
         <TextField
           id="signin-email"
+          readOnly={!hydrated}
           type="email"
           label="Email address"
           autoComplete="email"
@@ -446,6 +452,7 @@ function SignInPane({ onSwitchToRegister }: { onSwitchToRegister: () => void }) 
         />
         <PasswordField
           id="signin-password"
+          readOnly={!hydrated}
           label="Password"
           autoComplete="current-password"
           placeholder="Enter your password"
@@ -818,7 +825,12 @@ function RegisterPane({ onSwitchToSignIn }: { onSwitchToSignIn: () => void }) {
         </div>
       )}
 
-      <form onSubmit={form.handleSubmit(onSubmit)} className="mt-5 space-y-3.5" noValidate>
+      <form
+        method="post"
+        onSubmit={form.handleSubmit(onSubmit)}
+        className="mt-5 space-y-3.5"
+        noValidate
+      >
         <TextField
           id="reg-fullName"
           label="Full name"

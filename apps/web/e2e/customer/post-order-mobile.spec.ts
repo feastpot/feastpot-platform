@@ -3,8 +3,10 @@ import type { Page, Route } from '@playwright/test';
 import {
   assertCustomerSmokeEnvironment,
   expect,
+  expectFactoryPaymentAuthorised,
   inspectFactoryPaymentState,
   test,
+  vendor,
 } from './helpers';
 import { mockSession, mockSignin } from '../auth/helpers/supabase-mock';
 import { SB } from '../auth/helpers/selectors';
@@ -102,7 +104,7 @@ async function enterDeterministicSuccessCard(page: Page): Promise<void> {
   await card.locator('input[name="cardnumber"]').fill('4242424242424242');
   await card.locator('input[name="exp-date"]').fill('1230');
   await card.locator('input[name="cvc"]').fill('123');
-  await card.locator('input[autocomplete="postal-code"]').fill('SE15 4ST');
+  await card.locator('input[autocomplete="postal-code"]').fill('90210');
 }
 
 async function signInFactoryCustomer(
@@ -132,6 +134,15 @@ test.describe('post-order customer journeys', () => {
     );
     try {
       const accessToken = await factory.issueAccessToken(fixture.customer);
+      // Discovery is a deterministic UI contract; the subsequent purchase
+      // still uses this run's real isolated API and Stripe test-mode account.
+      await customer.mockVendorSearch([
+        vendor({
+          id: fixture.vendor.vendorId!,
+          slug: fixture.vendor.vendorSlug!,
+          businessName: fixture.vendor.vendorSlug!,
+        }),
+      ]);
 
       await page.goto('/');
       await expect(page.locator('#hero-postcode')).toBeVisible();
@@ -142,19 +153,23 @@ test.describe('post-order customer journeys', () => {
       await expectMobilePageWidth(page);
 
       await page.locator(`a[href="/vendors/${fixture.vendor.vendorSlug}#menu"]`).click();
-      await expect(page).toHaveURL(new RegExp(`/vendors/${fixture.vendor.vendorSlug}`));
-      await expect(page.getByRole('heading')).toBeVisible();
+      await expect(page).toHaveURL(new RegExp(`/vendors/${fixture.vendor.vendorSlug}`), {
+        timeout: 30_000,
+      });
+      await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
       await expectMobilePageWidth(page);
       await page
         .getByRole('button', { name: /add .* to basket/i })
         .first()
         .click();
-      await page.getByText('View basket', { exact: true }).click();
+      await page.getByRole('button', { name: 'Basket (1 item)', exact: true }).click();
       await expect(page.getByText('Your basket', { exact: true })).toBeVisible();
       await expectMobilePageWidth(page);
-      await page.getByRole('button', { name: /checkout/i }).click();
+      await page.getByRole('button', { name: /^Proceed to checkout/ }).click();
 
-      await expect(page).toHaveURL(/\/sign-in\?next=%2Fcheckout/);
+      await expect(page).toHaveURL(
+        (url) => url.pathname === '/sign-in' && url.searchParams.get('next') === '/checkout',
+      );
       await expectMobilePageWidth(page);
       await page.locator('#signin-email').fill(fixture.customer.credentials.email);
       await page.locator('#signin-password').fill(fixture.customer.credentials.password!);
@@ -177,17 +192,17 @@ test.describe('post-order customer journeys', () => {
       await page.getByRole('button', { name: 'Place order securely' }).first().click();
 
       await expect(page).toHaveURL(/\/orders\/[^/]+\/confirmation$/, { timeout: 30_000 });
-      await expect(page.getByText(/order confirmed|thanks/i)).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Order placed!', exact: true })).toBeVisible();
       await expectMobilePageWidth(page);
       const state = await inspectFactoryPaymentState(request, accessToken);
       expect(state.orders).toHaveLength(1);
       expect(state.orders[0]!.payments).toHaveLength(1);
       expect(state.orders[0]!.payments[0]!.orderId).toBe(state.orders[0]!.id);
       expect(state.orders[0]!.status).toMatch(/^(pending|accepted)$/);
-      expect(state.orders[0]!.payments[0]!.status).toBe('succeeded');
+      await expectFactoryPaymentAuthorised(factory, state);
 
       await page.goto('/orders');
-      await expect(page.getByRole('heading', { name: 'Your orders' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Your Orders', exact: true })).toBeVisible();
       await expect(page.getByText(/pending|order placed/i)).toBeVisible();
       await expectMobilePageWidth(page);
     } finally {

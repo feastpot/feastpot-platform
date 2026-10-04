@@ -42,11 +42,17 @@ Do not use terminal-normalized output to transfer exact Git file bytes.
 **How to apply:** Export bulk data to a temporary file and read it through a byte-preserving file operation. Keep operation budgets bounded, exclude generated report assets, and verify blob hashes before updating any branch.
 
 ## Merge restrictions
+Inspect the final Git tree and its parent history before pushing checkpoint commits. Create a scoped branch from the latest main when checkpoint history contains uploaded assets outside the requested code change.
+
+**Why:** A checkpoint tracked user-uploaded screenshots even though they had not been manually staged. Deleting them in a later commit would still publish their blobs in the pushed history.
+
+**How to apply:** Keep uploaded assets in the workspace. Build the PR from the intended source changes only, excluding temporary workflow overrides and uploaded files not needed by the feature.
+
 This repository does not allow GitHub automatic merging. Required checks still gate a normal merge.
 
-**Why:** GitHub explicitly rejected enabling auto-merge while required checks were pending.
+**Why:** GitHub explicitly rejected enabling auto-merge while required checks were pending. The CLI only reports checks that already have a run, so required downstream jobs can be absent from a seemingly green list. It also reports "All checks were successful" when required jobs were skipped after an upstream failure.
 
-**How to apply:** Check the current repository capability rather than promising automatic merging. Do not bypass branch protection; report pending checks as an external blocker.
+**How to apply:** Check the current repository capability rather than promising automatic merging. Compare the complete branch-protection requirements with reported checks before merging; inspect workflow dependencies for missing downstream runs. Require an actual successful execution for every required gate, never a skipped result. Do not bypass branch protection; report pending checks as an external blocker.
 
 ## Failure logs before the whole CI run finishes
 Completed job logs can be available through GitHub's job-log API while the overall run is still active.

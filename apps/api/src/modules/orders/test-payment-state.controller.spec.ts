@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { NotFoundException } from '@nestjs/common';
 
 import { TestPaymentStateController } from './test-payment-state.controller';
@@ -59,8 +61,43 @@ describe('TestPaymentStateController', () => {
       ],
     });
     expect(prisma.order.findMany).toHaveBeenCalledWith(
-      expect.objectContaining({ where: { customerId: user.id } }),
+      expect.objectContaining({
+        where: {
+          customerId: user.id,
+          OR: [
+            { cancellationReason: null },
+            { cancellationReason: { not: 'Test factory checkout financial snapshot' } },
+          ],
+        },
+      }),
     );
+  });
+
+  it('accepts an isolated child of this run without changing caller ownership', async () => {
+    const prefix = createHash('sha256').update(namespace).digest('hex').slice(0, 12);
+    const child = `${prefix}-012345abcdef`;
+    const childUser = { ...user, email: `tf-${child}-c2@test.feastpot.co.uk` };
+    prisma.order.findMany.mockResolvedValue([]);
+    await expect(controller.inspect({ user: childUser, headers: {} }, child)).resolves.toEqual({
+      namespace: child,
+      orders: [],
+    });
+    expect(prisma.order.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ customerId: childUser.id }),
+      }),
+    );
+  });
+
+  it('rejects another run even when its namespace matches the caller email', async () => {
+    const other = '012345abcdef-012345abcdef';
+    await expect(
+      controller.inspect(
+        { user: { ...user, email: `tf-${other}-c2@test.feastpot.co.uk` }, headers: {} },
+        other,
+      ),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(prisma.order.findMany).not.toHaveBeenCalled();
   });
 
   it.each([

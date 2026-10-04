@@ -142,10 +142,17 @@ export function getVendorBySlug(
   options?: Pick<ApiRequestOptions, 'next' | 'signal' | 'cache'> & { postcode?: string | null },
 ): Promise<VendorProfile> {
   const { postcode, ...rest } = options ?? {};
-  return apiRequest<VendorProfile>(`/vendors/${encodeURIComponent(slug)}`, {
-    ...rest,
-    query: postcode ? { postcode } : undefined,
-  });
+  return apiRequest<VendorProfile & { deliveryConfig?: VendorProfile['delivery'] }>(
+    `/vendors/${encodeURIComponent(slug)}`,
+    {
+      ...rest,
+      query: postcode ? { postcode } : undefined,
+    },
+  ).then((profile) =>
+    profile.deliveryConfig === undefined
+      ? profile
+      : { ...profile, delivery: profile.deliveryConfig },
+  );
 }
 
 // ─── Trust signals + capacity (interface layer for the capacity data layer) ──

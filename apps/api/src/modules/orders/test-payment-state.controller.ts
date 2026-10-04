@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import { Controller, Get, Headers, NotFoundException, Req } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 
@@ -25,7 +27,15 @@ export class TestPaymentStateController {
   ) {
     const user = this.requireFactoryCustomer(req.user, namespace);
     const orders = await this.prisma.order.findMany({
-      where: { customerId: user.id },
+      where: {
+        customerId: user.id,
+        // Only the explicit, non-payable finance snapshot is excluded. Never
+        // exclude orders because their payment row is missing: that is an orphan.
+        OR: [
+          { cancellationReason: null },
+          { cancellationReason: { not: 'Test factory checkout financial snapshot' } },
+        ],
+      },
       orderBy: { createdAt: 'asc' },
       select: {
         id: true,
@@ -58,11 +68,18 @@ export class TestPaymentStateController {
 
   private requireFactoryCustomer(user: AuthUser | null, namespace?: string): AuthUser {
     const configuredNamespace = process.env.TEST_FACTORY_NAMESPACE;
+    const childPrefix = configuredNamespace
+      ? createHash('sha256').update(configuredNamespace).digest('hex').slice(0, 12)
+      : '';
+    const belongsToRun =
+      namespace === configuredNamespace ||
+      new RegExp(`^${childPrefix}-[a-f0-9]{12}$`).test(namespace ?? '');
     const safeNamespace = /^[a-z0-9][a-z0-9-]{7,}$/i.test(namespace ?? '');
     if (
       process.env.NODE_ENV !== 'test' ||
       !configuredNamespace ||
-      namespace !== configuredNamespace ||
+      !namespace ||
+      !belongsToRun ||
       !safeNamespace ||
       !user ||
       !user.email.toLowerCase().startsWith(`tf-${namespace.toLowerCase()}-`)

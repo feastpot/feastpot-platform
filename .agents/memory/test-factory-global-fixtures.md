@@ -9,6 +9,12 @@ Namespaced test factories must reuse an existing globally current record when a 
 
 **How to apply:** For globally ordered records, mirror the production selector, reuse its result, and scope teardown to owned references. Keep future-state fixtures non-current until their intended effective date.
 
+Independent checkout tests and retries need fresh, short namespaces, while permutations within one comparison share their vendor and global current records must still be shared.
+
+**Why:** Partial cleanup can leave an Auth account after its application row disappears. Reusing its namespace then collides with the existing email; excessively long namespaces also overflow derived referral slugs.
+
+**How to apply:** Keep scenario namespaces compact with enough randomness. Never adopt or delete an ordinary Auth account to work around a fixture collision.
+
 Do not assume independently reusable fixture fields compose into one ownership graph. A namespaced identity can reference a global transactional record whose related vendor differs from the identity's nominal vendor.
 
 **Why:** An authoritative dispute test used an identity's reused order and vendor IDs as though they were guaranteed to belong together, so real vendor ownership correctly rejected the request.

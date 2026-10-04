@@ -9,6 +9,12 @@ Authentication forms must not rely solely on React preventing native submission;
 
 **How to apply:** Preserve explicit POST semantics when changing authentication forms. Browser tests must wait for hydration, focus fields normally and wait for editability rather than removing readonly attributes. Click upload buttons and use the resulting file chooser instead of dispatching file changes before handlers attach.
 
+Check landing-page assertions against the URL pathname, not an unanchored full-URL expression.
+
+**Why:** A sign-in URL containing `next=/vendors` matched the expected landing-page expression before authentication had happened.
+
+**How to apply:** Use a URL predicate comparing `pathname` when the destination can also occur in a redirect query parameter.
+
 Rotating the shared test password must cover remaining fixture identities in the authentication provider, not only the workspace secret or fixtures found in the application database.
 
 **Why:** A development inventory found explicitly marked authentication fixtures surviving without matching application records. Updating the secret alone would leave their old passwords usable.

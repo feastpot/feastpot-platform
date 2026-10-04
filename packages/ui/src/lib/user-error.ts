@@ -1,3 +1,5 @@
+import { PUBLIC_ERROR_MESSAGES } from './public-error-messages';
+
 export type IncidentReporter = (payload: {
   message: string;
   detail?: string;
@@ -14,6 +16,11 @@ export function createUserErrorMapper(report: IncidentReporter) {
     error: unknown,
     message = DEFAULT_ERROR_MESSAGE,
   ): Promise<string> {
+    const code = (error as { code?: unknown } | null)?.code;
+    const publicMessage =
+      typeof code === 'string' && Object.hasOwn(PUBLIC_ERROR_MESSAGES, code)
+        ? PUBLIC_ERROR_MESSAGES[code]
+        : message;
     let incident = error !== null && typeof error === 'object' ? incidents.get(error) : undefined;
     if (!incident) {
       const source = error as {
@@ -53,7 +60,7 @@ export function createUserErrorMapper(report: IncidentReporter) {
       if (error !== null && typeof error === 'object') incidents.set(error, incident);
     }
     const ref = await incident;
-    return `${message} ${ref && PERSISTED_REF.test(ref) ? `Ref: ${ref}` : 'Support reference unavailable. Please contact support.'}`;
+    return `${publicMessage} ${ref && PERSISTED_REF.test(ref) ? `Ref: ${ref}` : 'Support reference unavailable. Please contact support.'}`;
   }
   // Called only by HTTP wrappers after our API acknowledges its own persisted
   // incident. Reusing it preserves the original provider log/reference pair.
