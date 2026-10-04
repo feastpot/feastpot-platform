@@ -1,0 +1,658 @@
+FEASTPOT LAUNCH READINESS RE-AUDIT
+4 October 2026
+
+Purpose
+
+Re-audit the 17 September assessment using the same nine phases and a
+90-minute limit. The phases are inventory, static checks, tests, customer
+routes, Vendor routes, Admin routes, uploads, links and critical safety.
+This report compares every previous blocker, early fix, housekeeping item,
+working claim and unverified item. It assesses real launch use, not whether
+source code contains a proposed fix.
+
+The original re-audit began at 14:36 UTC and ended within its 90-minute cap.
+Its evidence cut-off was 2026-10-04T15:50:58.932Z. At the user's
+request, a separate production-first refresh began at 16:08 UTC. The
+production database snapshot was taken at 16:10 UTC; published endpoint,
+log, legal-rendering and sitemap observations are retained with timestamps.
+The production refresh did not re-run the earlier development suites or
+credentialed browser matrix. Their original observations and coverage are
+retained, not relabelled as fresh production workflow passes.
+Source, development and published evidence are distinguished. An HTTP 200
+shell is not proof its data, controls or money operations work.
+
+Production database queries were read-only. Shared queue jobs were not
+replayed or discarded. During the audits, no product code, published
+configuration, production business mutation or payment was deliberately
+changed or initiated.
+Normal service logging and incident reporting are not business operations.
+Owned development fixtures were removed. Temporary
+PostgreSQL and Redis isolated financial tests from operational services.
+
+After the production refresh, the user authorised an explicit non-indexable
+production pre-launch mode to fix the customer Vercel build failure shown
+in the attached screenshots. That source/configuration fix is now verified
+separately. It does not authorise commercial launch or certify a new hosted
+Vercel release. No production database or vendor eligibility was changed.
+
+Memory pressure interrupted the first coverage run and some browser visits.
+The API child also stopped after a database connection failure while its
+watcher remained running. Managed previews were recovered; interrupted
+observations are retained, and targeted retries are identified separately.
+These interruptions are not counted as established frontend defects.
+The first isolated API build also excluded a legitimate source directory
+named coverage; the corrected source copy compiled successfully.
+NEWLY INTRODUCED means newly identified relative to the September report,
+not proof of the exact commit or date that caused the finding.
+
+Verdict
+
+NO. Real vendors, real customers and real staff cannot safely use Feastpot
+for launch operations today. Do not open ordering.
+
+Five things must be true first.
+
+Notifications must process promptly, with a monitored alert channel and
+proved provider delivery. Fresh published deep health reports
+133 failed notification jobs, 1718 waiting
+and 0 active. Production logs also record eight failed
+terms-notice jobs; deep health records 13 failed compliance jobs.
+
+The effective contract must agree with the charging engine. Production
+Vendor Terms 2.0 still describes 12%, 10% and negotiated referred fees,
+while active order rates are 8%, 5% and 0%. At least one genuine,
+eligible vendor must complete the applicable current acceptance and go-live
+checks. Production has zero live vendors outside the explicit test marker.
+It has three non-test, non-seed, non-demo vendor records; none is live or
+Stripe charges/payouts-enabled. Two have accepted the selected Terms
+version, but neither is a current live trading vendor.
+
+An ordinary test-mode purchase and usable operational portals must be
+proved. Real authentication is now demonstrated, but not all workflows
+load their data. Every real staff member needs verified production MFA.
+Staff tests must cover the permitted and forbidden
+operations for all four roles, not merely their navigation.
+
+All seven upload workflows must complete the real phone-image, content,
+orientation, lifecycle and privacy matrix. Private-document access has
+improved, but this is not certification of the remaining upload workflows.
+
+Release integrity must be established. The dependency advisory must be
+resolved or formally risk-accepted with reachability evidence. The old
+Multer and Sharp findings are absent from the earlier fresh dependency
+report, but a high braces advisory remains unresolved. Two production
+migration checksums disagree with checked-in SQL; review the exact history
+and establish schema parity without blindly rewriting applied evidence.
+
+Part E is not authorised by a NO verdict. No real order was taken, no live
+payment or payout was initiated, and no second order is permitted as a
+substitute for the supervised first transaction and penny reconciliation.
+After a future YES, allow one real customer and one real vendor only;
+watch its webhook and delivered notification, run its weekly payout,
+reconcile the statement against Stripe and the bank by hand to the penny,
+and confirm the vendor receives and understands it. No second order may
+be taken before that single transaction reconciles.
+
+Blockers
+
+Previous blocker 1: STILL PRESENT.
+Notification delivery remains severely backed up. The published
+/v1/healthz observation at 16:12 UTC reports 133 failed, 1,718 waiting and
+zero active notification jobs, plus 13 failed compliance jobs. Production
+logs at 16:05 UTC still report eight failed terms notices and no
+QUEUE_ALERT_SLACK_WEBHOOK_URL. Database notifications, provider email
+events, Terms notices and notification outbox rows are all zero in the
+16:10 UTC production snapshot. Zero SQL rows do not clear a Redis backlog
+or prove delivery. The pending jobs' provenance and recipients were not
+inspected; do not assume they belong to genuine production users or replay
+them blindly. Restore processing without discarding failed-job evidence,
+then prove delivery from the authorised supervised transaction after YES.
+Evidence: production-refresh/database.json, http.json and
+deployment-log-extract.txt.
+
+Previous blocker 2: FIXED for current quote calculations.
+Fresh catering-commission tests exercise the actual createQuote and
+fillQuote methods. All 23 cases passed, including standard 10% and referred
+5%, independent of marketplace rates. The full financial suite passed
+123/123, with no skipped tests.
+A read-only production query found no bookings for non-test-marked vendor
+accounts in the historical-review denominator. No historical money record
+was rewritten. This does not certify live catering payment or transfers.
+Evidence: critical-tests.json, financial-tests.json,
+production-schema-and-quotes.json.
+
+Previous blocker 3: STILL PRESENT, with a clearer denominator.
+Production has 0 live non-test-marked vendors and
+0 current acceptances among those live vendors.
+Across all non-test-marked vendors, there are three accounts and two
+current-version acceptances. There are six vendors overall, including
+three seed-marked live vendors; the public catalogue returns zero records.
+Both ordinary acceptance records retain matching canonical hashes,
+scroll confirmation, acceptance text, IP and user-agent evidence. The
+audit reads only presence counts, not those personal values. This improves
+acceptance evidence but does not resolve the incorrect contract wording.
+The three ordinary records are two approved and one pending. None has
+Stripe charges or payouts enabled; no ordinary vendor tax profile exists.
+One ordinary verification record is SUSPENDED. These are marker-based
+readiness observations, not independent verification of business identity.
+Development has 191 live non-test-marked vendors and
+0 acceptances for its currently selected effective version.
+The development current version is a factory-labelled version, not a
+reconciled launch contract. Non-test-marked is a database marker, not proof
+of a genuine business. The unchanged same-day order probe rejected creation
+with TERMS_ACCEPTANCE_REQUIRED, demonstrating refusal, not a purchase.
+Evidence: production-refresh/database.json and http.json;
+population-and-acceptance.json; earlier probes.json and same-day
+consistency results.json.
+
+Previous blocker 4: STILL PRESENT.
+Rendered routes and owned historical orders do not establish a purchase.
+The retained same-day create-order probe returned 400
+TERMS_ACCEPTANCE_REQUIRED before a provider was called. No successful
+ordinary search-to-Stripe-to-confirmation-to-cancellation sequence was
+established in this re-audit. Fix the genuine prerequisite and data-loading
+problems, then run one complete test-money purchase.
+Evidence: routes.json, supplement.json; consistency results.json.
+
+Previous blocker 5: STILL PRESENT, despite much better authentication proof.
+All 50 Admin and
+46 Vendor route templates were attempted
+with real sessions, not an auth bypass. After retained retries,
+48 Admin and 38 Vendor visits returned 200
+without a sign-in or unauthorised redirect. Those are access observations,
+not workflow passes. Vendor data requests and Terms-check errors remain
+visible. The original missing /platform-facts inventory entry is repaired;
+it is now in the role map and was visited.
+Restricted-role sampling recorded 21 visits, with
+21 matching the configured access expectation. It is not a
+complete four-role workflow matrix.
+Evidence: routes.json, supplement.json, retained screenshots.
+
+Previous blocker 6: STILL PRESENT as a complete upload certification.
+Real PDF, PNG, JPEG and WebP compliance uploads returned 201. Owner binary
+downloads returned 200; another vendor returned 403 and signed-out access
+401. SVG, empty and spoofed inputs returned 400; over 10 MB returned 413.
+A genuine HEVC HEIC file was generated and the raw API returned 400.
+Raw API refusal alone is not a browser-conversion failure; the complete
+client conversion and submission workflow was not proved.
+The first replacement probe used an invalid route and is not a defect.
+The corrected PUT probe returned 200.
+Its downloaded image metadata was {"width":16,"height":10,"orientation":6}.
+The 16 by 10 JPEG retained EXIF orientation 6; the downloaded bytes were
+not normalised to an orientation-free 10 by 16 image.
+Deletion returned 200 and owner download
+after deletion returned 404.
+Physical old-object deletion was not independently established here.
+Evidence: probes.json, supplement.json.
+
+Previous blocker 7: STILL PRESENT, with a changed dependency finding.
+Fresh npm audit exits 1: 37 high affected-package entries and no critical
+entries, tracing to the braces advisory. The independent dependency scan
+reports one high advisory. Multer and Sharp are not in the fresh affected
+list. This closes those old package findings, not the clean-or-accepted
+dependency gate. Production reachability of braces was not established.
+Evidence: npm-audit.json, security-dependency.json.
+
+NEWLY INTRODUCED: Contract and rate disagreement.
+Current production Vendor Terms 2.0 and active charging rates disagree.
+The legal text is 12% first, 10% repeat and negotiated referred; the
+production engine is 8%, 5%, 0%. The public current-terms API returns
+Version 2.0, with content matching the production snapshot. The published
+legal page displays the same version badge but a rate card and wording
+showing 8%, 5%, 0%. Public presentation and the canonical acceptance
+document therefore disagree, even though the displayed rates match the
+engine. Historical superseded flags do not determine the effective
+current version; do not repair the selection by simply filtering them.
+Development additionally has overlapping
+first-order 8.03% and 8.02% rows. Do not change an accepted document in
+place or silently overwrite historical financial records.
+Evidence: production-refresh/current-vendor-terms.txt, database.json,
+http.json and public-render-and-sitemap.json; earlier probes.json.
+
+NEWLY INTRODUCED: Production migration history discrepancies.
+All 108 checked-in migration names have completed production records,
+with no unfinished, unrolled-back migration. However, two checksums differ:
+20260806210000_add_vendor_verification
+20260903090000_immediate_marketplace_commission_cutover
+The earlier name-only check could not detect this. A checksum disagreement
+does not itself establish schema drift or a failed migration. Establish
+what actually ran before any authorised repair; do not silently overwrite
+history or reapply SQL to money records.
+Evidence: production-refresh/database.json, migrations check.
+
+NEWLY INTRODUCED: High dependency advisory.
+The new braces stack-exhaustion advisory is not the September upload-stack
+finding. It appears across the npm dependency chain and needs remediation
+or an explicit, evidenced risk decision.
+Evidence: security-dependency.json, npm-audit.json.
+
+NEWLY INTRODUCED: Development launch-proof contamination.
+The effective development Vendor Terms version is factory-labelled and has
+zero acceptances in the non-test-marked live-vendor denominator. This
+environment cannot certify ordinary vendor trading until its global legal
+and rate prerequisites are reconciled. Its values must not be presented as
+production configuration.
+Evidence: probes.json.
+
+Fix Within The First Weeks
+
+Previous early fix 1: STILL PRESENT, partly improved.
+The Vendor unit echo was removed, but no Vendor test script exists.
+Fresh npm run test for Vendor exited 1 with Missing script: test, not with
+failing test assertions. Discovery is enforced and skipped tests are
+explicitly guarded. Fresh financial and critical suites have zero skips;
+Admin unit tests passed 11/11. The full local API coverage attempt
+was stopped under memory pressure and produced no completed fresh report.
+The unchanged same-day CI API and Web results do not erase its Admin
+timeout or the downstream jobs that did not run. Keep credentialed browser
+acceptance separate from smaller passing suites.
+Evidence: test-status.txt, financial-tests.json, critical-tests.json,
+admin-tests.log, vendor-unit.log; same-day CI evidence in the consistency
+report.
+
+Previous early fix 2: STILL PRESENT as a live protection proof gap.
+The checked-in required Vendor name now matches
+E2E (vendor authoritative lifecycle). Actual GitHub protection could not
+be inspected with the available connection, and no deliberately failing
+branch was created. Source-name alignment is not merge-blocking proof.
+Evidence: checked-in branch protection; retained same-day HTTP 403.
+
+Previous early fix 3: STILL PRESENT as a complete error-state certificate.
+Fresh upload failures return generic user messages rather than storage
+details. Terms checks and data-load failures remain in rendered portals.
+The 80 critical tests include six incident-attribution cases, but do not
+exercise every menu, analytics, payout and provider failure screen.
+Evidence: probes.json, routes.json, supplement.json, critical-tests.json.
+
+Previous early fix 4: STILL PRESENT as physical cleanup verification.
+Real upload and logical deletion now work for owned compliance documents.
+The corrected replacement and orientation results are recorded separately.
+This re-audit does not prove removal of every replaced object or every
+partial review-upload failure, nor certify the daily inventory's production
+operation. Journalling code is not physical absence evidence.
+The fresh production inventory's latest timestamp is 04:00 UTC today,
+with zero pending or overdue cleanup rows and zero attempted cleanup rows.
+That proves persisted inventory activity, not every object's physical
+absence or completion of the browser lifecycle matrix.
+Evidence: probes.json, supplement.json; production-refresh/database.json.
+
+Previous early fix 5: STILL PRESENT as a commercial launch SEO proof gap.
+The reported customer production deployment failure is FIXED for the
+explicit non-indexable pre-launch mode approved by the user. Normal launch
+builds retain the eligible-vendor safeguard; an empty catalogue is not
+silently converted into a successful static-only launch sitemap.
+The current published sitemap index and its child are served despite an
+empty public vendor catalogue. This is the published state, not proof that
+today's checked-in release gate protected the existing deployment. The
+fresh child inventory is recorded separately from the source build result.
+It contains 39 URLs and zero vendor URLs. This does not prove the published
+release used the same build contract as the current source.
+
+Fresh follow-up verification passed all 17 sitemap/release-policy tests.
+The complete Turbo Web production build, including postbuild, exited 0 in
+an isolated source copy with VERCEL_ENV=production and
+FEASTPOT_RELEASE_MODE=prelaunch. It emitted zero sitemap XML files and
+robots.txt with Disallow: /. The built routes manifest applies site-wide
+X-Robots-Tag: noindex, nofollow, noarchive.
+
+The built server, started without the mode variables at runtime, returned
+200 for home and Vendor Terms with matching noindex metadata and headers.
+robots.txt returned 200 with the blocking body. /sitemap.xml,
+/sitemap-0.xml and the obsolete /api/sitemap destination returned 404.
+All six GET responses retained the noindex header. A homepage screenshot
+confirms rendering; local Vercel analytics scripts returned expected 404s.
+The obsolete sitemap rewrite to a nonexistent route was removed.
+
+Vercel's checked-in customer build command explicitly defaults to prelaunch
+and Turbo forwards the mode. To launch, set FEASTPOT_RELEASE_MODE=launch in
+the customer Vercel Production environment and rebuild. Invalid modes fail
+closed. Preview/CI noindex remains; normal production cannot use CI flags
+to bypass missing vendors. Publish the changed customer source on Vercel
+and verify its hosted build, headers, metadata, robots and sitemap absence
+before marking the deployment itself confirmed. No new Vercel release was
+published or verified during this follow-up.
+
+The original isolated build result remains 3/4: API, Vendor
+and Admin passed; Web compilation passed but its launch-mode postbuild
+refused missing vendors. The subsequent successful pre-launch Web build is
+separate evidence, not a rewrite of the earlier result or a launch pass.
+Warning-free compilation is not established.
+Evidence: prelaunch-fix/build.json, build.log, runtime.json, validation.txt
+and home.jpg; sitemap-tests.log, isolated-build.json;
+production-refresh/http.json and public-render-and-sitemap.json.
+
+Housekeeping
+
+Previous housekeeping 1: FIXED.
+All 16 previously undocumented names now occur in the checked-in
+environment examples. The fresh comparison found zero missing names.
+Environment ownership is recorded in the root cross-runtime contract and
+per-application examples.
+Evidence: inventory-static.json.
+
+Previous housekeeping 2: FIXED.
+Web, Vendor and Admin use ESLint directly rather than deprecated Next lint.
+Fresh lint passed 7/7 workspace tasks. API warnings are still 178.
+Evidence: lint.log, static-status.txt.
+
+Previous housekeeping 3: FIXED.
+The no-em-dash guard and its negative fixtures are in CI. Fresh execution
+checked 1,381 source files across the workspaces.
+Evidence: em-dash.log; current CI guard steps.
+
+Previous housekeeping 4: FIXED.
+The anonymous missing-vendor visit returned
+404.
+This is a real HTTP 404, not only an in-page message.
+Evidence: supplement.json, retained anonymous screenshot.
+
+Previous housekeeping 5: STILL PRESENT.
+Anonymous Admin sign-in returned 200.
+Retained console warnings/errors:
+1.
+Retained local resource failures:
+0.
+This does not certify sign-in completion, password recovery or mail delivery.
+Evidence: supplement.json.
+
+NEWLY INTRODUCED: Mobile legal-page overflow.
+All 100 customer visits now retain status and layout, exposing eight
+375 px overflow results across /legal, its six document/history pages and
+/platform-facts. A fresh anonymous mobile screenshot confirms cropped
+legal content. This was not established by the nine retained September
+measurements. It is a newly measured issue, not a proven code regression.
+The fresh published Vendor Terms page also overflows: document width
+751 px at a 375 px viewport; desktop 1,280 px has no overflow. Both
+published visits returned 200 with no page exception.
+Evidence: routes.json, supplement.json, final-public-legal-mobile.jpg;
+production-refresh/public-render-and-sitemap.json and legal-375.jpg.
+
+Confirmed Working
+
+Previous working claim 1: STILL PRESENT, with a restart qualification.
+All four managed local services were observed running in the earlier audit.
+Their current local running state was not re-certified by this production
+refresh. Recovery restarts
+were required in this audit; running-watchdog status alone was not used as
+API listener proof. Production health and deployment-log observations are
+separate from development reachability.
+Fresh production is a public VM with a successful build. API liveness,
+deep health, home and Vendor/Admin sign-in pages return 200. Deep health
+confirms production mode, database and TLS Redis reachability, live Stripe
+configuration, app_role-v1 capability and a 5% service fee. Configured
+Email, WhatsApp and Content SIDs do not prove delivery. The public status
+endpoint says background processing is degraded. None of these GETs
+certifies a signed-in production portal or a live money flow.
+Evidence: earlier managed workflow logs; production-refresh/deployment.json
+and http.json.
+
+The fresh production population contains 17 active app accounts: 13
+non-test-marked and four test-marked. The non-test-marked population is
+six customers, three vendors and four staff. All 17 have matching
+confirmed Auth accounts. Matching and confirmation do not establish a
+successful login, permitted production workflow or staff MFA enrolment.
+Evidence: production-refresh/population-and-acceptance.json.
+
+Previous working claim 2: STILL PRESENT for type checking and lint;
+build re-verification is limited to the recorded isolated results.
+Type checking passed 7/7 and lint passed 7/7. API warnings fell from the
+old 202 to 178. Do not carry forward September's 5/5 build claim as today's
+result; the original isolated result is 3 successful apps.
+The subsequent full customer pre-launch production build also passed,
+including TypeScript and lint validation, but is a separate build policy.
+Evidence: typecheck.log, lint.log, isolated-build.json;
+prelaunch-fix/build.json and build.log.
+
+Previous working claim 3: STILL PRESENT for the scanned scope.
+Fresh tracked-source searches found no live Stripe credential pattern or
+private-key header. SAST returned zero findings. No secret values appear
+in this report. The separate privacy scan has 19 findings requiring triage;
+zero SAST findings is not a full privacy certificate.
+Evidence: security-sast.json, security-privacy.json, phase-register.txt.
+
+Previous working claim 4: STILL PRESENT for fresh executed tests.
+Financial 123/123,
+critical 80/80 and Admin
+11/11 passed with zero skips. The complete local API coverage run did not
+finish. September's 1,175 passing and 283 skipped figures are not reused as
+current passing evidence.
+Evidence: financial-tests.json, critical-tests.json, admin-tests.log.
+
+Previous working claim 5: STILL PRESENT.
+Discovery passed: Web 18 specs/1 project, Vendor 18/24, Admin 7/9.
+Discovery checks registration, not whether browser workflows pass.
+Evidence: discovery.log.
+
+Previous working claim 6: STILL PRESENT with current measured scope.
+Customer templates attempted: 50/50 desktop and 50/50 at 375 px.
+Final retained results: 100/100 with page body,
+100/100 with status and overflow, and
+98/100 HTTP 200 responses.
+Redirects, expected missing records and interrupted visits are not silently
+counted as successful customer workflows.
+Evidence: routes.json, supplement.json, screenshots.
+
+Previous working claim 7: STILL PRESENT only for the static link check.
+Fresh static inspection reports zero broken internal destinations.
+It checks 50 Web, 46 Vendor and 50 Admin templates. Today's command is
+explicitly static, so September's 70-target HTTP pass is not a fresh live
+crawl result.
+Evidence: links-static.log.
+
+Previous working claim 8: STILL PRESENT.
+All 37 deposit tests passed, exercising minimum deposit, total cap,
+integer-pence arithmetic and reconciliation.
+Evidence: critical-tests.json.
+
+Previous working claim 9: STILL PRESENT within test scope.
+The fresh financial suite passed webhook processor and ledger cases,
+including account updates. This is not live webhook signature or delivery
+proof. Production log signature rejections demonstrate rejection only,
+not a successful Stripe event.
+Evidence: financial-tests.json; production log extract.
+
+Previous working claim 10: STILL PRESENT as a guarded-code/test claim,
+not a completed buyer-journey claim.
+The unchanged same-day API suite passed its catalogue/order tests; public
+trading and the new purchase probe are still constrained by current
+eligibility and Terms acceptance. No live allergen-free publication or
+purchase was intentionally attempted.
+Evidence: retained same-day CI; routes.json, probes.json.
+
+Previous working claim 11: STILL PRESENT.
+The fresh Terms service suite passed 11 cases, including material-change
+notice rejection. Publishing a corrected production contract was outside
+this verification-only audit.
+Evidence: critical-tests.json.
+
+Previous working claim 12: STILL PRESENT within the checked boundaries.
+Three fresh AAL guard cases passed. A genuine Admin AAL2 identity was used
+for the full inventory and genuine restricted-role MFA for the sample.
+Production has one verified Admin factor; Compliance, Finance and Support
+each have zero. Test identity factors do not enrol production staff.
+Evidence: critical-tests.json, probes.json, supplement.json.
+
+Previous working claim 13: STILL PRESENT.
+Six fresh error-incident cases passed the client-attribution and
+authenticated-ownership separation.
+Evidence: critical-tests.json.
+
+Not Verified
+
+Previous unverified item 1: STILL PRESENT, partly closed.
+Production API health, current rates, legal text, all vendor readiness
+denominators, staff factors, money-record counts, notification/provider
+records, migration checksums, RLS flags and storage activity were read.
+All 108 migration names are completed, but two checksums disagree.
+All 76 public business tables have RLS enabled; only _prisma_migrations
+does not. This is a catalogue observation, not direct-client policy testing
+or a full schema diff. Production health confirms the expected Supabase
+project. Frontend public URLs respond, but hosting settings,
+monitoring reception, individual mailboxes and live branch protection
+remain uncertified. Provider balances, Stripe account/dashboard state,
+bank transactions and deployed source commit parity were not inspected.
+Evidence: production-refresh/database.json, deployment.json and http.json.
+
+Previous unverified item 2: STILL PRESENT.
+The full fresh local API coverage run was interrupted. The dedicated
+financial database tests passed on throwaway PostgreSQL; externally
+authenticated integration coverage is not replaced by those passes.
+
+Previous unverified item 3: STILL PRESENT.
+Discovery, real vendor/allergen display, basket editing, first-price
+disclosure, Stripe payment, confirmation, tracking, cancellation, review
+submission and account mutation were not completed as one ordinary flow.
+
+Previous unverified item 4: FIXED.
+Status and layout are retained for 100/100 final customer
+visits, compared with nine previously. 8 retained
+visits overflow their viewport. Raw interrupted attempts remain available.
+
+Previous unverified item 5: STILL PRESENT, partly closed.
+The V4 route inventory was attempted with a real zero-data Vendor session.
+38 visits returned 200 without an auth-denial redirect.
+Onboarding, Connect, tax, menu changes, availability, delivery, orders,
+catering, payouts and disputes were not all exercised to completion.
+Production QR visibility under five seconds is not certified.
+
+Previous unverified item 6: STILL PRESENT, partly closed.
+Real Admin authentication and route attempts now exist, but applications,
+enforcement timing, appeals, chargebacks, payouts, rates, legal edits,
+moderation, queue recovery and role-changing mutations are not all proved.
+
+Previous unverified item 7: STILL PRESENT.
+Fresh Vendor-token requests to Admin users and rates returned 403.
+Foreign-vendor private-document access returned 403 after positive owner
+200. These are genuine ownership probes, not missing-ID failures. They
+are not every Admin endpoint or every private Vendor object endpoint.
+
+Previous unverified item 8: STILL PRESENT.
+Production Admin has a verified factor. Compliance, Finance and Support
+do not. Every real staff member's enrolment and successful permitted
+workflow must be checked before operational use.
+
+Previous unverified item 9: STILL PRESENT as an all-path matrix.
+All nine requested input classes were sent to the compliance API,
+including genuine HEIC. Only four normal formats succeeded directly.
+The other six workflows and browser HEIC conversion are not certified.
+
+Previous unverified item 10: STILL PRESENT, partly closed.
+Owner download, signed-out denial, cross-vendor denial and logical delete
+now have real runtime evidence. The corrected orientation and replacement
+results are retained. All-path public-image access, aspect ratios,
+placeholders and physical superseded-object deletion remain unproved.
+
+Previous unverified item 11: STILL PRESENT, partly closed.
+The unchanged same-day checks ran real payout PDF, payout CSV and Terms
+PDF renderers with synthetic fixtures. They did not transfer money or
+deliver an attachment. Full QR and catering compliance-pack rendering
+remain uncertified; no catering pack implementation was established.
+
+Previous unverified item 12: STILL PRESENT.
+Static inspection reports mailto/tel links but does not send mail, make a
+call or establish mailbox monitoring. Same-day domain MX resolution does
+not prove support@, compliance@, privacy@ or vendors@ individually.
+
+Previous unverified item 13: FIXED as a measurement gap, not a launch gate.
+Production current Vendor Terms 2.0, zero non-test-marked live vendors and
+zero live-vendor current acceptances were measured again read-only.
+Two acceptances exist among three ordinary vendor records overall; do not
+misreport the live-vendor zero as zero acceptance across the database.
+The published current-terms body matches the production snapshot. This does
+not
+make a zero-vendor platform launch-ready or resolve the rate mismatch.
+Evidence: production-refresh/database.json and http.json.
+
+Previous unverified item 14: STILL PRESENT.
+No order_confirmation was proved from successful creation through durable
+queue, processor and provider delivery. The unchanged same-day attempt
+stopped at Terms acceptance, before its provider.
+
+Previous unverified item 15: STILL PRESENT.
+No live payment, refund, lost chargeback or payout transfer was performed.
+The production snapshot has zero orders, payments, payouts, refund
+operations and processed webhook events. One catering booking is ASSIGNED
+to a marked vendor; there are no ordinary-vendor catering bookings.
+There are zero persisted financial reconciliation findings. With no money
+records, that is not evidence the scanner ran or real money reconciles.
+Exact Stripe, statement and bank reconciliation awaits the single
+supervised transaction only after a YES verdict.
+
+Previous unverified item 16: FIXED.
+Unchanged same-day desktop and mobile rendering showed Annex A and Annex C
+removed from become-a-vendor, with the full Vendor Terms link retained.
+The archived screenshots and captured headings are visual evidence, not
+only a source diff.
+Evidence: consistency-2026-10-04 screenshots and results.json.
+
+Coverage
+
+Production refresh: one repeatable-read, read-only database snapshot with
+16 recorded checks, plus a separate read-only population, Auth presence
+and acceptance-evidence snapshot.
+13
+supported published GET targets have retained observations, plus one
+unsupported /readyz probe excluded as a harness mistake. One public legal
+route has desktop and 375 px runtime evidence. The sitemap index and child
+are inspected separately. Production staff coverage is four account/factor
+aggregates, not four authenticated workflows. Earlier route coverage below
+remains development evidence.
+
+Customer: 50 current templates; 100 desktop/mobile visits attempted.
+100/100 retain a rendered body;
+100/100 retain status and overflow after targeted recovery.
+This is improved evidence retention from nine, not 100 completed workflows.
+
+Vendor: 46 current templates, previously 45. All 46 were attempted with a
+genuine V4 session. 46/46 retain rendered bodies;
+38/46 returned 200 without an auth-denial redirect.
+0 visits remain interrupted. Full portal certification
+is not claimed.
+
+Admin: 50 current templates, previously 49. All 50 were attempted with a
+genuine AAL2 Admin. 50/50 retain rendered bodies;
+48/50 returned 200 without an auth-denial redirect.
+This is no longer zero authenticated coverage. Three restricted staff roles
+add 21 sampled visits, with 21 matching access
+expectations. An allowed route's empty/error shell is not a workflow pass.
+
+API: 43 controllers and
+328 decorated handlers,
+previously 43 and 326. Targeted genuine-role and object-ownership probes
+passed. The complete authenticated endpoint matrix was not run.
+
+Uploads: seven workflow families. One compliance API family has all nine
+format/abuse input classes and access checks, with corrected lifecycle
+testing retained separately. Zero of seven complete browser workflows are
+certified. No all-path physical cleanup claim is made.
+
+Tests: 123 financial, 80
+critical and 11 Admin unit cases passed without skips. Three browser
+discovery guards, seven type-check tasks and seven lint tasks passed.
+Fresh full API coverage was interrupted. Static links passed.
+Isolated application builds: 3/4
+passed; inspect recorded failures before treating any build as release proof.
+Subsequent customer deployment fix: 17/17 sitemap/release-policy tests,
+one successful full production/pre-launch Turbo Web build, six retained
+runtime GET checks and one rendered homepage screenshot. This is not
+authenticated production workflow coverage or a published Vercel build.
+
+Every previous item is classified above. STILL PRESENT on an old working
+claim means the stated, qualified evidence remains; it does not imply a new
+defect. STILL PRESENT on an unverified item means its proof gap is not fully
+closed. Partial improvements are not promoted to complete fixes.
+
+Evidence directory:
+audit/evidence/readiness-2026-10-04/
+Unchanged same-day supplementary evidence:
+audit/evidence/consistency-2026-10-04/
+Phase register:
+audit/evidence/readiness-2026-10-04/phase-register.txt
+
+Fresh production evidence:
+audit/evidence/readiness-2026-10-04/production-refresh/
+Production refresh evidence cut-off: 2026-10-04T16:18:06.863Z.
+Pre-launch fix build completed: 2026-10-04T16:30:24.872Z.
+Pre-launch runtime checks completed: 2026-10-04T16:31:09.861Z.
+Earlier development evidence cut-off: 2026-10-04T15:50:58.932Z.
+Report regenerated: 2026-10-04T16:33:18.812Z.

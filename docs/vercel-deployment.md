@@ -21,6 +21,25 @@ to the relevant `.env.example` so this list stays accurate.
 
 ## 1. Environment variables (set per Vercel project)
 
+### Customer pre-launch builds
+
+The customer site's checked-in Vercel build command now defaults explicitly
+to `FEASTPOT_RELEASE_MODE=prelaunch`. This permits publishing fixes before
+the first eligible vendor is live; it is not approval to open ordering.
+Pre-launch builds delete stale sitemap XML, publish no sitemap, write
+`Disallow: /` in robots.txt, and serve `noindex, nofollow, noarchive` in both
+page metadata and the site-wide X-Robots-Tag response header.
+
+For the commercial launch, set `FEASTPOT_RELEASE_MODE=launch` in the customer
+project's Vercel Production environment and rebuild. Launch mode still
+refuses an empty, demo-only, unavailable or malformed public vendor catalogue.
+Do not publish fixtures or relax vendor eligibility to make it pass.
+The mode is allowlisted through Turbo; an invalid value fails the build.
+Plain npm builds without a mode remain fail-closed launch builds.
+Preview/CI builds remain non-indexable independently of this setting.
+Changing a runtime variable alone cannot change the built indexing policy:
+a new build is required.
+
 ### `apps/web` (customer PWA)
 
 | Key                                  | Value                                                                                       |

@@ -1,0 +1,13 @@
+validatedAt: 2026-10-04T16:34:12.429Z
+headings: 8
+maxWidth: 77
+classified: 46
+fixed: 8
+stillPresent: 38
+prelaunchTests: 17/17; zero skipped
+fullTurboBuild: passed production/prelaunch
+runtimeGets: 6
+sitemap: absent; index and child 404
+indexing: blocked by headers, metadata and robots
+hostedVercelRelease: not published or verified
+launchVerdict: NO; other blockers unchanged

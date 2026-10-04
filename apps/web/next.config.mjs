@@ -1,5 +1,8 @@
 import { execSync } from 'node:child_process';
 import withPWAInit from '@ducanh2912/next-pwa';
+import releasePolicy from './scripts/release-policy.cjs';
+
+const indexingDisabled = releasePolicy.isIndexingDisabled();
 
 // Embed the current git SHA at build time so deployed bundles can be
 // identified without relying on the deployment platform's metadata.
@@ -170,12 +173,15 @@ const nextConfig = {
     // Exposed to the browser so the deployed bundle can be identified from
     // the HTML source or the browser console without platform metadata.
     NEXT_PUBLIC_BUILD_SHA: BUILD_SHA,
+    // Build-owned constant: SSR and static metadata keep the same policy even
+    // when the host does not provide build-only variables at runtime.
+    FEASTPOT_INDEXING_DISABLED: String(indexingDisabled),
   },
   transpilePackages: ['@feastpot/ui', '@feastpot/types'],
   allowedDevOrigins: ['*.replit.dev', '*.worf.replit.dev'],
   poweredByHeader: false,
   async headers() {
-    return ['preview', 'development'].includes(process.env.VERCEL_ENV)
+    return indexingDisabled
       ? [
           {
             source: '/:path*',

@@ -1,0 +1,116 @@
+
+> @feastpot/web@0.1.0 test:sitemap
+> node --test scripts/sitemap-vendors.test.cjs
+
+TAP version 13
+# Subtest: follows every cursor using the API limit and includes profiles beyond 1000
+ok 1 - follows every cursor using the API limit and includes profiles beyond 1000
+  ---
+  duration_ms: 5.638534
+  type: 'test'
+  ...
+# Subtest: rejects HTTP error
+ok 2 - rejects HTTP error
+  ---
+  duration_ms: 0.826862
+  type: 'test'
+  ...
+# Subtest: rejects network failure
+ok 3 - rejects network failure
+  ---
+  duration_ms: 0.223697
+  type: 'test'
+  ...
+# Subtest: rejects empty catalogue
+ok 4 - rejects empty catalogue
+  ---
+  duration_ms: 0.372583
+  type: 'test'
+  ...
+# Subtest: rejects demo-only catalogue
+ok 5 - rejects demo-only catalogue
+  ---
+  duration_ms: 0.20026
+  type: 'test'
+  ...
+# Subtest: rejects malformed envelope
+ok 6 - rejects malformed envelope
+  ---
+  duration_ms: 0.177145
+  type: 'test'
+  ...
+# Subtest: rejects invalid slug
+ok 7 - rejects invalid slug
+  ---
+  duration_ms: 0.202978
+  type: 'test'
+  ...
+# Subtest: rejects non-live seller
+ok 8 - rejects non-live seller
+  ---
+  duration_ms: 0.126696
+  type: 'test'
+  ...
+# Subtest: rejects oversized page
+ok 9 - rejects oversized page
+  ---
+  duration_ms: 0.636315
+  type: 'test'
+  ...
+# Subtest: rejects cursor cycles, duplicate profiles and errors on later pages
+ok 10 - rejects cursor cycles, duplicate profiles and errors on later pages
+  ---
+  duration_ms: 0.750738
+  type: 'test'
+  ...
+# Subtest: real postbuild writes vendor XML and exits nonzero for missing data or missing manifests
+ok 11 - real postbuild writes vendor XML and exits nonzero for missing data or missing manifests
+  ---
+  duration_ms: 2983.308045
+  type: 'test'
+  ...
+# Subtest: only explicit non-release environments omit sitemaps
+ok 12 - only explicit non-release environments omit sitemaps
+  ---
+  duration_ms: 0.296139
+  type: 'test'
+  ...
+# Subtest: only explicit pre-launch or non-release builds disable indexing
+ok 13 - only explicit pre-launch or non-release builds disable indexing
+  ---
+  duration_ms: 0.334173
+  type: 'test'
+  ...
+# Subtest: preview and production pre-launch headers and metadata agree; launch remains indexable
+ok 14 - preview and production pre-launch headers and metadata agree; launch remains indexable
+  ---
+  duration_ms: 10706.060702
+  type: 'test'
+  ...
+# Subtest: preview/launch postbuild removes stale sitemaps and blocks crawlers without fetching
+ok 15 - preview/launch postbuild removes stale sitemaps and blocks crawlers without fetching
+  ---
+  duration_ms: 147.787075
+  type: 'test'
+  ...
+# Subtest: production/prelaunch postbuild removes stale sitemaps and blocks crawlers without fetching
+ok 16 - production/prelaunch postbuild removes stale sitemaps and blocks crawlers without fetching
+  ---
+  duration_ms: 125.247356
+  type: 'test'
+  ...
+# Subtest: Vercel build defaults to explicit pre-launch, allows launch override and Turbo forwards the mode
+ok 17 - Vercel build defaults to explicit pre-launch, allows launch override and Turbo forwards the mode
+  ---
+  duration_ms: 225.083845
+  type: 'test'
+  ...
+1..17
+# tests 17
+# suites 0
+# pass 17
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 14518.258311

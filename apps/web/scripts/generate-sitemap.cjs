@@ -3,12 +3,7 @@ const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 
 const { verifySitemap } = require('./verify-sitemap.cjs');
-
-function isNonReleaseBuild(env = process.env) {
-  // Vercel production must never inherit the GitHub/CI exception.
-  if (env.VERCEL_ENV) return ['preview', 'development'].includes(env.VERCEL_ENV);
-  return env.GITHUB_ACTIONS === 'true' && env.CI === 'true';
-}
+const { isNonReleaseBuild, isIndexingDisabled } = require('./release-policy.cjs');
 
 async function generateSitemap() {
   require('@next/env').loadEnvConfig(process.cwd(), false);
@@ -19,9 +14,9 @@ async function generateSitemap() {
   for (const file of await readdir(outDir)) {
     if (/^sitemap(?:-\d+)?\.xml$/.test(file)) await rm(path.join(outDir, file));
   }
-  if (isNonReleaseBuild()) {
+  if (isIndexingDisabled()) {
     await writeFile(path.join(outDir, 'robots.txt'), 'User-agent: *\nDisallow: /\n');
-    console.info('[sitemap] Non-release build: indexing disabled; no sitemap published');
+    console.info('[sitemap] Pre-launch/non-release build: indexing disabled; no sitemap published');
     return;
   }
   const requiredPaths = await config.additionalPaths(config);

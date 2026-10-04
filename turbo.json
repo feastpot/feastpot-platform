@@ -46,6 +46,7 @@
         "NEXT_PUBLIC_API_URL",
         "NEXT_PUBLIC_SITE_URL",
         "SITEMAP_API_URL",
+        "FEASTPOT_RELEASE_MODE",
         "CI",
         "GITHUB_ACTIONS",
         "VERCEL_ENV"
@@ -64,6 +65,7 @@
         "NEXT_PUBLIC_API_URL",
         "NEXT_PUBLIC_SITE_URL",
         "SITEMAP_API_URL",
+        "FEASTPOT_RELEASE_MODE",
         "CI",
         "GITHUB_ACTIONS",
         "VERCEL_ENV"
