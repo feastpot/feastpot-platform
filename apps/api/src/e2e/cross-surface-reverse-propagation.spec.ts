@@ -244,7 +244,7 @@ describe('cross-surface reverse propagation (factory-backed)', () => {
       .set(auth(vendorToken))
       .field('type', 'insurance')
       .field('expiresAt', '2030-12-25T00:00:00.000Z')
-      .attach('file', Buffer.from('factory compliance evidence'), {
+      .attach('file', Buffer.from('%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n'), {
         filename: 'cross-surface-insurance.pdf',
         contentType: 'application/pdf',
       })

@@ -93,6 +93,6 @@
 - [Runtime audit isolation](runtime-audit-isolation.md) — cold portal sweeps can exhaust 16 GB; snapshot financial rejection probes and verify the intended rejection reason.
 - [Storage lifecycle privacy](storage-lifecycle-privacy.md) — privacy outranks storage cost; inventories stay report-only, and ambiguous Supabase HEAD responses need structured absence verification.
 - [Auth form fallbacks](auth-form-fallbacks.md) — native authentication submissions must remain credential-safe; browser tests need hydrated controls, not readonly bypasses.
-- [Sitemap release gate](sitemap-release-gate.md) — missing eligible vendor data must block releases; never substitute a successful static-only sitemap.
+- [Sitemap release gate](sitemap-release-gate.md) — production requires eligible vendors; approved CI/previews omit sitemaps and previews must be non-indexable.
 - [Vendor invitations](vendor-invitation-flow.md) — approval links must lead through password setup to real onboarding, including resends.
 - [Stripe browser postal fields](stripe-browser-test-postcodes.md) — card billing may render as ZIP even when the delivery address is UK; do not assume it accepts the delivery postcode.

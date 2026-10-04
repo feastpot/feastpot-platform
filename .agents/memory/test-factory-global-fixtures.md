@@ -3,6 +3,17 @@ name: Test-factory global fixtures
 description: Keep namespaced E2E fixtures isolated, sequenced, and recoverable when browser tests time out.
 ---
 
+Provision an identity's MFA once and reuse its captured AAL2 token within the
+acceptance suite. A password sign-in alone does not authorize verified-factor
+removal.
+
+**Why:** Supabase rejects unenrolling a verified factor from an AAL1 session.
+Repeated enrolment for the same support identity failed after its first
+successful MFA challenge.
+
+**How to apply:** Capture the verified token during setup and use it for later
+staff actions; never relax the application's AAL2 enforcement to fix a test.
+
 Namespaced test factories must reuse an existing globally current record when a route gate selects one platform-wide. They may create a fallback only when no current record exists, and teardown must not delete another namespace's references.
 
 **Why:** A namespace-specific effective-now terms version became the new platform-wide current version and redirected already-authenticated vendors from unrelated browser projects into terms acceptance.

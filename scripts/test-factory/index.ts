@@ -828,7 +828,14 @@ export class TestDataFactory {
             fullName: 'Test Factory Applicant',
             kitchenName: `Test Factory ${state} Kitchen`,
             email: user.email,
-            phone: '07700900000',
+            phone: `07${(
+              Number.parseInt(
+                createHash('sha256').update(user.email).digest('hex').slice(0, 12),
+                16,
+              ) % 1_000_000_000
+            )
+              .toString()
+              .padStart(9, '0')}`,
             postcode: 'SE15 4ST',
             cuisineType: 'Test cuisine',
             kitchenType: 'home',

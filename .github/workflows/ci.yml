@@ -906,7 +906,9 @@ jobs:
   # --------------------------------------------------------------------------
   cross-surface-consistency:
     name: Cross-surface consistency (Parts A-D)
-    needs: [setup, e2e-customer]
+    # Namespaces do not isolate current legal versions or external DB capacity.
+    # Customer -> admin -> cross-surface -> vendor is the acceptance sequence.
+    needs: [setup, e2e-admin]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     services:
@@ -1130,6 +1132,6 @@ jobs:
       - name: Sitemap contract regression tests
         run: npm run test:sitemap --workspace=@feastpot/web
       - name: Build (api, web, vendor, admin)
-        # Web postbuild always queries and verifies the complete live catalogue.
-        # Never turn a missing vendor catalogue into a green release.
+        # CI is non-release: no sitemap is published and robots denies crawling.
+        # Sitemap contracts above test production's fail-closed catalogue gate.
         run: npx turbo run build
