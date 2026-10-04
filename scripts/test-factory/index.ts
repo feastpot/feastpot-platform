@@ -481,7 +481,7 @@ export class TestDataFactory {
       MARKETPLACE_ACTIVE_FEASTPASS: 'C4',
       MARKETPLACE_LAPSED_FEASTPASS: 'C5',
     };
-    const vendor = await this.create('V9');
+    const vendor = await this.createPurchaseVendor();
     let customer: TestIdentity | undefined;
     try {
       customer = await this.create(customerState[scenario]);
@@ -505,6 +505,18 @@ export class TestDataFactory {
       return { scenario, customer, vendor, financialSnapshotOrderId };
     } catch (error) {
       if (customer) await this.teardown(customer).catch(() => undefined);
+      await this.teardown(vendor).catch(() => undefined);
+      throw error;
+    }
+  }
+
+  /** Customer purchases need a live vendor, not V9's intentionally missing terms. */
+  async createPurchaseVendor(): Promise<TestIdentity> {
+    const vendor = await this.create('V9');
+    try {
+      await this.ensureCurrentTerms(vendor.vendorId!);
+      return vendor;
+    } catch (error) {
       await this.teardown(vendor).catch(() => undefined);
       throw error;
     }
@@ -816,7 +828,14 @@ export class TestDataFactory {
             fullName: 'Test Factory Applicant',
             kitchenName: `Test Factory ${state} Kitchen`,
             email: user.email,
-            phone: '07700900000',
+            phone: `07${(
+              Number.parseInt(
+                createHash('sha256').update(user.email).digest('hex').slice(0, 12),
+                16,
+              ) % 1_000_000_000
+            )
+              .toString()
+              .padStart(9, '0')}`,
             postcode: 'SE15 4ST',
             cuisineType: 'Test cuisine',
             kitchenType: 'home',

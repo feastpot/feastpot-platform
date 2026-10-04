@@ -15,3 +15,14 @@ build because nobody notices.
 sitemap fetching or vendor publication. An empty eligible production catalogue
 is a blocker to report, not permission to expose private/test sellers or
 silently bypass verification.
+
+CI and Vercel preview/development builds may omit sitemaps. Previews must be
+non-indexable; delete stale sitemap files and prohibit crawling. Production
+must still fail when the eligible live catalogue is missing.
+
+**Why:** The user explicitly approved non-release builds before the first real
+vendor is live so CI and preview validation can proceed independently of launch.
+
+**How to apply:** Recognize explicit non-release provider environments only.
+Vercel production always takes precedence over CI flags. Never generate a
+static-only production sitemap or expose fixtures to satisfy the release gate.

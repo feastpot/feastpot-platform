@@ -3,9 +3,10 @@ import { userErrorMessage } from '@/lib/user-error-message';
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { createClient } from '@/lib/supabase/client';
+import { safeRedirect } from '@/lib/safe-redirect';
 
 /**
  * New-password form for the vendor portal.
@@ -46,6 +47,11 @@ export default function VendorResetUpdate() {
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [next, setNext] = useState('/orders');
+
+  useEffect(() => {
+    setNext(safeRedirect(new URL(window.location.href).searchParams.get('next'), '/orders'));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,10 +135,12 @@ export default function VendorResetUpdate() {
               will receive a confirmation email shortly.
             </p>
             <Link
-              href="/sign-in"
+              href={next}
               className="inline-block rounded-lg bg-teal px-6 py-3 text-sm font-semibold text-white hover:bg-teal-dark"
             >
-              Sign in to your account
+              {next === '/onboarding'
+                ? 'Continue setting up your kitchen'
+                : 'Continue to your account'}
             </Link>
           </div>
         </div>
@@ -174,7 +182,7 @@ export default function VendorResetUpdate() {
             </ul>
           </div>
 
-          <form onSubmit={handleSubmit} className="mt-5 space-y-4" noValidate>
+          <form method="post" onSubmit={handleSubmit} className="mt-5 space-y-4" noValidate>
             <div>
               <label
                 htmlFor="password"

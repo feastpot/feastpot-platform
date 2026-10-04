@@ -77,6 +77,7 @@ describeWhenProvisioned('admin authoritative actions (factory JWTs and persisted
   let disputeVendor: TestIdentity;
   let adminToken: string;
   let complianceToken: string;
+  let supportAal2Token: string;
 
   const auth = (token: string) => ({ Authorization: `Bearer ${token}` });
 
@@ -100,6 +101,7 @@ describeWhenProvisioned('admin authoritative actions (factory JWTs and persisted
     if (!aal2Admin.accessToken) throw new Error('ADMIN_ACTIONS_REAL_AAL2_TOKEN_REQUIRED');
     adminToken = aal2Admin.accessToken;
     support = await factory.create('A3');
+    supportAal2Token = await factory.issueAal2AccessToken(support);
     finance = await factory.create('A4');
     compliance = await factory.create('A5');
     applicant = await factory.create('V1');
@@ -128,11 +130,18 @@ describeWhenProvisioned('admin authoritative actions (factory JWTs and persisted
 
   afterAll(async () => {
     try {
-      await Promise.all(
-        [admin, aal2Admin, support, finance, compliance, applicant, vendor, disputeVendor]
-          .filter(Boolean)
-          .map((identity) => factory.teardown(identity)),
-      );
+      for (const identity of [
+        admin,
+        aal2Admin,
+        support,
+        finance,
+        compliance,
+        applicant,
+        vendor,
+        disputeVendor,
+      ].filter(Boolean)) {
+        await factory.teardown(identity);
+      }
     } finally {
       await app?.close();
       await factory?.dispose();
@@ -163,6 +172,7 @@ describeWhenProvisioned('admin authoritative actions (factory JWTs and persisted
         marketingConsent: original.marketingConsent,
         acceptedTermsAt: original.acceptedTermsAt,
         acceptedTermsVersion: original.acceptedTermsVersion,
+        submittedAt: new Date(),
         isTestData: true,
       },
     });
@@ -203,6 +213,7 @@ describeWhenProvisioned('admin authoritative actions (factory JWTs and persisted
         marketingConsent: false,
         acceptedTermsAt: new Date(),
         acceptedTermsVersion: 'test',
+        submittedAt: new Date(),
         isTestData: true,
       },
     });
@@ -317,12 +328,12 @@ describeWhenProvisioned('admin authoritative actions (factory JWTs and persisted
       actionType: 'TERMINATION',
       reasonCode: 'FRAUD',
       urgentBasis: 'Verified intentional fraud requires immediate termination.',
-      issuedBy: admin.credentials.email,
+      issuedBy: aal2Admin.credentials.email,
     });
   }, 30_000);
 
   it('keeps restricted factory identities unable to perform authoritative mutations', async () => {
-    const supportToken = await factory.issueAal2AccessToken(support);
+    const supportToken = supportAal2Token;
     const financeToken = await factory.issueAal2AccessToken(finance);
     for (const token of [supportToken, financeToken]) {
       const result = await request(app.getHttpServer())
@@ -480,7 +491,7 @@ describeWhenProvisioned('admin authoritative actions (factory JWTs and persisted
       },
     });
     const vendorToken = await factory.issueAccessToken(disputeVendor);
-    const supportToken = await factory.issueAccessToken(support);
+    const supportToken = supportAal2Token;
     try {
       // The absence of a response is a persisted state, not a UI inference.
       await expect(

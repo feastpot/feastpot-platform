@@ -2,10 +2,11 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { createClient } from '@/lib/supabase/client';
+import { safeRedirect } from '@/lib/safe-redirect';
 
 type OtpType = 'invite' | 'recovery';
 type PageState = 'loading' | 'ready' | 'verifying' | 'invalid' | 'error';
@@ -17,12 +18,17 @@ export default function VendorAuthConfirm() {
   const [state, setState] = useState<PageState>('loading');
   const [tokenHash, setTokenHash] = useState('');
   const [otpType, setOtpType] = useState<OtpType>('invite');
+  const [next, setNext] = useState('/orders');
+  const readFragment = useRef(false);
 
   useEffect(() => {
+    if (readFragment.current) return;
+    readFragment.current = true;
     const url = new URL(window.location.href);
     const params = new URLSearchParams(url.hash.slice(1));
     const receivedTokenHash = params.get('token_hash') ?? '';
     const receivedType = params.get('type') ?? '';
+    setNext(safeRedirect(url.searchParams.get('next'), '/orders'));
 
     // Remove the one-time credential from the address bar before any auth
     // request, while keeping it only in component memory until human action.
@@ -50,7 +56,7 @@ export default function VendorAuthConfirm() {
         setState('error');
         return;
       }
-      router.replace('/auth/reset/update');
+      router.replace(`/auth/reset/update?next=${encodeURIComponent(next)}`);
     } catch {
       setState('error');
     }
@@ -77,10 +83,6 @@ export default function VendorAuthConfirm() {
         </div>
 
         <div className="fp-card border border-border bg-white p-8">
-          <p className="mb-3 text-xs font-bold uppercase tracking-[0.16em] text-amber-700">
-            Private demo account
-          </p>
-
           {state === 'loading' && (
             <p className="text-sm text-mid">Preparing your secure setup link&hellip;</p>
           )}
@@ -89,18 +91,16 @@ export default function VendorAuthConfirm() {
             <div className="space-y-5">
               <div>
                 <h1 className="text-2xl font-extrabold tracking-tight text-dark">
-                  {otpType === 'invite' ? 'Accept demo invitation' : 'Continue account recovery'}
+                  Set up your vendor account
                 </h1>
                 <p className="mt-2 text-sm leading-relaxed text-mid">
-                  Continue to securely confirm your demo vendor access, then choose a password.
-                  Lagos Table is a fictional demonstration and cannot accept orders or receive
-                  payouts.
+                  Confirm your secure link, then choose a password to access your vendor account.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={handleContinue}
-                data-testid="button-continue-demo-setup"
+                data-testid="button-continue-account-setup"
                 className="w-full rounded-lg bg-teal py-3 text-sm font-semibold text-white transition-colors hover:bg-teal-dark focus:outline-none focus-visible:ring-2 focus-visible:ring-teal/30"
               >
                 Continue securely
@@ -111,7 +111,7 @@ export default function VendorAuthConfirm() {
           {state === 'verifying' && (
             <div className="space-y-3 text-center" role="status">
               <div className="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-border border-t-teal" />
-              <p className="text-sm text-mid">Verifying your demo access&hellip;</p>
+              <p className="text-sm text-mid">Verifying your account&hellip;</p>
             </div>
           )}
 
@@ -122,7 +122,7 @@ export default function VendorAuthConfirm() {
               </h1>
               <p className="text-sm leading-relaxed text-mid" role="alert">
                 The link may be expired, incomplete, or already used. Return to sign in and request
-                help with your demo access.
+                a new setup link.
               </p>
               <Link
                 href="/sign-in"

@@ -48,6 +48,7 @@ import {
 } from './dto/request-vendor-application-information.dto';
 import { UpdateVendorApplicationDto } from './dto/update-vendor-application.dto';
 import { VendorRecoveryChaseDto } from './dto/vendor-recovery-chase.dto';
+import { vendorInviteLink } from './vendor-invite-link';
 
 /**
  * Statuses an application can move OUT of. Once it's in approved/rejected,
@@ -2393,17 +2394,15 @@ export class AdminService {
       const { data: linkData, error: linkErr } = await this.supabase
         .getClient()
         .auth.admin.generateLink({
-          type: 'magiclink',
+          type: 'recovery',
           email: normalisedEmail,
           options: {
-            redirectTo: `${vendorPortalUrl}/onboarding?item=${VendorOnboardingStepName.food_business_registration}`,
+            redirectTo: `${vendorPortalUrl}/auth/reset/update?next=/onboarding`,
           },
         });
-      // Note: Supabase magic-link expiry is controlled by the project's
-      // auth config (Dashboard → Authentication → Email Templates). The
-      // "expires in 7 days" copy in the email is informational; set the
-      // project-level JWT_EXP / mailer_otp_exp to 604800 to match.
-      const magicLinkUrl = linkData?.properties?.action_link;
+      // Recovery-link expiry is controlled by Supabase, not our email copy.
+      const tokenHash = linkData?.properties?.hashed_token;
+      const magicLinkUrl = tokenHash ? vendorInviteLink(vendorPortalUrl, tokenHash) : null;
       if (linkErr || !magicLinkUrl) {
         this.logger.error(
           `Magic link generation failed for vendor application ${app.id}: ${linkErr?.message ?? 'no action_link in response'} - vendor was provisioned but did NOT receive an invite email; resend manually.`,
@@ -2471,13 +2470,14 @@ export class AdminService {
     const { data: linkData, error: linkErr } = await this.supabase
       .getClient()
       .auth.admin.generateLink({
-        type: 'magiclink',
+        type: 'recovery',
         email: normalisedEmail,
         options: {
-          redirectTo: `${vendorPortalUrl}/onboarding?item=${VendorOnboardingStepName.food_business_registration}`,
+          redirectTo: `${vendorPortalUrl}/auth/reset/update?next=/onboarding`,
         },
       });
-    const magicLinkUrl = linkData?.properties?.action_link;
+    const tokenHash = linkData?.properties?.hashed_token;
+    const magicLinkUrl = tokenHash ? vendorInviteLink(vendorPortalUrl, tokenHash) : null;
     if (linkErr || !magicLinkUrl) {
       this.logger.error(
         `Magic link regeneration failed for application ${applicationId}: ${linkErr?.message ?? 'no action_link'}`,

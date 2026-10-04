@@ -80,6 +80,7 @@ function CheckoutInner() {
   const subtotal = useBasketStore((s) => s.getSubtotalPence());
   const itemCount = useBasketStore((s) => s.getItemCount());
   const clearBasket = useBasketStore((s) => s.clearBasket);
+  const checkoutCompletedRef = useRef(false);
 
   // Redirect to sign-in if no session (and to /vendors if basket is empty).
   useEffect(() => {
@@ -88,7 +89,7 @@ function CheckoutInner() {
       router.replace('/sign-in?next=/checkout');
       return;
     }
-    if (items.length === 0 || !vendor) {
+    if ((items.length === 0 || !vendor) && !checkoutCompletedRef.current) {
       router.replace('/vendors');
     }
   }, [tokenLoading, token, items.length, vendor, router]);
@@ -182,14 +183,9 @@ function CheckoutInner() {
   );
   const outsideDeliveryArea = coverageVerdict.state === 'outside';
 
-  // Order-summary collapse state. We START open so the customer can verify
-  // the items, then they can collapse it once they've reviewed. Auto-collapse
-  // after 3.5s on mount nudges them to scroll into the rest of the form.
+  // Keep the first price breakdown visible until the customer chooses to
+  // collapse it. A timer can hide mandatory fees before the profile loads.
   const [summaryOpen, setSummaryOpen] = useState(true);
-  useEffect(() => {
-    const t = setTimeout(() => setSummaryOpen(false), 3500);
-    return () => clearTimeout(t);
-  }, []);
 
   // Sticky bottom bar visibility - appears once the payment section enters
   // the viewport so the customer always has a "place order" affordance no
@@ -439,6 +435,7 @@ function CheckoutInner() {
   // emptying the basket, and redirecting must happen identically for card and
   // express-pay success - factoring it here keeps the two flows from drifting.
   const finalizeOrderSuccess = (orderId: string) => {
+    checkoutCompletedRef.current = true;
     checkoutOrderIdRef.current = null;
     paymentAuthorisedRef.current = false;
     sessionStorage.removeItem('feastpot.discount.v1');

@@ -320,7 +320,11 @@ test.describe('real Stripe test-mode customer purchase', () => {
       );
       await page.getByRole('button', { name: 'Place order securely' }).first().click();
       const orderResponse = await orderResponsePromise;
-      expect(orderResponse.ok()).toBeTruthy();
+      const orderResult = await orderResponse.json();
+      expect(
+        orderResponse.ok(),
+        `Order creation returned HTTP ${orderResponse.status()}, code=${orderResult.code ?? 'none'}, ref=${orderResult.ref ?? 'none'}`,
+      ).toBeTruthy();
       console.info('[customer-smoke] 3DS order created');
       const createdOrder = (await orderResponse.json()) as {
         order: { id: string };
@@ -353,7 +357,7 @@ test.describe('real Stripe test-mode customer purchase', () => {
       await authenticationButton.click({ timeout: 10_000 });
       await expect(page).toHaveURL(/\/orders\/[^/]+\/confirmation$/, { timeout: 30_000 });
       console.info('[customer-smoke] 3DS order confirmed');
-      await expect(page.getByText(/order confirmed|thanks/i)).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Order placed!', exact: true })).toBeVisible();
       // CP-1 is deliberately the sole live Stripe purchase.  Failure-state
       // permutations live in payment-states.spec.ts and use browser routing,
       // so this smoke cannot accidentally create additional PaymentIntents.
@@ -406,11 +410,20 @@ test.describe('real Stripe test-mode customer purchase', () => {
       expect(stripe.body.currency).toBe('gbp');
       expect(stripe.body.metadata.orderId).toBe(orderId);
       const search = new URLSearchParams({ query: `metadata['orderId']:'${orderId}'` });
-      const matchingIntents = await stripeRequest<{ data: StripePaymentIntent[] }>(
-        `/payment_intents/search?${search}`,
-      );
-      expect(matchingIntents.response.ok).toBeTruthy();
-      expect(matchingIntents.body.data).toHaveLength(1);
+      // Stripe search is eventually consistent; direct retrieval above is
+      // immediate. Keep the exact-one assertion after its index catches up.
+      await expect
+        .poll(
+          async () => {
+            const matchingIntents = await stripeRequest<{ data: StripePaymentIntent[] }>(
+              `/payment_intents/search?${search}`,
+            );
+            expect(matchingIntents.response.ok).toBeTruthy();
+            return matchingIntents.body.data.map((intent) => intent.id);
+          },
+          { timeout: 90_000, intervals: [2_000, 5_000] },
+        )
+        .toEqual([paymentIntentId]);
       const appliedDiscount = await factory.prisma.discountCode.findUniqueOrThrow({
         where: { code: discountCode },
       });

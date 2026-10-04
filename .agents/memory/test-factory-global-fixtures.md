@@ -3,11 +3,28 @@ name: Test-factory global fixtures
 description: Keep namespaced E2E fixtures isolated, sequenced, and recoverable when browser tests time out.
 ---
 
+Provision an identity's MFA once and reuse its captured AAL2 token within the
+acceptance suite. A password sign-in alone does not authorize verified-factor
+removal.
+
+**Why:** Supabase rejects unenrolling a verified factor from an AAL1 session.
+Repeated enrolment for the same support identity failed after its first
+successful MFA challenge.
+
+**How to apply:** Capture the verified token during setup and use it for later
+staff actions; never relax the application's AAL2 enforcement to fix a test.
+
 Namespaced test factories must reuse an existing globally current record when a route gate selects one platform-wide. They may create a fallback only when no current record exists, and teardown must not delete another namespace's references.
 
 **Why:** A namespace-specific effective-now terms version became the new platform-wide current version and redirected already-authenticated vendors from unrelated browser projects into terms acceptance.
 
 **How to apply:** For globally ordered records, mirror the production selector, reuse its result, and scope teardown to owned references. Keep future-state fixtures non-current until their intended effective date.
+
+Independent checkout tests and retries need fresh, short namespaces, while permutations within one comparison share their vendor and global current records must still be shared.
+
+**Why:** Partial cleanup can leave an Auth account after its application row disappears. Reusing its namespace then collides with the existing email; excessively long namespaces also overflow derived referral slugs.
+
+**How to apply:** Keep scenario namespaces compact with enough randomness. Never adopt or delete an ordinary Auth account to work around a fixture collision.
 
 Do not assume independently reusable fixture fields compose into one ownership graph. A namespaced identity can reference a global transactional record whose related vendor differs from the identity's nominal vendor.
 

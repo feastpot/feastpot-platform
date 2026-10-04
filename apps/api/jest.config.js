@@ -3,6 +3,7 @@ module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'node',
   rootDir: 'src',
+  setupFiles: ['<rootDir>/../../../scripts/test-factory/database-pool.cjs'],
   testRegex: '.*\\.spec\\.ts$',
   // Unit/database coverage is not evidence of externally authenticated E2E.
   // Explicit acceptance jobs select that surface and fail on missing secrets.

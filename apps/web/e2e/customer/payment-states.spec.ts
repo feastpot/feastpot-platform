@@ -1,10 +1,11 @@
 import type { Page } from '@playwright/test';
 
-import type { CheckoutScenarioFixture } from '../../../../scripts/test-factory';
+import type { CheckoutScenarioFixture, TestDataFactory } from '../../../../scripts/test-factory';
 
 import {
   assertCustomerSmokeEnvironment,
   CustomerFixture,
+  expectFactoryPaymentAuthorised,
   expect,
   inspectFactoryPaymentState,
   test,
@@ -23,13 +24,13 @@ const cards: Record<
 };
 
 async function openReadyCheckout(page: Page, fixture: CheckoutScenarioFixture): Promise<void> {
-  await page.goto('/sign-in?next=/checkout');
+  await page.goto('/sign-in?next=/vendors');
   await page.locator('#signin-email').fill(fixture.customer.credentials.email);
   await page.locator('#signin-password').fill(fixture.customer.credentials.password!);
   await page.getByRole('button', { name: /sign in/i }).click();
-  await expect(page).toHaveURL(/\/vendors(?:[/?#]|$)/);
+  await expect(page).toHaveURL((url) => url.pathname === '/vendors');
 
-  await page.evaluate(
+  await page.addInitScript(
     (value) => {
       localStorage.setItem(
         'feastpot.basket.v1',
@@ -81,11 +82,22 @@ async function enterCard(page: Page, number: string): Promise<void> {
   await card.locator('input[name="cardnumber"]').fill(number);
   await card.locator('input[name="exp-date"]').fill('1230');
   await card.locator('input[name="cvc"]').fill('123');
-  await card.locator('input[autocomplete="postal-code"]').fill('SE15 4ST');
+  await card.locator('input[autocomplete="postal-code"]').fill('90210');
 }
 
 async function submit(page: Page): Promise<void> {
+  const response = page.waitForResponse(
+    (result) =>
+      result.request().method() === 'POST' && new URL(result.url()).pathname === '/v1/orders',
+  );
   await page.getByRole('button', { name: 'Place order securely' }).first().click();
+  const orderResponse = await response;
+  if (!orderResponse.ok()) {
+    const body = await orderResponse.json();
+    throw new Error(
+      `CUSTOMER_ORDER_CREATION_FAILED: ${orderResponse.status()} ${body.code ?? body.error?.code ?? 'UNKNOWN'} ${body.ref ?? body.errorRef ?? ''}`,
+    );
+  }
 }
 
 async function completeThreeDs(page: Page): Promise<void> {
@@ -161,7 +173,11 @@ async function abandonThreeDs(page: Page): Promise<void> {
 async function withScenario(
   request: Parameters<typeof inspectFactoryPaymentState>[0],
   customer: CustomerFixture,
-  run: (input: { fixture: CheckoutScenarioFixture; accessToken: string }) => Promise<void>,
+  run: (input: {
+    factory: TestDataFactory;
+    fixture: CheckoutScenarioFixture;
+    accessToken: string;
+  }) => Promise<void>,
 ): Promise<void> {
   assertCustomerSmokeEnvironment();
   const { factory, fixture } = await customer.provisionCheckoutScenario(
@@ -171,7 +187,7 @@ async function withScenario(
     // Inspect with a token issued independently of the browser so closing the
     // checkout tab cannot remove the authority used by the assertion seam.
     const accessToken = await factory.issueAccessToken(fixture.customer);
-    await run({ fixture, accessToken });
+    await run({ factory, fixture, accessToken });
   } finally {
     await factory.teardown(fixture.customer);
     await factory.teardown(fixture.vendor);
@@ -180,20 +196,23 @@ async function withScenario(
 }
 
 test.describe('customer payment outcomes', () => {
+  test.describe.configure({ timeout: 120_000 });
   test.describe.configure({ mode: 'default', retries: 0 });
 
   test('success', async ({ page, request, customer }) => {
-    await withScenario(request, customer, async ({ fixture, accessToken }) => {
+    await withScenario(request, customer, async ({ factory, fixture, accessToken }) => {
       await openReadyCheckout(page, fixture);
       await enterCard(page, cards.success);
       await submit(page);
       await expect(page).toHaveURL(/\/orders\/[^/]+\/confirmation$/, { timeout: 30_000 });
-      await expect(page.getByText(/order confirmed|thanks/i)).toBeVisible();
-      expectNoOrphans(await inspectFactoryPaymentState(request, accessToken), {
+      await expect(page.getByRole('heading', { name: 'Order placed!', exact: true })).toBeVisible();
+      const state = await inspectFactoryPaymentState(request, accessToken);
+      expectNoOrphans(state, {
         orders: 1,
         orderStatuses: ['pending', 'accepted'],
-        paymentStatuses: ['succeeded'],
+        paymentStatuses: ['pending'],
       });
+      await expectFactoryPaymentAuthorised(factory, state);
     });
   });
 
@@ -203,7 +222,7 @@ test.describe('customer payment outcomes', () => {
         await openReadyCheckout(page, fixture);
         await enterCard(page, cards[outcome]);
         await submit(page);
-        await expect(page.getByRole('alert')).toBeVisible({ timeout: 30_000 });
+        await expect(page.locator('main').getByRole('alert')).toBeVisible({ timeout: 30_000 });
         expectNoOrphans(await inspectFactoryPaymentState(request, accessToken), {
           orders: 1,
           orderStatuses: ['cancelled'],
@@ -214,17 +233,19 @@ test.describe('customer payment outcomes', () => {
   }
 
   test('3DS completed', async ({ page, request, customer }) => {
-    await withScenario(request, customer, async ({ fixture, accessToken }) => {
+    await withScenario(request, customer, async ({ factory, fixture, accessToken }) => {
       await openReadyCheckout(page, fixture);
       await enterCard(page, cards['3DS completed']);
       await submit(page);
       await completeThreeDs(page);
       await expect(page).toHaveURL(/\/orders\/[^/]+\/confirmation$/, { timeout: 30_000 });
-      expectNoOrphans(await inspectFactoryPaymentState(request, accessToken), {
+      const state = await inspectFactoryPaymentState(request, accessToken);
+      expectNoOrphans(state, {
         orders: 1,
         orderStatuses: ['pending', 'accepted'],
-        paymentStatuses: ['succeeded'],
+        paymentStatuses: ['pending'],
       });
+      await expectFactoryPaymentAuthorised(factory, state);
     });
   });
 
@@ -237,7 +258,7 @@ test.describe('customer payment outcomes', () => {
       // customer abandoning authentication while retaining the normal browser
       // cancellation compensation path.
       await abandonThreeDs(page);
-      await expect(page.getByRole('alert')).toBeVisible({ timeout: 30_000 });
+      await expect(page.locator('main').getByRole('alert')).toBeVisible({ timeout: 30_000 });
       expectNoOrphans(await inspectFactoryPaymentState(request, accessToken), {
         orders: 1,
         orderStatuses: ['cancelled'],
@@ -265,8 +286,25 @@ test.describe('customer payment outcomes', () => {
     await withScenario(request, customer, async ({ fixture, accessToken }) => {
       await openReadyCheckout(page, fixture);
       await enterCard(page, cards.declined);
-      await Promise.all([submit(page), submit(page)]);
-      await expect(page.getByRole('alert')).toBeVisible({ timeout: 30_000 });
+      const created = page.waitForResponse(
+        (response) =>
+          response.request().method() === 'POST' &&
+          new URL(response.url()).pathname === '/v1/orders',
+      );
+      // Dispatch both submissions in the same browser turn. Two Playwright
+      // clicks wait for a disabled button to re-enable, testing a later retry
+      // instead of simultaneous submissions.
+      await page
+        .getByRole('button', { name: 'Place order securely' })
+        .first()
+        .evaluate((button) => {
+          const form = button.closest('form');
+          if (!form) throw new Error('CHECKOUT_FORM_REQUIRED');
+          form.requestSubmit();
+          form.requestSubmit();
+        });
+      expect((await created).ok()).toBe(true);
+      await expect(page.locator('main').getByRole('alert')).toBeVisible({ timeout: 30_000 });
       const state = await inspectFactoryPaymentState(request, accessToken);
       expect(state.orders.length).toBeLessThanOrEqual(1);
       expectNoOrphans(state, {

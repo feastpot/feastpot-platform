@@ -9,6 +9,7 @@ const { test } = require('node:test');
 
 const { fetchVendorPaths } = require('./sitemap-vendors.cjs');
 const { verifySitemap } = require('./verify-sitemap.cjs');
+const { isNonReleaseBuild } = require('./generate-sitemap.cjs');
 const execute = promisify(execFile);
 const vendor = (slug) => ({ slug, status: 'live', publicDemo: false });
 const response = (data, nextCursor = null) => ({
@@ -104,7 +105,12 @@ test('real postbuild writes vendor XML and exits nonzero for missing data or mis
   const command = path.resolve(__dirname, 'generate-sitemap.cjs');
   const options = {
     cwd: directory,
-    env: { ...process.env, SITEMAP_API_URL: apiUrl, NEXT_PUBLIC_SITE_URL: 'https://example.test' },
+    env: {
+      ...process.env,
+      VERCEL_ENV: 'production',
+      SITEMAP_API_URL: apiUrl,
+      NEXT_PUBLIC_SITE_URL: 'https://example.test',
+    },
   };
   try {
     await mkdir(path.join(directory, 'public'));
@@ -171,6 +177,70 @@ test('real postbuild writes vendor XML and exits nonzero for missing data or mis
     );
   } finally {
     await new Promise((resolve) => server.close(resolve));
+    await rm(directory, { recursive: true, force: true });
+  }
+});
+test('only explicit non-release environments omit sitemaps', () => {
+  assert.equal(isNonReleaseBuild({}), false);
+  assert.equal(isNonReleaseBuild({ CI: 'true' }), false);
+  assert.equal(isNonReleaseBuild({ CI: 'true', GITHUB_ACTIONS: 'true' }), true);
+  assert.equal(isNonReleaseBuild({ VERCEL_ENV: 'preview' }), true);
+  assert.equal(isNonReleaseBuild({ VERCEL_ENV: 'development' }), true);
+  assert.equal(
+    isNonReleaseBuild({ VERCEL_ENV: 'production', CI: 'true', GITHUB_ACTIONS: 'true' }),
+    false,
+  );
+});
+
+test('Vercel previews send noindex headers, while production does not', async () => {
+  const configPath = path.resolve(__dirname, '../next.config.mjs');
+  for (const environment of ['preview', 'production']) {
+    const result = await execute(
+      process.execPath,
+      [
+        '--input-type=module',
+        '-e',
+        `const config = (await import(${JSON.stringify(configPath)})).default;
+         console.log(JSON.stringify(await config.headers()));`,
+      ],
+      { env: { ...process.env, VERCEL_ENV: environment } },
+    );
+    const headers = JSON.parse(result.stdout.trim());
+    if (environment === 'production') assert.deepEqual(headers, []);
+    else {
+      assert.deepEqual(headers, [
+        {
+          source: '/:path*',
+          headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' }],
+        },
+      ]);
+    }
+  }
+});
+
+test('non-release postbuild deletes stale sitemaps and blocks crawlers without fetching vendors', async () => {
+  const directory = await mkdtemp(path.join(os.tmpdir(), 'feastpot-preview-sitemap-'));
+  const command = path.resolve(__dirname, 'generate-sitemap.cjs');
+  try {
+    await mkdir(path.join(directory, 'public'));
+    await writeFile(
+      path.join(directory, 'next-sitemap.config.js'),
+      'module.exports = { additionalPaths: async () => { throw new Error("must not fetch"); } };',
+    );
+    await writeFile(path.join(directory, 'public/sitemap.xml'), 'stale production sitemap');
+    await writeFile(path.join(directory, 'public/sitemap-0.xml'), 'stale vendor profiles');
+    await writeFile(path.join(directory, 'public/robots.txt'), 'User-agent: *\nAllow: /');
+    const result = await execute(process.execPath, [command], {
+      cwd: directory,
+      env: { ...process.env, VERCEL_ENV: 'preview' },
+    });
+    assert.match(result.stdout, /Non-release build/);
+    assert.deepEqual(await readdir(path.join(directory, 'public')), ['robots.txt']);
+    assert.equal(
+      await readFile(path.join(directory, 'public/robots.txt'), 'utf8'),
+      'User-agent: *\nDisallow: /\n',
+    );
+  } finally {
     await rm(directory, { recursive: true, force: true });
   }
 });

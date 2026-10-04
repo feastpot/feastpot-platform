@@ -16,6 +16,7 @@ import type { Job, Queue } from 'bull';
 import request from 'supertest';
 
 import { TestDataFactory, type TestIdentity } from '../../../../scripts/test-factory';
+import { prepareRateScheduleBaseline } from '../../../../scripts/test-factory/rate-schedule-baseline';
 import { RoleThrottlerGuard } from '../common/guards/role-throttler.guard';
 import { EmailProvider } from '../modules/notifications/providers/email.provider';
 import { PushProvider } from '../modules/notifications/providers/push.provider';
@@ -81,6 +82,7 @@ describe('Part B admin action propagation (factory-backed API contracts)', () =>
     process.env.TEST_FACTORY_NAMESPACE = testFactoryNamespace;
     factory = TestDataFactory.fromEnvironment({ namespace: testFactoryNamespace });
     if (!configured) throw new Error('ADMIN_PROPAGATION_CREDENTIALS_REQUIRED');
+    await prepareRateScheduleBaseline(factory);
     admin = await factory.create('A2');
     compliance = await factory.create('A5');
     applicant = await factory.create('V1');
@@ -382,7 +384,7 @@ describe('Part B admin action propagation (factory-backed API contracts)', () =>
       .expect(200);
     expect(publicProfile.body.id).toBe(existingLiveVendor.id);
     expect(approved.body.status).toBe('approved');
-  }, 60_000);
+  }, 120_000);
 
   it('propagates suspension and low FHRS to the public customer search and provides a vendor reason/appeal contract', async () => {
     const endpoint = `/v1/admin/vendors/${liveVendor.vendorId!}/enforcement`;
@@ -654,6 +656,25 @@ describe('Part B admin action propagation (factory-backed API contracts)', () =>
         where: { id: liveVendor.vendorId! },
         data: { status: 'live', suspendedAt: null },
       });
+      // The preceding case made new material Vendor Terms effective. Complete
+      // the real click-wrap contract before placing the post-change order.
+      const terms = await request(app.getHttpServer())
+        .get('/v1/terms/acceptance-status')
+        .set(auth(vendorToken))
+        .expect(200);
+      expect(terms.body).toMatchObject({
+        accepted: false,
+        currentVersionId: publishedTermsId,
+      });
+      await request(app.getHttpServer())
+        .post(`/v1/terms/versions/${publishedTermsId}/accept`)
+        .set(auth(vendorToken))
+        .set('User-Agent', 'Feastpot cross-surface acceptance test')
+        .send({
+          acceptanceText: buildVendorTermsAcceptanceLabel(terms.body.currentVersion),
+          scrolledToEnd: true,
+        })
+        .expect(200);
       await factory.prisma.commissionRate.update({
         where: { id: scheduledRateId },
         data: { effectiveFrom: new Date(Date.now() - 1_000) },

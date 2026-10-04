@@ -174,6 +174,16 @@ const nextConfig = {
   transpilePackages: ['@feastpot/ui', '@feastpot/types'],
   allowedDevOrigins: ['*.replit.dev', '*.worf.replit.dev'],
   poweredByHeader: false,
+  async headers() {
+    return ['preview', 'development'].includes(process.env.VERCEL_ENV)
+      ? [
+          {
+            source: '/:path*',
+            headers: [{ key: 'X-Robots-Tag', value: 'noindex, nofollow, noarchive' }],
+          },
+        ]
+      : [];
+  },
   compress: true,
   /**
    * Proxy `/v1/*` to the API container so the browser can reach it via the
