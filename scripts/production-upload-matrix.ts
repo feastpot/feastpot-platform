@@ -12,6 +12,7 @@ type Stored = { bucket: string; path: string };
 type Case = { format: string; name: string; type: string; bytes: Buffer; valid: boolean };
 const api = 'https://api.feastpot.co.uk';
 const portal = 'https://vendor.feastpot.co.uk';
+const runDeadline = Date.now() + 20 * 60 * 1000;
 const evidence: Record<string, unknown> = {
   at: new Date().toISOString(),
   environment: 'production',
@@ -432,8 +433,7 @@ async function main() {
       )
         continue;
       for (const fixture of cases) {
-        if (Date.now() >= Date.parse('2026-10-05T21:56:00Z'))
-          throw new Error('TIME_CAP_RESERVE_REQUIRED');
+        if (Date.now() >= runDeadline) throw new Error('TIME_CAP_RESERVE_REQUIRED');
         const response = await upload(path, fixture, true);
         const expected = fixture.valid && (fixture.format !== 'PDF' || path.pdf);
         const row: Record<string, unknown> = {

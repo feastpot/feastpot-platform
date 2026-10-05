@@ -22,6 +22,7 @@ import type { VendorDocument, VendorDocumentType } from '@/hooks/use-vendor-docu
 import { formatDate } from '@/lib/format';
 import { useAccessToken } from '@/lib/auth/use-access-token';
 import { API_URL } from '@/lib/env';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import {
   COMPLIANCE_STATE_META,
@@ -195,6 +196,9 @@ export function DocumentRow({
   const { token } = useAccessToken();
   const requiredItems = useRequiredOnboardingItems();
   const deferDocument = useUpdateRequiredOnboardingItem();
+  const [deferErrorMessage, setDeferErrorMessage] = useState(
+    'Could not update this checklist item. Please try again.',
+  );
   const [expiresAt, setExpiresAt] = useState('');
   const state = deriveComplianceState(doc);
   const days = daysUntil(doc?.expiresAt ?? null);
@@ -327,7 +331,22 @@ export function DocumentRow({
               <button
                 type="button"
                 disabled={uploading || deferDocument.isPending || deferred}
-                onClick={() => deferDocument.mutate({ name: step, state: 'deferred' })}
+                onClick={() => {
+                  setDeferErrorMessage('Could not update this checklist item. Please try again.');
+                  deferDocument.mutate(
+                    { name: step, state: 'deferred' },
+                    {
+                      onError: async (error) => {
+                        setDeferErrorMessage(
+                          await userErrorMessage(
+                            error,
+                            'Could not update this checklist item. Please try again.',
+                          ),
+                        );
+                      },
+                    },
+                  );
+                }}
                 className="text-xs font-medium text-mid underline disabled:opacity-60"
               >
                 {deferDocument.isPending
@@ -342,7 +361,7 @@ export function DocumentRow({
               </p>
               {deferDocument.isError && (
                 <p role="alert" className="text-xs text-red-600">
-                  {deferDocument.error.message}
+                  {deferErrorMessage}
                 </p>
               )}
             </>
