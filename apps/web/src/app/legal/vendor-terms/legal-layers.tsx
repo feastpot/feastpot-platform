@@ -1,38 +1,28 @@
-/**
- * Server component: fetches the live commission rate schedule and renders
- * Layer 1 (KeyTermsSummary) and Layer 2 (RateCard) above the full terms text.
- *
- * P2B Regulation requires "key commercial conditions" to be presented
- * prominently and in plain language before any contracting stage. The full
- * terms page is Layer 3; these panels give prospective vendors the first
- * two layers before they scroll into the legal text.
- */
-
 import { KeyTermsSummary, RateCard } from '@feastpot/ui';
-import type { RateRow } from '@feastpot/ui';
 
-async function fetchRateSchedule(): Promise<RateRow[]> {
+import { canonicalAnnexARates, canonicalAnnexCSummary } from '@/lib/canonical-vendor-terms';
+
+/** All commercial presentation comes from the same immutable contract body. */
+export function LegalLayers({ content }: { content: string }) {
+  let rates;
+  let terms;
   try {
-    const apiBase =
-      process.env.NEXT_PUBLIC_API_URL ?? process.env.API_URL ?? 'http://localhost:3001';
-    const res = await fetch(`${apiBase}/v1/terms/rate-schedule`, {
-      next: { revalidate: 3600 },
-    });
-    if (!res.ok) return [];
-    return (await res.json()) as RateRow[];
+    rates = canonicalAnnexARates(content);
+    terms = canonicalAnnexCSummary(content);
   } catch {
-    return [];
+    return (
+      <p
+        role="alert"
+        className="my-6 rounded-2xl border border-cream-deep bg-white p-5 text-sm text-charcoal"
+      >
+        The current contract does not contain complete commercial annexes. Rate details are
+        unavailable. Please contact Feastpot before relying on this document.
+      </p>
+    );
   }
-}
-
-export async function LegalLayers() {
-  const rates = await fetchRateSchedule();
-
   return (
-    <div id="annex-a" className="mb-10 grid scroll-mt-20 gap-4 lg:grid-cols-2">
-      {/* Layer 1: key terms in plain language (Annex C) */}
-      <KeyTermsSummary rates={rates} />
-      {/* Layer 2: live commission rate schedule (Annex A) */}
+    <div className="mb-10 grid min-w-0 scroll-mt-20 gap-4 lg:grid-cols-2">
+      <KeyTermsSummary rates={rates} terms={terms} />
       <RateCard rates={rates} />
     </div>
   );

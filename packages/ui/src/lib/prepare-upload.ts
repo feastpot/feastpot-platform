@@ -39,22 +39,26 @@ export async function prepareUpload(
 
   let source: Blob = file;
   if (heic) {
-    const { heicTo } = await import('heic-to/csp');
-    source = await heicTo({ blob: file, type: 'image/jpeg', quality: 0.9 });
+    try {
+      const { heicTo } = await import('heic-to/csp');
+      source = await heicTo({ blob: file, type: 'image/jpeg', quality: 0.9 });
+    } catch {
+      throw new Error('We could not convert this HEIC photo. Export it as JPEG and try again.');
+    }
   }
   // Browser decoding applies EXIF/HEIF orientation. Canvas re-encodes the
   // upright pixels and strips EXIF (including location), avoiding double rotation.
-  const bitmap = await createImageBitmap(source, { imageOrientation: 'from-image' });
+  const decoded = await decodeImage(source);
   try {
-    if (!bitmap.width || !bitmap.height || bitmap.width * bitmap.height > 50_000_000) {
+    if (!decoded.width || !decoded.height || decoded.width * decoded.height > 50_000_000) {
       throw new Error('Image exceeds the 50-megapixel limit.');
     }
     const canvas = document.createElement('canvas');
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
+    canvas.width = decoded.width;
+    canvas.height = decoded.height;
     const context = canvas.getContext('2d');
     if (!context) throw new Error('This browser cannot prepare the image.');
-    context.drawImage(bitmap, 0, 0);
+    context.drawImage(decoded.image, 0, 0);
     const type = png ? 'image/png' : webp ? 'image/webp' : 'image/jpeg';
     const blob = await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob(
@@ -71,6 +75,47 @@ export async function prepareUpload(
     const suffix = blob.type === 'image/png' ? 'png' : blob.type === 'image/webp' ? 'webp' : 'jpg';
     return new File([blob], `${file.name.replace(/\.[^.]+$/, '')}.${suffix}`, { type: blob.type });
   } finally {
-    bitmap.close();
+    decoded.dispose();
+  }
+}
+
+/** Safari can lack ImageBitmap or reject its orientation option. */
+async function decodeImage(source: Blob): Promise<{
+  image: CanvasImageSource;
+  width: number;
+  height: number;
+  dispose: () => void;
+}> {
+  if (typeof createImageBitmap === 'function') {
+    try {
+      const bitmap = await createImageBitmap(source, { imageOrientation: 'from-image' });
+      return {
+        image: bitmap,
+        width: bitmap.width,
+        height: bitmap.height,
+        dispose: () => bitmap.close(),
+      };
+    } catch {
+      // Use the browser's native image decoder instead.
+    }
+  }
+  const url = URL.createObjectURL(source);
+  try {
+    const image = new Image();
+    await new Promise<void>((resolve, reject) => {
+      image.onload = () => resolve();
+      image.onerror = () =>
+        reject(new Error('This photo could not be read. Choose another photo.'));
+      image.src = url;
+    });
+    return {
+      image,
+      width: image.naturalWidth,
+      height: image.naturalHeight,
+      dispose: () => URL.revokeObjectURL(url),
+    };
+  } catch (error) {
+    URL.revokeObjectURL(url);
+    throw error;
   }
 }

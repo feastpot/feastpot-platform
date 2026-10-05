@@ -7,6 +7,7 @@ import { useEffect, useState } from 'react';
 import { apiRequest } from '@/lib/api/client';
 import { useAccessToken } from '@/lib/auth/use-access-token';
 import { createClient } from '@/lib/supabase/client';
+import { isMissingVendorProfile } from '@/lib/vendor-profile-state';
 
 interface CurrentVersion {
   id: string;
@@ -67,6 +68,17 @@ export function ReAcceptanceGate({ children }: { children: React.ReactNode }) {
       setVersion(null);
       setVerificationFailed(false);
       try {
+        // A signed-in vendor without a kitchen must reach the application
+        // state, not a failing terms request or an onboarding redirect loop.
+        try {
+          await apiRequest('/vendors/me', { accessToken: token! });
+        } catch (error) {
+          if (!isMissingVendorProfile(error)) throw error;
+          if (active && pathname !== '/onboarding/welcome') {
+            router.replace('/onboarding/welcome');
+          }
+          return;
+        }
         const [current, status] = await Promise.all([
           apiRequest<CurrentVersion>('/terms/current?documentType=VENDOR_TERMS'),
           apiRequest<AcceptanceStatus>('/terms/acceptance-status', {
@@ -96,7 +108,7 @@ export function ReAcceptanceGate({ children }: { children: React.ReactNode }) {
     return () => {
       active = false;
     };
-  }, [token, loading, bypassGate]);
+  }, [token, loading, bypassGate, pathname, router]);
 
   async function signOut() {
     setSigningOut(true);

@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 
 import { SupabaseService } from '../../auth/supabase.service';
+import { normaliseUpload } from '../../common/uploads/normalise-upload';
 import { validateUpload } from '../../common/uploads/validate-upload';
 import { StorageLifecycleService } from '../storage-lifecycle/storage-lifecycle.service';
 
@@ -156,7 +157,7 @@ export class SupabaseStorageService implements OnModuleInit {
     applicationId: string;
     file: { originalname: string; mimetype: string; size: number; buffer: Buffer };
   }): Promise<UploadedImage> {
-    const file = params.file;
+    const file = await normaliseUpload(params.file, MAX_BYTES);
     validateUpload(file, MAX_BYTES);
     if (!ALLOWED_MIME.has(file.mimetype) || !looksLikeImage(file.buffer)) {
       throw new BadRequestException({
@@ -185,7 +186,7 @@ export class SupabaseStorageService implements OnModuleInit {
         message: 'Could not upload image',
       });
     }
-    const { data, error: signedError } = await storage.createSignedUrl(path, 30 * 24 * 60 * 60);
+    const { data, error: signedError } = await storage.createSignedUrl(path, 5 * 60);
     if (signedError) {
       await this.lifecycle.compensate(DOCUMENTS_BUCKET, path);
       throw new InternalServerErrorException({
@@ -196,13 +197,31 @@ export class SupabaseStorageService implements OnModuleInit {
     return { path, publicUrl: data.signedUrl };
   }
 
+  /** Resume links authenticate the draft; do not persist a long-lived storage credential. */
+  async applicationImagePreview(applicationId: string, path: string): Promise<string> {
+    if (!path.startsWith(`vendor-applications/${applicationId}/menu/`)) {
+      throw new BadRequestException({ code: 'INVALID_IMAGE_PATH', message: 'Invalid image path' });
+    }
+    const { data, error } = await this.supabase
+      .getClient()
+      .storage.from(DOCUMENTS_BUCKET)
+      .createSignedUrl(path, 5 * 60);
+    if (error || !data) {
+      throw new InternalServerErrorException({
+        code: 'IMAGE_PREVIEW_FAILED',
+        message: 'Could not create image preview. Please try again.',
+      });
+    }
+    return data.signedUrl;
+  }
+
   /** Store an import original in the private documents bucket. */
   async uploadMenuImportSource(params: {
     vendorId: string;
     importId: string;
     file: { originalname: string; mimetype: string; size: number; buffer: Buffer };
   }): Promise<{ path: string }> {
-    const { file } = params;
+    const file = await normaliseUpload(params.file, IMPORT_MAX_BYTES, true);
     validateUpload(file, IMPORT_MAX_BYTES, true);
     if (!IMPORT_MIME.has(file.mimetype) || !looksLikeImport(file.buffer, file.mimetype)) {
       throw new BadRequestException({
@@ -290,6 +309,7 @@ export class SupabaseStorageService implements OnModuleInit {
     folder: string,
     file: { originalname: string; mimetype: string; size: number; buffer: Buffer },
   ): Promise<UploadedImage> {
+    file = await normaliseUpload(file, MAX_BYTES);
     validateUpload(file, MAX_BYTES);
     if (!ALLOWED_MIME.has(file.mimetype)) {
       throw new BadRequestException({

@@ -9,6 +9,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { RateRow } from '@feastpot/ui';
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { useTrackEvent } from '@/hooks/use-track-event';
+import { canonicalTermsNotice, type CanonicalVendorTerms } from '@/lib/canonical-vendor-terms';
 import { getOrCreateAnonId } from '@/lib/analytics/anon-id';
 import { OCCASIONS, OCCASION_SLUGS } from '@/lib/occasions';
 import { EarningsCalculator } from './earnings-calculator';
@@ -968,6 +969,8 @@ export default function BecomeAVendorPage() {
   const track = useTrackEvent();
   const [rates, setRates] = useState<RateRow[]>([]);
   const [ratesError, setRatesError] = useState('');
+  const [termsNotice, setTermsNotice] = useState('');
+  const [termsNoticeError, setTermsNoticeError] = useState('');
   const [open, setOpen] = useState(false);
   const startedRef = useRef(false);
   const landedRef = useRef(false);
@@ -982,6 +985,13 @@ export default function BecomeAVendorPage() {
       'customer_service_fee',
     ].every((key) => disclosedRate(rates, key) != null);
   useEffect(() => {
+    apiRequest<CanonicalVendorTerms>('/terms/current?documentType=VENDOR_TERMS')
+      .then((terms) => setTermsNotice(canonicalTermsNotice(terms.contentMdx)))
+      .catch(() =>
+        setTermsNoticeError(
+          'The current terms notice could not be loaded. Please read the Vendor Terms before applying.',
+        ),
+      );
     if (!landedRef.current) {
       landedRef.current = true;
       track('become_a_vendor_landed');
@@ -1061,6 +1071,16 @@ export default function BecomeAVendorPage() {
               Read the full Vendor Terms of Agreement before applying.
             </Link>
           </p>
+          {termsNotice && (
+            <p data-testid="vendor-terms-notice" className="mt-3 max-w-xl text-sm text-[#6c665d]">
+              {termsNotice}
+            </p>
+          )}
+          {termsNoticeError && (
+            <p role="alert" className="mt-3 max-w-xl text-sm text-[#6c665d]">
+              {termsNoticeError}
+            </p>
+          )}
           <button
             type="button"
             onClick={begin}

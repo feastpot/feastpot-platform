@@ -404,7 +404,7 @@ const REQUIRED_ONBOARDING_ITEMS: Array<{
   {
     name: 'public_liability_insurance',
     label: 'Public liability insurance',
-    help: 'Compare providers for cover of at least £5m and check that catering and delivery work are included.',
+    help: 'Compare providers for cover of at least £1m for onboarding and check that catering and delivery work are included.',
     evidenceHref: '/account-and-compliance#doc-insurance',
   },
   {

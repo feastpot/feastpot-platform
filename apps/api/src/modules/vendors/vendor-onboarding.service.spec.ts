@@ -35,7 +35,7 @@ function readyVendor() {
       registrationAuthority: 'Test Council',
       registrationConfirmedAt: new Date('2026-01-01T00:00:00Z'),
       insuranceProvider: 'Test Insurer',
-      insuranceCoverPence: 500_000_000,
+      insuranceCoverPence: 100_000_000,
       insuranceValidUntil: future,
       idVerifiedAt: new Date('2026-01-01T00:00:00Z'),
     },
@@ -128,14 +128,14 @@ describe('VendorOnboardingService go-live gates', () => {
     );
   });
 
-  it('blocks publication without current GBP 5m public liability insurance', async () => {
+  it('blocks publication below the GBP 1m public liability insurance minimum', async () => {
     await expectBlockedAndRecovered(
       VendorOnboardingStepName.public_liability_insurance,
       () => {
-        vendor.verification.insuranceCoverPence = 100_000_000;
+        vendor.verification.insuranceCoverPence = 99_999_999;
       },
       () => {
-        vendor.verification.insuranceCoverPence = 500_000_000;
+        vendor.verification.insuranceCoverPence = 100_000_000;
       },
     );
   });

@@ -45,7 +45,7 @@ export default function LegalLayout({ children }: { children: ReactNode }) {
       </nav>
 
       <div className="mt-4 grid gap-8 md:mt-6 md:grid-cols-[220px_minmax(0,1fr)] md:gap-10">
-        <aside className="md:sticky md:top-24 md:self-start">
+        <aside className="min-w-0 md:sticky md:top-24 md:self-start">
           {/* Mobile: horizontal scrolling tabs. */}
           <div className="-mx-4 overflow-x-auto px-4 md:hidden">
             <ul className="flex gap-2 whitespace-nowrap pb-2">
@@ -93,7 +93,7 @@ export default function LegalLayout({ children }: { children: ReactNode }) {
           </ul>
         </aside>
 
-        <main className="min-w-0">
+        <main className="legal-document-surface min-w-0">
           {children}
 
           {/*

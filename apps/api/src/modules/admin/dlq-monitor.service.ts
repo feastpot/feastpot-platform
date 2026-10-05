@@ -19,6 +19,7 @@ import {
   TERMS_NOTICES_QUEUE,
 } from '../../queues/queues.module';
 
+import { assessQueueHealth, type QueueHealthHistory } from './queue-health-policy';
 import { redactPayload } from './redact-payload';
 
 interface QueueFailureSummary {
@@ -31,6 +32,8 @@ interface QueueDepthSnapshot {
   queue: string;
   waiting: number;
   failed: number;
+  active: number;
+  isPaused: boolean;
 }
 
 @Injectable()
@@ -42,6 +45,7 @@ export class DlqMonitorService {
   private readonly slackWebhookUrl: string | null;
   private readonly failedThreshold: number;
   private readonly waitingThreshold: number;
+  private readonly alertCacheSuffix: string;
 
   // Alert when a pending order has been waiting for vendor acceptance
   // longer than this threshold. 30 min is aggressive but safe - vendors
@@ -68,17 +72,19 @@ export class DlqMonitorService {
     // fall back to logging so the cron is still observable in deploy logs.
     this.slackWebhookUrl = config.get<string>('QUEUE_ALERT_SLACK_WEBHOOK_URL') ?? null;
     this.failedThreshold = Number(config.get<string>('QUEUE_ALERT_FAILED_THRESHOLD') ?? '1');
-    this.waitingThreshold = Number(config.get<string>('QUEUE_ALERT_WAITING_THRESHOLD') ?? '100');
+    this.waitingThreshold = 50;
+    const queueKey = notifications.toKey?.('');
+    const prefix = queueKey ? queueKey.slice(0, -(NOTIFICATIONS_QUEUE.length + 2)) : 'bull';
+    this.alertCacheSuffix = prefix === 'bull' ? '' : `:${prefix}`;
   }
 
   /**
    * Every 5 minutes: alert in (near) real time when a queue backs up.
    *
    * Alerting policy (designed against alert fatigue - review finding):
-   *  - Alert on a CHANGE, not a standing state: failed-count INCREASE at or
-   *    above QUEUE_ALERT_FAILED_THRESHOLD (default 1), or waiting crossing
-   *    UP through QUEUE_ALERT_WAITING_THRESHOLD (default 100). Retained
-   *    historical failures do not re-page forever.
+   *  - Waiting above 50, failures rising within 15 minutes, and a waiting
+   *    backlog with no active jobs across ten minutes of continuous polls.
+   *    Paused state is included so an operator can distinguish a pause.
    *  - A sustained-but-unchanged breach sends at most one hourly reminder,
    *    leased via atomic SET NX EX so concurrent runs can't double-fire.
    *  - The suppression lease is RELEASED if Slack delivery fails, so a
@@ -95,28 +101,43 @@ export class DlqMonitorService {
     const leases: string[] = [];
 
     for (const snap of snapshots) {
-      const prev = (await this.cache.get<QueueDepthSnapshot>(`queue-alert:last:${snap.queue}`)) ?? {
+      const lastKey = this.alertKey(`queue-alert:last:${snap.queue}`);
+      const prev = (await this.cache.get<QueueDepthSnapshot>(lastKey)) ?? {
         queue: snap.queue,
         waiting: 0,
         failed: 0,
       };
+      const healthKey = this.alertKey(`queue-alert:health:${snap.queue}`);
+      const history = (await this.cache.get<QueueHealthHistory>(healthKey)) ?? null;
+      const health = assessQueueHealth(snap, history, Date.now());
+      await this.cache.set(healthKey, health.history, 30 * 60);
+      if (health.history.noConsumerSince === null && history?.noConsumerSince != null) {
+        await this.cache.del(this.alertKey(`queue-alert:lease:${snap.queue}:no-consumer`));
+      }
       // Persist the latest observation regardless of alerting outcome (2h TTL
       // so a long Redis outage resets the baseline instead of going stale).
-      await this.cache.set(`queue-alert:last:${snap.queue}`, snap, 2 * 60 * 60);
+      await this.cache.set(lastKey, snap, 2 * 60 * 60);
 
-      const failedRose = snap.failed >= this.failedThreshold && snap.failed > prev.failed;
+      const failedRose = health.failedCountRose;
       const failedSustained = snap.failed >= this.failedThreshold && snap.failed <= prev.failed;
-      const waitingCrossed =
-        snap.waiting >= this.waitingThreshold && prev.waiting < this.waitingThreshold;
-      const waitingSustained =
-        snap.waiting >= this.waitingThreshold && prev.waiting >= this.waitingThreshold;
+      const waitingCrossed = health.waitingAbove50 && prev.waiting <= this.waitingThreshold;
+      const waitingSustained = health.waitingAbove50 && prev.waiting > this.waitingThreshold;
+
+      if (health.noConsumer && (await this.acquireLease(`${snap.queue}:no-consumer`, leases))) {
+        breaches.push(
+          `\`${snap.queue}\`: *no consumer for 10 minutes* ` +
+            `(waiting=${snap.waiting}, active=${snap.active}, paused=${snap.isPaused})`,
+        );
+      }
 
       if (
-        failedRose ||
+        (failedRose && (await this.acquireLease(`${snap.queue}:failed-rise`, leases, 15 * 60))) ||
         (failedSustained && (await this.acquireLease(`${snap.queue}:failed`, leases)))
       ) {
         breaches.push(
-          `\`${snap.queue}\`: *${snap.failed} failed* job(s)${failedRose ? ` (was ${prev.failed})` : ' (ongoing)'}`,
+          `\`${snap.queue}\`: *${snap.failed} failed* job(s)${
+            failedRose ? ` (15-minute baseline ${health.failedWindowBaseline})` : ' (ongoing)'
+          }`,
         );
       }
       if (
@@ -153,9 +174,17 @@ export class DlqMonitorService {
    * Atomically acquire the hourly reminder lease for a sustained breach.
    * Records acquired keys in `leases` so a failed delivery can release them.
    */
-  private async acquireLease(key: string, leases: string[]): Promise<boolean> {
-    const cacheKey = `queue-alert:lease:${key}`;
-    const won = await this.cache.setIfAbsent(cacheKey, 1, 60 * 60);
+  private alertKey(key: string): string {
+    return `${key}${this.alertCacheSuffix}`;
+  }
+
+  private async acquireLease(
+    key: string,
+    leases: string[],
+    ttlSeconds = 60 * 60,
+  ): Promise<boolean> {
+    const cacheKey = this.alertKey(`queue-alert:lease:${key}`);
+    const won = await this.cache.setIfAbsent(cacheKey, 1, ttlSeconds);
     if (won) leases.push(cacheKey);
     return won;
   }
@@ -173,11 +202,11 @@ export class DlqMonitorService {
     return { delivered, webhookConfigured };
   }
 
-  /** Returns true when the alert was delivered (or intentionally logged). */
+  /** Returns true only when the external webhook accepted the alert. */
   private async sendSlack(text: string): Promise<boolean> {
     if (!this.slackWebhookUrl) {
       this.logger.warn(`Queue alert (no QUEUE_ALERT_SLACK_WEBHOOK_URL set): ${text}`);
-      return true; // logged = delivered as far as retry policy is concerned
+      return false;
     }
     try {
       const res = await fetch(this.slackWebhookUrl, {
@@ -203,11 +232,13 @@ export class DlqMonitorService {
     const results: QueueDepthSnapshot[] = [];
     for (const [name, queue] of queues) {
       try {
-        const [waiting, failed] = await Promise.all([
+        const [waiting, failed, active, isPaused] = await Promise.all([
           queue.getWaitingCount(),
           queue.getFailedCount(),
+          queue.getActiveCount(),
+          queue.isPaused(false),
         ]);
-        results.push({ queue: name, waiting, failed });
+        results.push({ queue: name, waiting, failed, active, isPaused });
       } catch (err) {
         this.logger.error(`Failed to inspect queue ${name}: ${(err as Error).message}`);
       }

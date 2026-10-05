@@ -64,6 +64,7 @@ import { WaitlistModule } from './modules/waitlist/waitlist.module';
 import { WebhooksModule } from './modules/webhooks/webhooks.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { QueueMonitorModule } from './queues/queue-monitor.module';
+import { resolveQueuePrefix } from './queues/queue-prefix';
 import {
   QueuesModule,
   COMPLIANCE_QUEUE,
@@ -260,6 +261,7 @@ import { RootController } from './root.controller';
           const parsed = new URL(url);
           const isTls = parsed.protocol === 'rediss:';
           return {
+            prefix: resolveQueuePrefix(),
             redis: {
               host: parsed.hostname,
               port: Number(parsed.port || (isTls ? 6380 : 6379)),

@@ -154,3 +154,128 @@ describe('DlqMonitorService queue mutation audit', () => {
     );
   });
 });
+
+describe('DlqMonitorService operational alert delivery', () => {
+  const start = 1_800_000_000_000;
+  let depths: { waiting: number; active: number; failed: number; isPaused: boolean };
+  let cacheValues: Map<string, unknown>;
+  let cache: RedisCacheService;
+  let service: DlqMonitorService;
+  let fetchMock: jest.SpyInstance;
+
+  function createService(webhookConfigured = true, prefix = 'bull') {
+    const queue = (notification: boolean) =>
+      ({
+        getWaitingCount: jest.fn(async () => (notification ? depths.waiting : 0)),
+        getActiveCount: jest.fn(async () => (notification ? depths.active : 0)),
+        getFailedCount: jest.fn(async () => (notification ? depths.failed : 0)),
+        isPaused: jest.fn(async () => notification && depths.isPaused),
+        toKey: jest.fn(() => `${prefix}:notifications:`),
+      }) as unknown as Queue;
+    const config = {
+      get: jest.fn((key: string) =>
+        key === 'QUEUE_ALERT_SLACK_WEBHOOK_URL' && webhookConfigured
+          ? 'https://slack.example.invalid/isolated-test'
+          : undefined,
+      ),
+    } as unknown as ConfigService;
+    return new DlqMonitorService(
+      queue(true),
+      queue(false),
+      queue(false),
+      queue(false),
+      queue(false),
+      queue(false),
+      queue(false),
+      config,
+      cache,
+      {} as PrismaService,
+    );
+  }
+
+  beforeEach(() => {
+    jest.useFakeTimers().setSystemTime(start);
+    depths = { waiting: 1, active: 0, failed: 0, isPaused: true };
+    cacheValues = new Map();
+    cache = {
+      available: true,
+      get: jest.fn(async (key: string) => cacheValues.get(key) ?? null),
+      set: jest.fn(async (key: string, value: unknown) => cacheValues.set(key, value)),
+      setIfAbsent: jest.fn(async (key: string, value: unknown) => {
+        if (cacheValues.has(key)) return false;
+        cacheValues.set(key, value);
+        return true;
+      }),
+      del: jest.fn(async (key: string) => cacheValues.delete(key)),
+    } as unknown as RedisCacheService;
+    fetchMock = jest.spyOn(global, 'fetch').mockResolvedValue({ ok: true } as Response);
+    service = createService();
+  });
+
+  afterEach(() => {
+    fetchMock.mockRestore();
+    jest.useRealTimers();
+  });
+
+  it('sends the no-consumer alert after ten minutes, with pause evidence', async () => {
+    await service.checkQueueDepths();
+    jest.setSystemTime(start + 5 * 60_000);
+    await service.checkQueueDepths();
+    expect(fetchMock).not.toHaveBeenCalled();
+    jest.setSystemTime(start + 10 * 60_000);
+    await service.checkQueueDepths();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][1].body).toContain('no consumer for 10 minutes');
+    expect(fetchMock.mock.calls[0][1].body).toContain('paused=true');
+  });
+
+  it('sends immediately above 50 waiting jobs', async () => {
+    depths.waiting = 50;
+    await service.checkQueueDepths();
+    expect(fetchMock).not.toHaveBeenCalled();
+    depths.waiting = 51;
+    jest.setSystemTime(start + 5 * 60_000);
+    await service.checkQueueDepths();
+    expect(fetchMock.mock.calls[0][1].body).toContain('51 waiting');
+  });
+
+  it('sends when failures rise within fifteen minutes', async () => {
+    depths.waiting = 0;
+    depths.failed = 2;
+    await service.checkQueueDepths();
+    depths.failed = 3;
+    jest.setSystemTime(start + 5 * 60_000);
+    await service.checkQueueDepths();
+    expect(fetchMock.mock.calls[0][1].body).toContain('15-minute baseline 2');
+  });
+
+  it('does not claim a missing webhook delivered a test alert', async () => {
+    service = createService(false);
+    expect(await service.triggerTestAlert()).toEqual({
+      webhookConfigured: false,
+      delivered: false,
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('isolates sandbox alert history and leases from operational queues', async () => {
+    service = createService(true, 'bull:test:isolated-run');
+    await service.checkQueueDepths();
+    expect(cacheValues.has('queue-alert:health:notifications')).toBe(false);
+    expect(cacheValues.has('queue-alert:health:notifications:bull:test:isolated-run')).toBe(true);
+  });
+
+  it('releases reminder leases when the webhook fails so the next poll can retry', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 503 } as Response);
+    await service.checkQueueDepths();
+    jest.setSystemTime(start + 5 * 60_000);
+    await service.checkQueueDepths();
+    jest.setSystemTime(start + 10 * 60_000);
+    await service.checkQueueDepths();
+    expect(cacheValues.has('queue-alert:lease:notifications:no-consumer')).toBe(false);
+    fetchMock.mockResolvedValue({ ok: true } as Response);
+    jest.setSystemTime(start + 15 * 60_000);
+    await service.checkQueueDepths();
+    expect(fetchMock.mock.calls.at(-1)?.[1].body).toContain('no consumer for 10 minutes');
+  });
+});

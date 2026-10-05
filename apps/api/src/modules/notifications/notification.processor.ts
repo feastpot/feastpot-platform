@@ -141,7 +141,9 @@ export class NotificationProcessor {
    * headroom for the delivery-notification wave that follows ~45 min
    * later.
    */
-  async handle(job: Job<NotificationJobData>): Promise<{ sent: Channel[]; skipped: Channel[] }> {
+  async handle(
+    job: Job<NotificationJobData>,
+  ): Promise<{ sent: Channel[]; skipped: Channel[]; providerMessageId?: string }> {
     const eventName = job.name as NotificationEventName;
 
     // System jobs that don't render a notification themselves - they mutate
@@ -202,8 +204,14 @@ export class NotificationProcessor {
         return { sent: [], skipped: [] };
       }
       const r = await this.email.send({ to, subject: rawSubject, html: rawHtml });
-      this.logger.log(`vendor_application_email_raw → ${to}: delivered=${r.delivered}`);
-      return { sent: r.delivered ? ['email' as Channel] : [], skipped: [] };
+      this.logger.log(
+        `vendor_application_email_raw job=${job.id} delivered=${r.delivered} providerMessageId=${r.id ?? 'none'}`,
+      );
+      return {
+        sent: r.delivered ? ['email' as Channel] : [],
+        skipped: [],
+        ...(r.delivered && r.id ? { providerMessageId: r.id } : {}),
+      };
     }
 
     const template = getTemplate(eventName);

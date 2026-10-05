@@ -101,7 +101,7 @@ export function LegalQuickNav({
   return (
     <nav
       aria-label={ariaLabel}
-      className="sticky top-14 z-20 -mx-4 mt-2 overflow-x-auto border-b border-cream-deep bg-cream-warm/95 backdrop-blur md:mx-0 md:rounded-2xl md:border md:border-cream-deep md:bg-white"
+      className="sticky top-14 z-20 mt-2 max-w-full overflow-x-auto border-b border-cream-deep bg-cream-warm/95 backdrop-blur md:mx-0 md:rounded-2xl md:border md:border-cream-deep md:bg-white"
     >
       <div className="mx-auto flex max-w-[640px] gap-2 whitespace-nowrap px-3 py-2">
         {items.map((l) => (
@@ -281,7 +281,7 @@ export const legalOrderedListStyle: CSSProperties = {
 // Common page wrapper that mirrors the privacy page's outer chrome:
 // edge-to-edge on mobile, rounded card on md+.
 export function LegalPageShell({ children }: { children: ReactNode }) {
-  return <div className="-mx-4 md:mx-0">{children}</div>;
+  return <div className="min-w-0 -mx-4 md:mx-0 [overflow-wrap:anywhere]">{children}</div>;
 }
 
 export function LegalContentWrapper({ children }: { children: ReactNode }) {

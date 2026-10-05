@@ -82,6 +82,25 @@ describe('TermsService legal invariants', () => {
 
   afterEach(() => jest.useRealTimers());
 
+  it.each(['PENDING', 'PENDING - legal review has not yet happened.', ' ', 'Not reviewed'])(
+    'rejects unapproved solicitor evidence %s before any database write',
+    async (solicitorSignOff) => {
+      await expect(
+        service.publishVersion({
+          documentType: TermsDocumentType.VENDOR_TERMS,
+          version: '2.2',
+          contentMdx: '# Vendor Terms',
+          effectiveAt: '2026-09-20T00:00:00Z',
+          isMaterial: true,
+          changeSummary: 'Commercial rate alignment',
+          solicitorSignOff,
+        }),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(queue.add).not.toHaveBeenCalled();
+    },
+  );
+
   it('selects the latest effective version even if stale data marked it superseded', async () => {
     prisma.termsVersion.findFirst.mockResolvedValue(version());
 

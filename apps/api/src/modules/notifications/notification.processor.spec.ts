@@ -49,6 +49,33 @@ const vendorUser = {
   firstName: 'Priya',
 };
 
+describe('NotificationProcessor - raw email evidence', () => {
+  beforeEach(() => jest.clearAllMocks());
+
+  it('retains the provider message ID in the completed job result', async () => {
+    const { processor, providers } = makeProcessor(makePrisma(null));
+    const result = await processor.handle({
+      id: 'isolated-diagnostic',
+      name: 'vendor_application_email_raw',
+      data: { to: 'founder@example.com', subject: 'Diagnostic', html: '<p>Diagnostic</p>' },
+    } as any);
+    expect(result).toEqual({ sent: ['email'], skipped: [], providerMessageId: 'e-1' });
+    expect(providers.email.send).toHaveBeenCalledTimes(1);
+    expect(providers.whatsapp.send).not.toHaveBeenCalled();
+  });
+
+  it('does not claim a provider ID when the email provider is stubbed', async () => {
+    const { processor, providers } = makeProcessor(makePrisma(null));
+    providers.email.send.mockResolvedValue({ id: null, delivered: false });
+    const result = await processor.handle({
+      id: 'isolated-stub',
+      name: 'vendor_application_email_raw',
+      data: { to: 'founder@example.com', subject: 'Diagnostic', html: '<p>Diagnostic</p>' },
+    } as any);
+    expect(result).toEqual({ sent: [], skipped: [] });
+  });
+});
+
 describe('NotificationProcessor - notify_vendor', () => {
   beforeEach(() => jest.clearAllMocks());
 
