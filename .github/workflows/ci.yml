@@ -193,6 +193,7 @@ jobs:
             wait "${pids[@]}" 2>/dev/null || true
           }
           trap cleanup EXIT INT TERM
+          node scripts/link-audit-terms-fixture.cjs >/tmp/link-audit-terms.log 2>&1 & pids+=($!)
           npm run dev --workspace=@feastpot/web >/tmp/link-audit-web.log 2>&1 & pids+=($!)
           npm run dev --workspace=@feastpot/vendor >/tmp/link-audit-vendor.log 2>&1 & pids+=($!)
           npm run dev --workspace=@feastpot/admin >/tmp/link-audit-admin.log 2>&1 & pids+=($!)

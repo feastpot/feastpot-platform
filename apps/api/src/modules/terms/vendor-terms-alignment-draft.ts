@@ -82,6 +82,6 @@ export function buildVendorTermsAlignmentDraft(base: string, version: string) {
     proposedEffectiveTreatment:
       'Immediate for new acceptances; affirmative re-acceptance and notice-period waiver for existing vendors, subject to solicitor review.',
     changeSummary:
-      'Aligns all commission statements and Annex A with the confirmed 8%/5%/0% food-order rates, 10%/5% catering rates and customer-only 5% service fee capped at GBP 2.99. The proposed immediate effect rests on an express P2B notice-period waiver through affirmative re-acceptance by existing vendors, because the user reports that no vendor is live and the change lowers rates. That legal basis requires solicitor review. Review is PENDING; neither the approval gate nor the material-change notice gate has been bypassed. The currently served document uses clause 3 for commission and contains no clause 5.2; numbering requires review.',
+      'Aligns all commission statements and Annex A with the confirmed food-order and catering rates and customer-only capped service fee from the configured Rate Schedule. The proposed immediate effect rests on an express P2B notice-period waiver through affirmative re-acceptance by existing vendors, because the user reports that no vendor is live and the change lowers rates. That legal basis requires solicitor review. Review is PENDING; neither the approval gate nor the material-change notice gate has been bypassed. The currently served document uses clause 3 for commission and contains no clause 5.2; numbering requires review.',
   };
 }

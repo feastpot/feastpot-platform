@@ -10,8 +10,8 @@ import {
 } from '@/components/legal/legal-shell';
 import {
   documentSections,
+  fetchCanonicalVendorTerms,
   sectionId,
-  type CanonicalVendorTerms,
 } from '@/lib/canonical-vendor-terms';
 import { API_URL } from '@/lib/env';
 
@@ -26,24 +26,6 @@ export const metadata: Metadata = {
     'Your canonical commercial agreement with Feastpot Ltd, including its Rate Schedule.',
   alternates: { canonical: '/legal/vendor-terms' },
 };
-
-async function currentTerms(): Promise<CanonicalVendorTerms> {
-  const response = await fetch(`${API_URL}/v1/terms/current?documentType=VENDOR_TERMS`, {
-    cache: 'no-store',
-  });
-  if (!response.ok) throw new Error(`Current Vendor Terms API returned ${response.status}.`);
-  const terms = await response.json();
-  if (
-    !terms?.id ||
-    !terms.version ||
-    !terms.contentHash ||
-    !terms.contentMdx ||
-    !terms.effectiveAt
-  ) {
-    throw new Error('No canonical effective Vendor Terms are available.');
-  }
-  return terms;
-}
 
 const iconFor = (title: string) =>
   /relationship/i.test(title)
@@ -77,7 +59,7 @@ const iconFor = (title: string) =>
 export default async function VendorTermsPage() {
   // One uncached response owns the badge, signed body, Annex A and Annex C.
   // Never combine a historical agreement with an independently current rate card.
-  const terms = await currentTerms();
+  const terms = await fetchCanonicalVendorTerms(API_URL);
   const sections = documentSections(terms.contentMdx);
   const introduction = terms.contentMdx.split(/^## /m)[0] ?? '';
   return (
@@ -106,6 +88,9 @@ export default async function VendorTermsPage() {
           <CanonicalDocument content={introduction} />
           {sections.map(({ title, content }) => (
             <LegalSection key={title} id={sectionId(title)} icon={iconFor(title)} title={title}>
+              {/^\s*Annex A\b/i.test(title) && sectionId(title) !== 'annex-a' && (
+                <span id="annex-a" aria-hidden="true" className="scroll-mt-24" />
+              )}
               <CanonicalDocument content={content} />
             </LegalSection>
           ))}

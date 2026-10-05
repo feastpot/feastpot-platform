@@ -8,6 +8,25 @@ export interface CanonicalVendorTerms {
   contentMdx: string;
 }
 
+export async function fetchCanonicalVendorTerms(apiUrl: string): Promise<CanonicalVendorTerms> {
+  const response = await fetch(`${apiUrl}/v1/terms/current?documentType=VENDOR_TERMS`, {
+    cache: 'no-store',
+  });
+  if (!response.ok) throw new Error(`Current Vendor Terms API returned ${response.status}.`);
+  const body = await response.json();
+  const terms = body?.data ?? body;
+  if (
+    !terms?.id ||
+    !terms.version ||
+    !terms.contentHash ||
+    !terms.contentMdx ||
+    !terms.effectiveAt
+  ) {
+    throw new Error('No canonical effective Vendor Terms are available.');
+  }
+  return terms;
+}
+
 export function documentSections(content: string): { title: string; content: string }[] {
   return content
     .split(/^## /m)

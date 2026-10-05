@@ -6,6 +6,7 @@ import {
   canonicalAnnexCSummary,
   canonicalTermsNotice,
   documentSections,
+  fetchCanonicalVendorTerms,
 } from './canonical-vendor-terms';
 
 const content = `# Vendor terms
@@ -27,13 +28,54 @@ Further notice conditions.
 
 test('the badge, body and presentation receive one uncached canonical response', () => {
   const page = readFileSync(resolve(__dirname, '../app/legal/vendor-terms/page.tsx'), 'utf8');
-  expect(page).toContain("cache: 'no-store'");
+  const library = readFileSync(resolve(__dirname, 'canonical-vendor-terms.ts'), 'utf8');
+  expect(library).toContain("cache: 'no-store'");
+  expect(page).toContain('fetchCanonicalVendorTerms(API_URL)');
   expect(page).toContain('version={terms}');
   expect(page).toContain('content={terms.contentMdx}');
   expect(page).toContain('documentSections(terms.contentMdx)');
   expect(page).not.toContain('PLATFORM_FACTS.commission');
 });
 
+describe('canonical API response contract', () => {
+  const terms = {
+    id: 'canonical-version',
+    version: '2.0',
+    effectiveAt: '2026-01-01T00:00:00Z',
+    contentHash: 'canonical-hash',
+    contentMdx: content,
+  };
+  const original = global.fetch;
+  afterEach(() => {
+    global.fetch = original;
+  });
+  test.each([terms, { data: terms }])(
+    'uses the complete raw or enveloped document',
+    async (body) => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: async () => body });
+      expect(await fetchCanonicalVendorTerms('https://api.example.test')).toEqual(terms);
+      expect(global.fetch).toHaveBeenCalledWith(
+        'https://api.example.test/v1/terms/current?documentType=VENDOR_TERMS',
+        { cache: 'no-store' },
+      );
+    },
+  );
+  test('rejects incomplete metadata rather than substituting current operational facts', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: { ...terms, contentHash: null } }),
+    });
+    await expect(fetchCanonicalVendorTerms('https://api.example.test')).rejects.toThrow(
+      'No canonical effective Vendor Terms',
+    );
+  });
+  test('fails explicitly on an unavailable canonical endpoint', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 503 });
+    await expect(fetchCanonicalVendorTerms('https://api.example.test')).rejects.toThrow(
+      'API returned 503',
+    );
+  });
+});
 test('Annex A is parsed from the signed document, not an independent current schedule', () => {
   const rows = canonicalAnnexARates(content);
   expect(rows).toHaveLength(2);
