@@ -55,6 +55,8 @@ for (const destination of ADMIN_DESTINATION_MATRIX) {
         browser,
       }) => {
         const { context, page } = await authenticatedPage(browser, role);
+        const runtimeErrors: string[] = [];
+        page.on('pageerror', (error) => runtimeErrors.push(error.message));
         try {
           // Authentication/session endpoints are deliberately never routed.
           // Do not add a catch-all /v1 route here: server-rendered pages rely on
@@ -94,7 +96,11 @@ for (const destination of ADMIN_DESTINATION_MATRIX) {
           await expect(page).not.toHaveURL(/\/(sign-in|unauthorized)(?:\?|$)/);
           await expect(page.locator('main')).toBeVisible();
           await expect(page.locator('aside[aria-label="Admin console navigation"]')).toBeVisible();
-          await expect(page.locator('nextjs-portal')).toHaveCount(0);
+          // Next's development UI also uses nextjs-portal. Its mere presence
+          // is not evidence of an application crash.
+          await expect(
+            page.getByRole('heading', { name: 'Something went wrong', exact: true }),
+          ).toHaveCount(0);
           // Every successful render must retain a semantic main landmark. Error
           // views additionally need a user-actionable alert/status, rather than
           // an error boundary or a blank client crash.
@@ -107,16 +113,19 @@ for (const destination of ADMIN_DESTINATION_MATRIX) {
             ).toBeVisible();
           } else if (renderState === 'empty') {
             await expect(
-              page.getByRole('status', { name: /0 operational work items/i }),
+              page.getByRole('status').filter({ hasText: /0 operational work items/i }),
             ).toBeVisible();
           } else {
             await expect(
-              page.getByRole('status', { name: /1 operational work items/i }),
+              page.getByRole('status').filter({ hasText: /1 operational work items/i }),
             ).toBeVisible();
             await expect(
-              page.getByRole('status', { name: /matrix populated work item/i }),
+              page.getByRole('status').filter({ hasText: /matrix populated work item/i }),
             ).toBeVisible();
           }
+          expect(runtimeErrors, 'The destination must not raise uncaught runtime errors').toEqual(
+            [],
+          );
         } finally {
           await context.close();
         }
