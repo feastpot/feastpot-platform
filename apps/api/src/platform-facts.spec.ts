@@ -182,67 +182,45 @@ describe('Help page - consistency with PLATFORM_FACTS', () => {
   });
 });
 
-describe('Vendor terms - policy numbers match PLATFORM_FACTS', () => {
+describe('Vendor terms - immutable canonical agreement boundary', () => {
   const src = read('apps/web/src/app/legal/vendor-terms/page.tsx');
+  const layers = read('apps/web/src/app/legal/vendor-terms/legal-layers.tsx');
+  const library = read('apps/web/src/lib/canonical-vendor-terms.ts');
 
-  it('uses PLATFORM_FACTS for the appeal window (not a hardcoded literal)', () => {
-    // The source must reference the constant, not repeat the number in prose.
-    expect(src).toContain('PLATFORM_FACTS.appealWindowDays');
+  it('loads the effective agreement once without a stale response cache', () => {
+    expect(src).toContain('fetchCanonicalVendorTerms(API_URL)');
+    expect(library).toContain('/v1/terms/current?documentType=VENDOR_TERMS');
+    expect(library).toContain("cache: 'no-store'");
   });
 
-  it('uses PLATFORM_FACTS for the fee-change notice period', () => {
-    expect(src).toContain('PLATFORM_FACTS.feeChangeNoticeDays');
+  it('does not replace signed policy numbers with independently current operational facts', () => {
+    // Changing PLATFORM_FACTS must not silently rewrite an effective agreement.
+    // Operational pages remain covered by the other consistency suites.
+    expect(src).not.toContain('PLATFORM_FACTS');
+    expect(src).toContain('documentSections(terms.contentMdx)');
+    expect(src).toContain('<CanonicalDocument content={content} />');
   });
 
-  it('uses PLATFORM_FACTS for the terms-change notice period', () => {
-    expect(src).toContain('PLATFORM_FACTS.termsNoticeDays');
+  it('binds the badge, full body and commercial summaries to the same version and hash', () => {
+    expect(src).toContain('version={terms}');
+    expect(src).toContain('data-version-id={terms.id}');
+    expect(src).toContain('data-content-hash={terms.contentHash}');
+    expect(src).toContain('<LegalLayers content={terms.contentMdx} />');
   });
 
-  it('renders all commission tiers from the live rate schedule layer', () => {
-    const layers = read('apps/web/src/app/legal/vendor-terms/legal-layers.tsx');
-    expect(src).toContain('<LegalLayers />');
-    expect(layers).toContain('fetchRateSchedule');
-    expect(layers).toContain('<KeyTermsSummary rates={rates} />');
+  it('renders Annex A and Annex C from the signed body, not a second rate schedule fetch', () => {
+    expect(layers).toContain('canonicalAnnexARates(content)');
+    expect(layers).toContain('canonicalAnnexCSummary(content)');
+    expect(layers).not.toContain('fetchRateSchedule');
+    expect(layers).toContain('<KeyTermsSummary rates={rates} terms={terms} />');
     expect(layers).toContain('<RateCard rates={rates} />');
   });
 
-  it('uses PLATFORM_FACTS for the appeals email', () => {
-    expect(src).toContain('PLATFORM_FACTS.contact.appealsEmail');
-    expect(src).not.toMatch(/"appeals@feastpot\.co\.uk"/);
-  });
-
-  it('uses PLATFORM_FACTS for the compliance email (no bare hardcoded string)', () => {
-    expect(src).toContain('PLATFORM_FACTS.contact.complianceEmail');
-    expect(src).not.toMatch(/"compliance@feastpot\.co\.uk"/);
-  });
-
-  it('uses PLATFORM_FACTS for vendor-link and marketplace-intro attribution windows', () => {
-    expect(src).toContain('PLATFORM_FACTS.attribution.vendorLinkWindowDays');
-    expect(src).toContain('PLATFORM_FACTS.attribution.marketplaceIntroWindowDays');
-  });
-
-  it('contains an attribution section (clause 17)', () => {
-    expect(src).toContain('id="attribution"');
-  });
-
-  it('contains a fee-changes section (clause 18)', () => {
-    expect(src).toContain('id="fee-changes"');
-  });
-
-  it('contains a non-exclusivity section (clause 19)', () => {
-    expect(src).toContain('id="non-exclusivity"');
-  });
-
-  it('contains an appeals section (clause 20)', () => {
-    expect(src).toContain('id="appeals"');
-  });
-
-  it('contains a P2B regulation disclosure in the ranking section', () => {
-    expect(src).toContain('P2B Regulation');
-  });
-
-  it('contains a data export right heading in the your-data section', () => {
-    expect(src).toContain('Data export right');
+  it('retains all canonical sections and a usable public Annex A fragment', () => {
+    expect(src).toContain('sections.map(({ title, content })');
+    expect(src).toContain('id={sectionId(title)}');
+    expect(src).toContain('id="annex-a"');
+    expect(library).toContain('No canonical effective Vendor Terms are available.');
   });
 });
 

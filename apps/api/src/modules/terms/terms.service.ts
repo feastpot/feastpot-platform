@@ -136,7 +136,12 @@ export class TermsService {
     }
 
     // Rule 5: VENDOR_TERMS must have solicitor sign-off.
-    if (dto.documentType === TermsDocumentType.VENDOR_TERMS && !dto.solicitorSignOff) {
+    if (
+      dto.documentType === TermsDocumentType.VENDOR_TERMS &&
+      (!dto.solicitorSignOff?.trim() ||
+        /\bpending\b/i.test(dto.solicitorSignOff) ||
+        !/^(Reviewed and approved|Approved)\b/i.test(dto.solicitorSignOff.trim()))
+    ) {
       throw new BadRequestException(
         'VENDOR_TERMS versions must include solicitorSignOff ' +
           '("Reviewed and approved by [solicitor name] on [date]"). ' +

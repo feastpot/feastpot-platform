@@ -26,7 +26,7 @@ import * as Sentry from '@sentry/nestjs';
 
 import { SupabaseService } from '../../auth/supabase.service';
 import type { AuthUser } from '../../auth/types';
-import { validateUpload } from '../../common/uploads/validate-upload';
+import { normaliseUpload } from '../../common/uploads/normalise-upload';
 import { PrismaService } from '../../prisma/prisma.service';
 import { DOCUMENTS_BUCKET } from '../catalogue/supabase-storage.service';
 import { InboxService } from '../inbox/inbox.service';
@@ -850,7 +850,7 @@ export class DisputesService {
       });
     }
 
-    validateUpload(file, 10 * 1024 * 1024, true);
+    file = await normaliseUpload(file, 10 * 1024 * 1024, true);
     if (
       declaredType &&
       (declaredType === EvidenceType.photo || declaredType === EvidenceType.screenshot) &&

@@ -149,17 +149,19 @@ describe('Commercial-numbers consistency', () => {
       expect(calculator).toContain('rate.status === activeStatus');
     });
 
-    it('web, vendor, admin, and Annex A read the public Rate Schedule', () => {
+    it('operational pages read the public Rate Schedule and signed Annex A stays canonical', () => {
       const sources = [
         readSrc('become-a-vendor/page.tsx'),
         readRepo('apps/vendor/src/app/earnings/earnings-client.tsx'),
         readRepo('apps/admin/src/app/settings/settings-client.tsx'),
-        readSrc('legal/vendor-terms/legal-layers.tsx'),
       ];
 
       for (const source of sources) {
         expect(source).toContain('rate-schedule');
       }
+      const legal = readSrc('legal/vendor-terms/legal-layers.tsx');
+      expect(legal).toContain('canonicalAnnexARates(content)');
+      expect(legal).not.toContain('fetchRateSchedule');
 
       expect(readRepo('apps/vendor/src/app/share/page.tsx')).toContain("'referred_commission'");
       expect(readRepo('apps/admin/src/app/settings/settings-client.tsx')).toContain(

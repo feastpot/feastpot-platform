@@ -462,7 +462,9 @@ export class VendorsService {
       kitchenName: draft.kitchenName,
       cuisineTypes: draft.cuisineTypes,
       occasionSlugs: draft.occasionSlugs,
-      menuPhotoUrl: draft.menuPhotoUrl,
+      menuPhotoUrl: draft.menuPhotoPath
+        ? await this.storage.applicationImagePreview(draft.id, draft.menuPhotoPath)
+        : draft.menuPhotoUrl,
       menuBuildFromPhoto: draft.menuBuildFromPhoto,
       currentStep: draft.currentStep,
       submittedAt: draft.submittedAt,

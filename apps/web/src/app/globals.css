@@ -181,6 +181,27 @@
   background-size: 200% 100%;
   animation: fp-shimmer 1.5s linear infinite;
 }
+/* Keep legal content inside its column; scroll tables locally, not the page. */
+.legal-document-surface {
+  overflow-wrap: anywhere;
+}
+.legal-document-surface table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+.legal-document-surface pre {
+  max-width: 100%;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+.legal-document-surface th,
+.legal-document-surface td,
+.legal-document-surface a,
+.legal-document-surface code {
+  overflow-wrap: anywhere;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-shimmer {
     animation: none;

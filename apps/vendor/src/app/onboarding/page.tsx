@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { PortalShell } from '@/components/layout/portal-shell';
 import { apiRequest, ApiError } from '@/lib/api/client';
 import { createClient as createServerSupabase } from '@/lib/supabase/server';
+import { isMissingVendorProfile } from '@/lib/vendor-profile-state';
 
 import { OnboardingClient } from './onboarding-client';
 
@@ -41,6 +42,7 @@ export default async function OnboardingPage() {
       next: { revalidate: 0 },
     });
   } catch (err) {
+    if (isMissingVendorProfile(err)) redirect('/onboarding/welcome');
     if (err instanceof ApiError && err.status === 403) redirect('/unauthorized');
     // 404: vendor role but no profile yet. The /onboarding/welcome step
     // guides new vendors through completing their application.

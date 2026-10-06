@@ -15,7 +15,7 @@ import { isTaxProfileComplete } from '../vendor-tax-profile/vendor-tax-profile.s
 
 import { VendorRecoveryService } from './vendor-recovery.service';
 
-const MIN_INSURANCE_COVER_PENCE = 500_000_000;
+const MIN_INSURANCE_COVER_PENCE = 100_000_000;
 
 type StepDefinition = {
   name: VendorOnboardingStepName;
@@ -41,10 +41,11 @@ export const ONBOARDING_STEP_DEFINITIONS: readonly StepDefinition[] = [
   },
   {
     name: VendorOnboardingStepName.public_liability_insurance,
-    label: 'Public liability insurance (minimum GBP 5m)',
+    label: 'Public liability insurance (minimum GBP 1m)',
     blocksProgress: false,
     blocksPublication: true,
-    sourceCitation: 'Vendor Terms clause 2 and Annex B (current minimum GBP 5 million).',
+    sourceCitation:
+      'Current onboarding policy: minimum GBP 1 million. Signed Vendor Terms clause 2 and Annex B still state GBP 5 million; legal alignment remains outstanding.',
   },
   {
     name: VendorOnboardingStepName.food_safety_certificate,

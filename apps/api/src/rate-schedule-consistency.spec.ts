@@ -82,12 +82,15 @@ const RATE_SURFACES: RateSurface[] = [
   {
     name: 'vendor terms Annex A',
     file: 'apps/web/src/app/legal/vendor-terms/legal-layers.tsx',
-    required: ['/v1/terms/rate-schedule', '<RateCard rates={rates} />'],
+    required: ['canonicalAnnexARates(content)', '<RateCard rates={rates} />'],
   },
   {
     name: 'vendor terms Annex C summary',
     file: 'apps/web/src/app/legal/vendor-terms/legal-layers.tsx',
-    required: ['/v1/terms/rate-schedule', '<KeyTermsSummary rates={rates} />'],
+    required: [
+      'canonicalAnnexCSummary(content)',
+      '<KeyTermsSummary rates={rates} terms={terms} />',
+    ],
   },
   {
     name: 'vendor portal /earnings',

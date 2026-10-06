@@ -97,6 +97,7 @@ describe('VendorsService two-phase application drafts', () => {
       {} as NotificationsService,
       {} as EmailProvider,
       {
+        applicationImagePreview: jest.fn().mockResolvedValue('https://storage.example/menu.jpg'),
         promoteVendorApplicationMenuImage: jest.fn().mockResolvedValue({
           path: 'vendor-applications/app-1/menu/menu.jpg',
           publicUrl: 'https://storage.example/menu.jpg',

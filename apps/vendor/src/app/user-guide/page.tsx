@@ -223,7 +223,7 @@ const CHAPTERS: GuideChapter[] = [
       {
         title: 'Check your verification status',
         detail:
-          'Open Compliance to see the status of each required document: Food hygiene certificate, Public liability insurance (minimum GBP 5m cover), Photo ID, and Food business registration. Each document shows one of: Not started, Submitted (awaiting review), Approved, Needs changes, Expiring soon, or Expired.',
+          'Open Compliance to see the status of each required document: Food hygiene certificate, Public liability insurance (minimum GBP 1m cover for onboarding), Photo ID, and Food business registration. Each document shows one of: Not started, Submitted (awaiting review), Approved, Needs changes, Expiring soon, or Expired.',
       },
       {
         title: 'Upload or replace a document',

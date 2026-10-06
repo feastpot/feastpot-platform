@@ -27,9 +27,11 @@ interface KeyTermsSummaryProps {
   className?: string;
   /** Canonical rows returned by GET /v1/terms/rate-schedule. */
   rates?: RateRow[];
+  /** Immutable Annex C bullets from the same canonical contract as the rate card. */
+  terms?: string[];
 }
 
-export function KeyTermsSummary({ className = '', rates = [] }: KeyTermsSummaryProps) {
+export function KeyTermsSummary({ className = '', rates = [], terms }: KeyTermsSummaryProps) {
   const rateByKey = new Map(rates.map((rate) => [rate.key, rate]));
   const first = rateByKey.get('standard_commission');
   const repeat = rateByKey.get('repeat_commission');
@@ -69,7 +71,7 @@ export function KeyTermsSummary({ className = '', rates = [] }: KeyTermsSummaryP
       </h3>
 
       <ol className="space-y-2.5">
-        {keyTerms.map((term, i) => (
+        {(terms ?? keyTerms).map((term, i) => (
           <li key={i} className="flex items-start gap-3">
             <span
               aria-hidden

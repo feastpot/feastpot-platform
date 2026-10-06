@@ -13,10 +13,16 @@ import {
 } from 'lucide-react';
 import { useRef, useState } from 'react';
 
+import {
+  useRequiredOnboardingItems,
+  useUpdateRequiredOnboardingItem,
+  type RequiredOnboardingItemName,
+} from '@/hooks/use-required-onboarding-items';
 import type { VendorDocument, VendorDocumentType } from '@/hooks/use-vendor-documents';
 import { formatDate } from '@/lib/format';
 import { useAccessToken } from '@/lib/auth/use-access-token';
 import { API_URL } from '@/lib/env';
+import { userErrorMessage } from '@/lib/user-error-message';
 
 import {
   COMPLIANCE_STATE_META,
@@ -47,28 +53,28 @@ export const REQUIRED_DOCS: ReadonlyArray<{
     label: 'Food hygiene certificate (Level 2+)',
     why: 'Proves you have completed food safety training to the FSA standard.',
     mustShow: ['Your full name', 'The awarding body', 'Date of completion'],
-    acceptedFiles: 'PDF, JPG or PNG, max 10 MB',
+    acceptedFiles: 'PDF, JPG, PNG, WebP or HEIC, max 10 MB',
   },
   {
     type: 'insurance',
     label: 'Public liability insurance',
-    why: 'Protects you and your customers. Minimum £5m cover required.',
+    why: 'Protects you and your customers. Minimum £1m cover required for onboarding.',
     mustShow: ['Your name or business name', 'Policy number', 'Coverage amount', 'Expiry date'],
-    acceptedFiles: 'PDF, JPG or PNG, max 10 MB',
+    acceptedFiles: 'PDF, JPG, PNG, WebP or HEIC, max 10 MB',
   },
   {
     type: 'photo_id',
     label: 'Photo ID',
     why: 'Passport or driving licence, used for identity verification only.',
     mustShow: ['Clear photo of the document', 'Name matches your account', 'Document not expired'],
-    acceptedFiles: 'PDF, JPG or PNG, max 10 MB',
+    acceptedFiles: 'PDF, JPG, PNG, WebP or HEIC, max 10 MB',
   },
   {
     type: 'kitchen_reg',
     label: 'Food business registration',
     why: 'Required under the Food Safety Act 1990. Register for free at your local council, usually 1 to 2 weeks. Guidance: https://www.food.gov.uk/business-guidance/register-a-food-business',
     mustShow: ['Your name or business name', 'Issuing council', 'Registration date'],
-    acceptedFiles: 'PDF, JPG or PNG, max 10 MB',
+    acceptedFiles: 'PDF, JPG, PNG, WebP or HEIC, max 10 MB',
   },
 ];
 
@@ -76,6 +82,13 @@ export const REQUIRED_DOCS: ReadonlyArray<{
 export const REQUIRED_DOC_TYPES: ReadonlyArray<VendorDocumentType> = REQUIRED_DOCS.map(
   (d) => d.type,
 );
+
+const DOCUMENT_STEPS: Partial<Record<VendorDocumentType, RequiredOnboardingItemName>> = {
+  kitchen_reg: 'food_business_registration',
+  insurance: 'public_liability_insurance',
+  hygiene_cert: 'food_safety_certificate',
+  photo_id: 'photo_id_verification',
+};
 
 /** Decorative icon tile per doc type - matches the Vendor4 mockup. */
 const DOC_ICON: Record<VendorDocumentType, { Icon: typeof FileText; bg: string; fg: string }> = {
@@ -181,10 +194,19 @@ export function DocumentRow({
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const { token } = useAccessToken();
+  const requiredItems = useRequiredOnboardingItems();
+  const deferDocument = useUpdateRequiredOnboardingItem();
+  const [deferErrorMessage, setDeferErrorMessage] = useState(
+    'Could not update this checklist item. Please try again.',
+  );
   const [expiresAt, setExpiresAt] = useState('');
   const state = deriveComplianceState(doc);
   const days = daysUntil(doc?.expiresAt ?? null);
   const type = typeProp ?? inferTypeFromLabel(label);
+  const step = DOCUMENT_STEPS[type];
+  const deferred = requiredItems.data?.some(
+    (item) => item.name === step && item.state === 'deferred',
+  );
   const iconMeta = DOC_ICON[type] ?? DOC_ICON.bank_details;
   const { Icon } = iconMeta;
 
@@ -304,6 +326,46 @@ export function DocumentRow({
             <Upload className="h-3.5 w-3.5" aria-hidden />
             {doc ? 'Replace document' : 'Upload document'}
           </button>
+          {!doc && step && (
+            <>
+              <button
+                type="button"
+                disabled={uploading || deferDocument.isPending || deferred}
+                onClick={() => {
+                  setDeferErrorMessage('Could not update this checklist item. Please try again.');
+                  deferDocument.mutate(
+                    { name: step, state: 'deferred' },
+                    {
+                      onError: async (error) => {
+                        setDeferErrorMessage(
+                          await userErrorMessage(
+                            error,
+                            'Could not update this checklist item. Please try again.',
+                          ),
+                        );
+                      },
+                    },
+                  );
+                }}
+                className="text-xs font-medium text-mid underline disabled:opacity-60"
+              >
+                {deferDocument.isPending
+                  ? 'Saving...'
+                  : deferred
+                    ? 'Added to checklist'
+                    : 'Add later'}
+              </button>
+              <p className="text-[11px] text-mid">
+                You can continue setup. We will remind you, but this document must be verified
+                before you can go live.
+              </p>
+              {deferDocument.isError && (
+                <p role="alert" className="text-xs text-red-600">
+                  {deferErrorMessage}
+                </p>
+              )}
+            </>
+          )}
           <input
             ref={fileRef}
             type="file"

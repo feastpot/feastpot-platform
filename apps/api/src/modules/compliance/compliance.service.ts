@@ -19,7 +19,7 @@ import {
 
 import { SupabaseService } from '../../auth/supabase.service';
 import type { AuthUser } from '../../auth/types';
-import { validateUpload } from '../../common/uploads/validate-upload';
+import { normaliseUpload } from '../../common/uploads/normalise-upload';
 import { PrismaService } from '../../prisma/prisma.service';
 import { AnalyticsService } from '../analytics/analytics.service';
 import { DOCUMENTS_BUCKET } from '../catalogue/supabase-storage.service';
@@ -115,12 +115,12 @@ export class ComplianceService {
     replacementId?: string,
   ) {
     await this.assertCanManageVendor(vendorId, user);
-    if (
-      replacementId &&
-      !(await this.prisma.vendorDocument.findFirst({ where: { id: replacementId, vendorId } }))
-    )
+    const previous = replacementId
+      ? await this.prisma.vendorDocument.findFirst({ where: { id: replacementId, vendorId } })
+      : null;
+    if (replacementId && !previous)
       throw new NotFoundException({ code: 'DOCUMENT_NOT_FOUND', message: 'Document not found' });
-    validateUpload(file, 10 * 1024 * 1024, true);
+    file = await normaliseUpload(file, 10 * 1024 * 1024, true);
     if (file.size > 10 * 1024 * 1024) {
       throw new BadRequestException({ code: 'FILE_TOO_LARGE', message: 'Max 10 MB per document' });
     }
@@ -177,7 +177,12 @@ export class ComplianceService {
       throw error;
     }
     if (!useTestStorage) await this.lifecycle.committed(DOCUMENTS_BUCKET, path);
-    await this.lifecycle.drain();
+    // Clean up only the replaced document here. The scheduled drainer owns
+    // unrelated deletion intents; a vendor upload must not run a global sweep.
+    if (previous && !useTestStorage) {
+      const ref = this.lifecycle.parse(previous.fileUrl);
+      if (ref) await this.lifecycle.compensate(ref.bucket, ref.path);
+    }
     const stepByType: Partial<Record<DocumentType, VendorOnboardingStepName>> = {
       [DocumentType.kitchen_reg]: VendorOnboardingStepName.food_business_registration,
       [DocumentType.insurance]: VendorOnboardingStepName.public_liability_insurance,
