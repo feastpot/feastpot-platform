@@ -33,7 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7
 
       - name: Set up Node.js 22
         uses: actions/setup-node@v5
@@ -68,7 +68,7 @@ jobs:
     needs: [setup]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -94,7 +94,7 @@ jobs:
     needs: [setup]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -176,7 +176,7 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
       NEXT_PUBLIC_SUPABASE_ANON_KEY: local-link-audit-key
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -237,7 +237,7 @@ jobs:
       SUPABASE_DIRECT_URL: postgresql://feastpot:feastpot@localhost:5432/feastpot_validate?schema=public
       SHADOW_DATABASE_URL: postgresql://feastpot:feastpot@localhost:5432/feastpot_shadow?schema=public
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -317,7 +317,7 @@ jobs:
       FEASTPOT_TEST_ENVIRONMENT: database
       SUPABASE_DIRECT_URL: postgresql://feastpot:feastpot@localhost:5432/feastpot_test
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -395,7 +395,7 @@ jobs:
       SUPABASE_DB_URL: postgresql://feastpot:feastpot@localhost:5432/feastpot_financial
       SUPABASE_DIRECT_URL: postgresql://feastpot:feastpot@localhost:5432/feastpot_financial
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -456,7 +456,7 @@ jobs:
       TEST_FACTORY_PASSWORD: ${{ secrets.TEST_FACTORY_PASSWORD }}
       TEST_FACTORY_NAMESPACE: vendor-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-node@v5
         with:
@@ -622,7 +622,7 @@ jobs:
       NEXT_PUBLIC_ADMIN_REQUIRE_AAL2: 'true'
       ADMIN_E2E_ALLOW_AAL1: 'false'
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -756,7 +756,7 @@ jobs:
       PROD_DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
       PROD_DIRECT_URL: ${{ secrets.PROD_DIRECT_URL }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -957,7 +957,7 @@ jobs:
       STRIPE_SECRET_KEY_TEST: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
       SESSION_SECRET: cross-surface-test-only-session-secret-34125348434
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: 22
@@ -1074,7 +1074,7 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: Skip notice for fork PRs (secrets unavailable)
         id: fork-guard
@@ -1117,7 +1117,7 @@ jobs:
     needs: [typecheck, lint, prisma-validate, test, cross-surface-consistency]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v5
         with:
           node-version: 22
