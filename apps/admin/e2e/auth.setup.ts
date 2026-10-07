@@ -65,6 +65,10 @@ setup('provision and authenticate every staff role', async ({ browser }) => {
         await expect(page).toHaveURL(/\/unauthorized(?:\?|$)/, { timeout: 15_000 });
       } else {
         await expect(page).toHaveURL(/\/settings\/2fa/, { timeout: 30_000 });
+        // The real password-only session must reach the dedicated enrolment
+        // surface without a privileged shell. AAL2 sessions redirect instead.
+        await expect(page.getByText('2FA setup required before you continue')).toBeVisible();
+        await expect(page.locator('aside[aria-label="Admin console navigation"]')).toHaveCount(0);
         await page.getByRole('button', { name: 'Enable 2FA', exact: true }).click();
         const secretElement = page.locator('code').filter({ hasText: /^[A-Z2-7]{16,}$/ });
         await secretElement.waitFor({ state: 'visible', timeout: 30_000 });
