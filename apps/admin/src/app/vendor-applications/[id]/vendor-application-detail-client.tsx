@@ -70,11 +70,14 @@ export function VendorApplicationDetailClient({
     updateMutation.mutate(
       { status: 'approved' },
       {
-        onSuccess: () => {
+        onSuccess: (result) => {
           setConfirmingApprove(false);
           toast({
             title: 'Application approved',
-            description: 'Vendor provisioned and invite sent.',
+            description: result.invitationSubmitted
+              ? 'Vendor provisioned and setup invitation submitted for email delivery.'
+              : 'Vendor provisioned, but the invitation was not submitted. Use Resend invite below.',
+            variant: result.invitationSubmitted ? 'default' : 'destructive',
           });
           router.refresh();
         },
@@ -133,7 +136,10 @@ export function VendorApplicationDetailClient({
   function resendInvite() {
     resendMutation.mutate(undefined, {
       onSuccess: () =>
-        toast({ title: 'Invite resent', description: 'A fresh 7-day magic link is on its way.' }),
+        toast({
+          title: 'Invitation submitted',
+          description: 'A fresh setup link has been submitted for email delivery.',
+        }),
       onError: async (err) =>
         toast({
           title: 'Resend failed',
@@ -305,14 +311,20 @@ export function VendorApplicationDetailClient({
                       </>
                     )}
                     {app.status === 'approved' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={resendInvite}
-                        disabled={resendMutation.isPending}
-                      >
-                        Resend invite
-                      </Button>
+                      <div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={resendInvite}
+                          disabled={resendMutation.isPending || !app.vendorId}
+                        >
+                          {resendMutation.isPending ? 'Sending invitation...' : 'Resend invite'}
+                        </Button>
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Send a fresh setup link if the vendor did not receive the email, or their
+                          link has expired or already been used.
+                        </p>
+                      </div>
                     )}
                     {!isInFlight && app.status !== 'approved' && (
                       <span className="text-xs text-muted-foreground">
