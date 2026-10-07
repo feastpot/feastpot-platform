@@ -40,6 +40,8 @@ export interface VendorApplicationRow {
 
 /** Full record returned by GET /admin/vendor-applications/:id. */
 export interface VendorApplicationDetail {
+  /** Returned by the approval mutation; provider acceptance, not inbox delivery. */
+  invitationSubmitted?: boolean;
   id: string;
   fullName: string;
   kitchenName: string;

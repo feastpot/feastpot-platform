@@ -20,31 +20,40 @@ export default function VendorAuthConfirm() {
   const [otpType, setOtpType] = useState<OtpType>('invite');
   const [next, setNext] = useState('/orders');
   const readFragment = useRef(false);
+  const linkRevision = useRef(0);
 
   useEffect(() => {
-    if (readFragment.current) return;
-    readFragment.current = true;
-    const url = new URL(window.location.href);
-    const params = new URLSearchParams(url.hash.slice(1));
-    const receivedTokenHash = params.get('token_hash') ?? '';
-    const receivedType = params.get('type') ?? '';
-    setNext(safeRedirect(url.searchParams.get('next'), '/orders'));
+    const readLink = () => {
+      const url = new URL(window.location.href);
+      if (readFragment.current && !url.hash) return;
+      readFragment.current = true;
+      linkRevision.current++;
+      const params = new URLSearchParams(url.hash.slice(1));
+      const receivedTokenHash = params.get('token_hash') ?? '';
+      const receivedType = params.get('type') ?? '';
+      setNext(safeRedirect(url.searchParams.get('next'), '/orders'));
 
-    // Remove the one-time credential from the address bar before any auth
-    // request, while keeping it only in component memory until human action.
-    window.history.replaceState(null, '', `${url.pathname}${url.search}`);
+      // Remove the credential before any request, including replacement links
+      // opened in the same tab without a full document navigation.
+      window.history.replaceState(null, '', `${url.pathname}${url.search}`);
+      setTokenHash('');
 
-    if (!receivedTokenHash || !VALID_TYPES.has(receivedType)) {
-      setState('invalid');
-      return;
-    }
-    setTokenHash(receivedTokenHash);
-    setOtpType(receivedType as OtpType);
-    setState('ready');
+      if (!receivedTokenHash || !VALID_TYPES.has(receivedType)) {
+        setState('invalid');
+        return;
+      }
+      setTokenHash(receivedTokenHash);
+      setOtpType(receivedType as OtpType);
+      setState('ready');
+    };
+    readLink();
+    window.addEventListener('hashchange', readLink);
+    return () => window.removeEventListener('hashchange', readLink);
   }, []);
 
   const handleContinue = async () => {
     if (!tokenHash || state !== 'ready') return;
+    const revision = linkRevision.current;
     setState('verifying');
     try {
       const supabase = createClient();
@@ -52,13 +61,14 @@ export default function VendorAuthConfirm() {
         token_hash: tokenHash,
         type: otpType,
       });
+      if (revision !== linkRevision.current) return;
       if (error) {
         setState('error');
         return;
       }
       router.replace(`/auth/reset/update?next=${encodeURIComponent(next)}`);
     } catch {
-      setState('error');
+      if (revision === linkRevision.current) setState('error');
     }
   };
 
@@ -121,9 +131,12 @@ export default function VendorAuthConfirm() {
                 This setup link cannot be used
               </h1>
               <p className="text-sm leading-relaxed text-mid" role="alert">
-                The link may be expired, incomplete, or already used. Return to sign in and request
-                a new setup link.
+                The link may be expired, incomplete, or already used. Contact Feastpot and ask the
+                team to resend your vendor invitation.
               </p>
+              <a href="mailto:info@feastpot.co.uk" className="text-sm text-teal underline">
+                Email Feastpot for a new setup link
+              </a>
               <Link
                 href="/sign-in"
                 data-testid="link-back-to-sign-in"
