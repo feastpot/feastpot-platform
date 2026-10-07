@@ -53,7 +53,7 @@ jobs:
         run: tail -n 200 /home/runner/.npm/_logs/*.log || true
 
       - name: Cache Turbo build artefacts
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .turbo
           key: turbo-${{ runner.os }}-${{ github.sha }}
@@ -76,7 +76,7 @@ jobs:
       - run: npm install -g npm@10.9.4
       - run: npm ci
       - name: Restore Turbo cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .turbo
           key: turbo-${{ runner.os }}-${{ github.sha }}
@@ -102,7 +102,7 @@ jobs:
       - run: npm install -g npm@10.9.4
       - run: npm ci
       - name: Restore Turbo cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .turbo
           key: turbo-${{ runner.os }}-${{ github.sha }}
@@ -325,7 +325,7 @@ jobs:
       - run: npm install -g npm@10.9.4
       - run: npm ci
       - name: Restore Turbo cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .turbo
           key: turbo-${{ runner.os }}-${{ github.sha }}
@@ -1125,7 +1125,7 @@ jobs:
       - run: npm install -g npm@10.9.4
       - run: npm ci
       - name: Restore Turbo cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: .turbo
           key: turbo-${{ runner.os }}-${{ github.sha }}
