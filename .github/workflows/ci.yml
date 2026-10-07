@@ -721,7 +721,9 @@ jobs:
     name: E2E (customer checkout)
     needs: [setup]
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # The serial, DB-backed suite took 28 minutes before setup and reporting.
+    # Leave time for fixture cleanup and evidence upload, not just assertions.
+    timeout-minutes: 45
     services:
       redis:
         image: redis:7-alpine
@@ -834,7 +836,7 @@ jobs:
         shell: bash
         run: |
           set +e
-          npx playwright test --config playwright.config.ts e2e/customer
+          npx playwright test --config playwright.config.ts e2e/customer --global-timeout=2400000
           status=$?
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit 0
@@ -890,7 +892,7 @@ jobs:
         if: always() && steps.playwright-run.outputs.exit_code != '0'
         run: exit "${{ steps.playwright-run.outputs.exit_code }}"
       - name: Upload customer Playwright report
-        if: always() && steps.playwright-run.outputs.exit_code != '0'
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: customer-playwright-report-${{ github.run_id }}
