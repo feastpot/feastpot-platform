@@ -225,7 +225,7 @@ export class CateringBookingsService {
       select: { businessName: true },
     });
 
-    const webUrl = process.env.WEB_URL ?? 'https://feastpot.com';
+    const webUrl = process.env.WEB_URL ?? 'https://www.feastpot.co.uk';
     const payLink = `${webUrl}/catering/pay/${booking.id}`;
 
     await this.email.send({
@@ -490,7 +490,7 @@ export class CateringBookingsService {
       return;
     }
 
-    const webUrl = process.env.WEB_URL ?? 'https://feastpot.com';
+    const webUrl = process.env.WEB_URL ?? 'https://www.feastpot.co.uk';
     const payLink = `${webUrl}/catering/pay/${booking.id}/balance`;
 
     await this.email.send({
@@ -510,6 +510,39 @@ export class CateringBookingsService {
   // ---------------------------------------------------------------------------
   // Customer: confirm balance payment
   // ---------------------------------------------------------------------------
+
+  /**
+   * Payment-link access follows the existing public deposit contract. Return
+   * only the already scheduled balance intent and amount, never booking PII.
+   * This does not create, capture or replace an intent.
+   */
+  async initiateBalance(bookingId: string) {
+    const booking = await this.prisma.cateringBooking.findUnique({
+      where: { id: bookingId },
+    });
+    if (!booking) throw new NotFoundException('Booking not found');
+    if (booking.status !== CateringBookingStatus.CONFIRMED) {
+      throw new BadRequestException('This booking has no outstanding balance payment');
+    }
+    if (!booking.balancePiId || booking.balancePence <= 0) {
+      throw new BadRequestException('Balance payment is not yet available');
+    }
+
+    const intent = await this.stripe.retrieve(booking.balancePiId);
+    if (
+      intent.metadata.bookingId !== booking.id ||
+      intent.metadata.kind !== 'catering_balance' ||
+      intent.amount !== booking.balancePence ||
+      intent.currency !== 'gbp' ||
+      intent.capture_method !== 'automatic' ||
+      intent.status === 'canceled' ||
+      !intent.client_secret
+    ) {
+      throw new BadRequestException('Balance payment is unavailable. Please contact support.');
+    }
+
+    return { clientSecret: intent.client_secret, balancePence: booking.balancePence };
+  }
 
   async confirmBalance(bookingId: string, paymentIntentId: string) {
     const booking = await this.prisma.cateringBooking.findUnique({ where: { id: bookingId } });

@@ -4,8 +4,6 @@ export interface VendorPortalInviteData {
   firstName: string;
   kitchenName: string;
   magicLinkUrl: string;
-  /** Display-only countdown; the real expiry is controlled by Supabase. */
-  expiresInDays?: number;
   supportEmail?: string;
 }
 

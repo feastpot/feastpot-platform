@@ -91,18 +91,21 @@ export function useUpsertTaxProfile() {
 }
 
 export function usePrefillFromStripe() {
-  const { token } = useAccessToken();
+  const { token, loading: authLoading } = useAccessToken();
   const qc = useQueryClient();
-  return useMutation({
-    mutationFn: () =>
-      apiRequest<VendorTaxProfile>('/vendors/me/tax-profile/from-stripe', {
+  const mutation = useMutation({
+    mutationFn: () => {
+      if (!token) throw new Error('Please sign in again to import your tax information.');
+      return apiRequest<VendorTaxProfile>('/vendors/me/tax-profile/from-stripe', {
         method: 'POST',
-        accessToken: token!,
-      }),
+        accessToken: token,
+      });
+    },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ['vendor', 'tax-profile'] });
     },
   });
+  return { ...mutation, authReady: Boolean(token) && !authLoading };
 }
 
 export function useMyReports() {

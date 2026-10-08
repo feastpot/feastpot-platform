@@ -807,15 +807,15 @@ export const TEMPLATES: Record<TemplateNotificationEventName, NotificationTempla
         "You've done the hard part",
         h2("You've done the hard part") +
           p(
-            `Thanks${d.vendorName ? `, ${esc(d.vendorName)}` : ''}, for finishing your onboarding. Your menu, documents, and payout details are all in.`,
+            `Thanks${d.vendorName ? `, ${esc(d.vendorName)}` : ''}, for completing the checks required for your kitchen to go live.`,
           ) +
           h2('What happens next') +
           // Lists must be raw <ol>/<ul> strings - wrapping them in p() would
           // emit <p><ol>…</ol></p>, which is invalid HTML and renders
           // inconsistently across Outlook / Gmail / Apple Mail.
           '<ol style="margin:0 0 14px 20px;padding:0;color:#1C1C1A;font-size:14px;line-height:1.6">' +
-          '<li>Your documents are reviewed within <strong>2 business days</strong>.</li>' +
-          "<li>We'll email you the moment you're approved.</li>" +
+          '<li>Our team will review your kitchen for go-live approval.</li>' +
+          "<li>We'll email you when your kitchen is approved.</li>" +
           '<li>Once approved, your menu goes live and customers can find you in search.</li>' +
           '</ol>' +
           h2('While you wait - set yourself up to win') +
@@ -1328,6 +1328,23 @@ export const TEMPLATES: Record<TemplateNotificationEventName, NotificationTempla
           p('If you have any questions, please contact us at hello@feastpot.co.uk.'),
       ),
     channels: ['email'],
+  },
+
+  catering_completed: {
+    subject: () => 'Catering booking completed',
+    render: (d) =>
+      baseLayout(
+        'Catering booking completed',
+        h2('Your catering booking is complete') +
+          keyValueRow('Customer', esc(d.customerName, 'Your customer')) +
+          keyValueRow('Event date', esc(d.eventDate)) +
+          keyValueRow('Earnings before payout adjustments', formatMoney(d.netPayoutPence)) +
+          p(
+            'Eligible earnings will be included in your regular payout statement, subject to refunds, chargebacks and other adjustments. This message does not confirm that a bank transfer has been made.',
+          ) +
+          brandButton('View payouts', 'https://vendor.feastpot.co.uk/payouts', 'vendorBlue'),
+      ),
+    channels: ['email', 'push'],
   },
 
   catering_deposit_received: {

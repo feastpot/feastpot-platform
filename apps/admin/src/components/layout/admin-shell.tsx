@@ -32,6 +32,7 @@ import {
   Scale,
   Settings,
   ShieldCheck,
+  ShieldAlert,
   Store,
   Tag,
   Users,
@@ -144,6 +145,12 @@ export const NAV_GROUPS = [
   ]),
   G('Governance', [
     { href: '/legal', label: 'Legal ops', icon: Scale, roles: R('/legal') },
+    {
+      href: '/account-deletions',
+      label: 'Account deletions',
+      icon: ShieldAlert,
+      roles: R('/account-deletions'),
+    },
     { href: '/audit-log', label: 'Audit log', icon: Activity, roles: R('/audit-log') },
   ]),
   G('System', [

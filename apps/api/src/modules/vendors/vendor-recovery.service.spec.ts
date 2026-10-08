@@ -62,7 +62,7 @@ describe('VendorRecoveryService', () => {
         stage: RecoveryNudgeStage.email_24h,
         schedule: {
           targetedItem: VendorOnboardingStepName.photo_id_verification,
-          vendor: { userId: 'u1' },
+          vendor: { userId: 'u1', application: { marketingConsent: true } },
         },
       },
     ]);
@@ -84,6 +84,29 @@ describe('VendorRecoveryService', () => {
         data: expect.objectContaining({ skippedAt: expect.any(Date) }),
       }),
     );
+  });
+
+  it.each([
+    RecoveryNudgeStage.email_24h,
+    RecoveryNudgeStage.email_3d_help,
+    RecoveryNudgeStage.email_7d_final,
+  ])('does not queue %s without positive applicant consent', async (stage) => {
+    prisma.vendorRecoveryStage.findMany.mockResolvedValue([
+      {
+        id: 'unconsented-stage',
+        stage,
+        schedule: {
+          targetedItem: VendorOnboardingStepName.photo_id_verification,
+          vendor: { userId: 'u1', application: { marketingConsent: false } },
+        },
+      },
+    ]);
+    expect(await service.dispatchDue()).toEqual([]);
+    expect(notifications.enqueue).not.toHaveBeenCalled();
+    expect(prisma.vendorRecoveryStage.updateMany).toHaveBeenCalledWith({
+      where: { id: 'unconsented-stage', sentAt: null, skippedAt: null },
+      data: { skippedAt: expect.any(Date) },
+    });
   });
 
   it('retargets a schedule to the next outstanding item', async () => {

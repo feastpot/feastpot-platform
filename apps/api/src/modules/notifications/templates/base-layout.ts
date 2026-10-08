@@ -63,6 +63,7 @@ ${preheader ? `<div style="display:none;max-height:0;overflow:hidden;color:trans
   <div style="background:${BRAND.paper};padding:16px 28px;border-top:1px solid ${BRAND.hairline}">
     <p style="margin:0 0 4px;font-size:12px;color:${BRAND.muteSoft}">Feastpot · feastpot.co.uk · ${LEGAL.SUPPORT_EMAIL}</p>
     <p style="margin:0;font-size:11px;color:#BDBBB7">ICO Registration: ${LEGAL.ICO_NUMBER} · ${LEGAL.COMPANY_NAME} · England &amp; Wales</p>
+    <p style="margin:4px 0 0;font-size:11px"><a href="https://www.feastpot.co.uk/account/notifications" style="color:${BRAND.muteSoft}">Notification preferences</a></p>
   </div>
 </div>
 </body></html>`;

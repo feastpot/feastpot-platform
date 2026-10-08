@@ -59,7 +59,10 @@ function makePrisma() {
   return prisma;
 }
 const makeStripe = () => ({ createTransfer: jest.fn() as Mock });
-const makeQueue = () => ({ add: jest.fn().mockResolvedValue({ id: '1' }) as Mock });
+const makeQueue = () => ({
+  add: jest.fn().mockResolvedValue({ id: '1' }) as Mock,
+  enqueue: jest.fn().mockResolvedValue(undefined) as Mock,
+});
 
 describe('lastCompletedWeekUtc', () => {
   it('on a Tuesday, returns Mon→Mon a week prior', () => {

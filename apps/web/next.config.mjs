@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import withPWAInit from '@ducanh2912/next-pwa';
+import { PHASE_PRODUCTION_BUILD } from 'next/constants.js';
 import releasePolicy from './scripts/release-policy.cjs';
 
 const indexingDisabled = releasePolicy.isIndexingDisabled();
@@ -30,7 +30,7 @@ const BUILD_SHA = (() => {
  *   `public/sw-custom.js` and is `importScripts()`d into the generated SW.
  * - `allowedDevOrigins` lets the Replit proxy iframe (mTLS) load the app.
  */
-const withPWA = withPWAInit({
+const pwaOptions = {
   dest: 'public',
   register: true,
   // Cache the App Router payloads for routes the user has already navigated
@@ -122,7 +122,7 @@ const withPWA = withPWAInit({
   // Fallback shell shown when network is gone AND the requested document
   // isn't precached. Matches the route created in `src/app/offline/page.tsx`.
   fallbacks: { document: '/offline' },
-});
+};
 
 /**
  * Supabase Storage public bucket - derived from NEXT_PUBLIC_SUPABASE_URL so
@@ -241,14 +241,21 @@ const nextConfig = {
 // Optional bundle analyser - only loaded when ANALYZE=true so the dependency
 // stays a devDep that doesn't bloat the runtime image. Run with:
 //   ANALYZE=true npm run build --workspace=@feastpot/web
-let withBundleAnalyzer = (cfg) => cfg;
-if (process.env.ANALYZE === 'true') {
-  try {
-    const mod = await import('@next/bundle-analyzer');
-    withBundleAnalyzer = mod.default({ enabled: true });
-  } catch {
-    console.warn('[next.config] ANALYZE=true but @next/bundle-analyzer is not installed');
-  }
-}
+export default async function configureNext(phase) {
+  // Build tooling must not be imported while serving production requests.
+  // The PWA plugin imports micromatch/braces even when its webpack hook
+  // is never called. Generated service workers still run normally.
+  if (phase !== PHASE_PRODUCTION_BUILD) return nextConfig;
 
-export default withBundleAnalyzer(withPWA(nextConfig));
+  const { default: withPWAInit } = await import('@ducanh2912/next-pwa');
+  let withBundleAnalyzer = (cfg) => cfg;
+  if (process.env.ANALYZE === 'true') {
+    try {
+      const mod = await import('@next/bundle-analyzer');
+      withBundleAnalyzer = mod.default({ enabled: true });
+    } catch {
+      console.warn('[next.config] ANALYZE=true but @next/bundle-analyzer is not installed');
+    }
+  }
+  return withBundleAnalyzer(withPWAInit(pwaOptions)(nextConfig));
+}

@@ -133,7 +133,7 @@ describe('PayoutsService.executeTransfer', () => {
     },
   };
   const mockStripe = { createTransfer: jest.fn() };
-  const mockNotifications = { add: jest.fn() };
+  const mockNotifications = { enqueue: jest.fn() };
   const mockInbox = { notify: jest.fn() };
   const mockCommission = {};
   const mockPayoutQueue = { add: jest.fn() };
@@ -156,7 +156,7 @@ describe('PayoutsService.executeTransfer', () => {
     mockPrisma.payout.findUnique.mockResolvedValue(mockPayout);
     mockPrisma.payout.update.mockResolvedValue({ ...mockPayout, status: PayoutStatus.transferred });
     mockStripe.createTransfer.mockResolvedValue({ id: 'tr_test_abc' });
-    mockNotifications.add.mockResolvedValue(undefined);
+    mockNotifications.enqueue.mockResolvedValue(undefined);
     mockInbox.notify.mockResolvedValue(undefined);
   });
 
@@ -208,13 +208,13 @@ describe('PayoutsService.executeTransfer', () => {
     );
 
     // Vendor notification must be sent.
-    expect(mockNotifications.add).toHaveBeenCalledWith(
+    expect(mockNotifications.enqueue).toHaveBeenCalledWith(
       'payout_failed_terminal',
       expect.objectContaining({ payoutId: PAYOUT_ID }),
     );
 
     // Finance email must be sent.
-    expect(mockNotifications.add).toHaveBeenCalledWith(
+    expect(mockNotifications.enqueue).toHaveBeenCalledWith(
       'vendor_application_email_raw',
       expect.objectContaining({ subject: expect.stringContaining('ACTION REQUIRED') }),
     );
@@ -234,7 +234,7 @@ describe('PayoutsService.executeTransfer', () => {
         data: expect.objectContaining({ status: PayoutStatus.failed }),
       }),
     );
-    expect(mockNotifications.add).toHaveBeenCalledWith(
+    expect(mockNotifications.enqueue).toHaveBeenCalledWith(
       'payout_failed_terminal',
       expect.objectContaining({ payoutId: PAYOUT_ID }),
     );
@@ -250,7 +250,7 @@ describe('PayoutsService.executeTransfer', () => {
 
     // Should NOT update the DB or send notifications again.
     expect(mockPrisma.payout.update).not.toHaveBeenCalled();
-    expect(mockNotifications.add).not.toHaveBeenCalled();
+    expect(mockNotifications.enqueue).not.toHaveBeenCalled();
   });
 
   it('scenario 4: manual admin retry uses same Stripe idempotency key - no double payment', async () => {

@@ -15,6 +15,7 @@ import { cn } from '@feastpot/ui';
 import { AddressSelector } from '@/components/address/address-selector';
 import {
   AppleGooglePayButton,
+  type ConfirmWalletPayment,
   type ExpressPayComplete,
 } from '@/components/checkout/payment-request-button';
 import { SlotPicker } from '@/components/checkout/slot-picker';
@@ -464,12 +465,16 @@ function CheckoutInner() {
     }
   };
 
-  // Apple Pay / Google Pay express checkout. Mirrors the card flow's order →
-  // PaymentIntent → confirm → finalize sequence, but the payment method comes
-  // from the wallet sheet. We confirm with handleActions:false so we can
-  // dismiss the native sheet (via `complete`) BEFORE running any 3DS step,
-  // which Stripe requires.
-  const handleExpressPay = async (paymentMethodId: string, complete: ExpressPayComplete) => {
+  // Apple Pay / Google Pay share the card checkout's server-owned order flow.
+  // Stripe's Express Checkout Element owns wallet confirmation and 3DS.
+  const handleExpressPay = async (
+    confirmWalletPayment: ConfirmWalletPayment,
+    complete: ExpressPayComplete,
+  ) => {
+    if (submittingRef.current) {
+      complete('fail');
+      return;
+    }
     setServerError(null);
     if (!vendorProfileReady || isDemoVendor || vendorCannotOrder) {
       complete('fail');
@@ -483,11 +488,13 @@ function CheckoutInner() {
     // this state (expressPayReady gates on !paidButUnconfirmed); this guard is
     // belt-and-suspenders in case the sheet was already open.
     if (paidOrderIdRef.current) {
+      submittingRef.current = true;
       try {
         await confirmOrder.mutateAsync(paidOrderIdRef.current);
         complete('success');
         finalizeOrderSuccess(paidOrderIdRef.current);
       } catch (err) {
+        submittingRef.current = false;
         complete('fail');
         setPaidButUnconfirmed(paidOrderIdRef.current);
         setServerError(await userErrorMessage(err, 'Could not finalise your order.'));
@@ -516,6 +523,7 @@ function CheckoutInner() {
       return;
     }
 
+    submittingRef.current = true;
     setSubmitting(true);
     try {
       const discountCode =
@@ -539,13 +547,8 @@ function CheckoutInner() {
       });
       checkoutOrderIdRef.current = order.id;
 
-      const { error: stripeErr, paymentIntent } = await stripe.confirmCardPayment(
-        clientSecret,
-        { payment_method: paymentMethodId },
-        { handleActions: false },
-      );
-
-      if (stripeErr) {
+      const walletResult = await confirmWalletPayment(clientSecret);
+      if (walletResult.error) {
         const released = await releaseIncompleteOrder(
           order.id,
           'Payment authorisation failed during express checkout',
@@ -553,33 +556,17 @@ function CheckoutInner() {
         complete('fail');
         paidOrderIdRef.current = null;
         if (released)
-          setServerError(await userErrorMessage(stripeErr, 'Could not complete your payment.'));
+          setServerError(
+            await userErrorMessage(walletResult.error, 'Could not complete your payment.'),
+          );
         setSubmitting(false);
+        submittingRef.current = false;
         return;
       }
-
-      // Dismiss the wallet sheet, THEN handle any required 3DS step.
+      const paymentIntent = walletResult.paymentIntent;
       complete('success');
 
-      let pi = paymentIntent;
-      if (pi && pi.status === 'requires_action') {
-        // Past this point the card may have been authorised on the retry, so
-        // mark the order as paid-but-unconfirmed if anything downstream fails.
-        paidOrderIdRef.current = order.id;
-        const next = await stripe.confirmCardPayment(clientSecret);
-        if (next.error) {
-          setPaidButUnconfirmed(order.id);
-          setServerError(
-            await userErrorMessage(
-              next.error,
-              'Could not authenticate your payment. Please try again.',
-            ),
-          );
-          setSubmitting(false);
-          return;
-        }
-        pi = next.paymentIntent;
-      }
+      const pi = paymentIntent;
 
       if (!pi || (pi.status !== 'requires_capture' && pi.status !== 'succeeded')) {
         const released = await releaseIncompleteOrder(
@@ -588,6 +575,7 @@ function CheckoutInner() {
         );
         if (released) setServerError(`Unexpected payment status: ${pi?.status ?? 'unknown'}`);
         setSubmitting(false);
+        submittingRef.current = false;
         return;
       }
 
@@ -605,6 +593,7 @@ function CheckoutInner() {
         setServerError(await userErrorMessage(err, 'Could not complete checkout.'));
       else setServerError('Checkout failed. Please try again.');
       setSubmitting(false);
+      submittingRef.current = false;
     }
   };
 
@@ -1111,6 +1100,7 @@ function CheckoutInner() {
               totalPence={expressTotalPence}
               label={`${PLATFORM_FACTS.brandName} · ${vendor.name}`}
               disabled={submitting}
+              captureMethod="manual"
               onPaymentMethod={handleExpressPay}
             />
           )

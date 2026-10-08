@@ -213,7 +213,7 @@ function TaxProfileSection({ profile }: { profile: VendorTaxProfile | null | und
   const statusBadge = profile ? STATUS_BADGE[profile.verificationStatus] : null;
 
   useEffect(() => {
-    if (reconciled.current) return;
+    if (!prefill.authReady || reconciled.current) return;
     reconciled.current = true;
     prefillRef.current(undefined, {
       onSuccess: (p) => {
@@ -239,7 +239,7 @@ function TaxProfileSection({ profile }: { profile: VendorTaxProfile | null | und
         if ((err as { code?: string })?.code !== 'NO_STRIPE_ACCOUNT') setError(message);
       },
     });
-  }, []);
+  }, [prefill.authReady]);
 
   if (!editing && profile) {
     return (

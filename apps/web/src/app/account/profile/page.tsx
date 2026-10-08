@@ -3,12 +3,11 @@ import { userErrorMessage } from '@/lib/user-error-message';
 
 import type { UserIdentity } from '@supabase/supabase-js';
 import { Camera } from 'lucide-react';
-import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 
 import { Avatar } from '@/components/account/avatar';
 import { PageShell } from '@/components/layout/page-shell';
-import { useDeleteMe, useMe, useUpdateMe } from '@/hooks/use-me';
+import { useDeleteMe, useExportMyData, useMe, useMyDeletion, useUpdateMe } from '@/hooks/use-me';
 import { useAccessToken } from '@/lib/auth/use-access-token';
 import { createClient } from '@/lib/supabase/client';
 
@@ -33,11 +32,12 @@ const inputCls =
  *   surface client-side without a round-trip.
  */
 export default function ProfilePage() {
-  const router = useRouter();
   const { data: me, isLoading } = useMe();
   const { token } = useAccessToken();
   const update = useUpdateMe();
   const del = useDeleteMe();
+  const deletion = useMyDeletion();
+  const exportData = useExportMyData();
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -144,7 +144,7 @@ export default function ProfilePage() {
     try {
       await update.mutateAsync({
         fullName: trimmedName,
-        ...(cleanPhone ? { phone: cleanPhone } : {}),
+        phone: cleanPhone || null,
       });
       setToast('Profile updated');
     } catch (err) {
@@ -155,12 +155,36 @@ export default function ProfilePage() {
   const onConfirmDelete = async () => {
     setDeleteError(null);
     try {
-      await del.mutateAsync();
-      const supabase = createClient();
-      await supabase.auth.signOut();
-      router.replace('/sign-in?deleted=1');
+      await del.mutateAsync('request');
+      setConfirmDelete(false);
+      setShowDangerZone(true);
     } catch (err) {
-      setDeleteError(await userErrorMessage(err, 'Could not delete your account.'));
+      setDeleteError(await userErrorMessage(err, 'Could not request account deletion.'));
+    }
+  };
+
+  const onExportData = async () => {
+    setDeleteError(null);
+    try {
+      const data = await exportData.mutateAsync();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const href = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = href;
+      link.download = `feastpot-data-export-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(href);
+    } catch (err) {
+      setDeleteError(await userErrorMessage(err, 'Could not export your data.'));
+    }
+  };
+
+  const onCancelDeletion = async () => {
+    setDeleteError(null);
+    try {
+      await del.mutateAsync('cancel');
+    } catch (err) {
+      setDeleteError(await userErrorMessage(err, 'Could not cancel the request.'));
     }
   };
 
@@ -335,20 +359,95 @@ export default function ProfilePage() {
           {showDangerZone && (
             <div className="mt-3 space-y-3 text-sm">
               <p className="text-charcoal-mid">
-                Deleting your account removes your profile, addresses, and saved payment methods.
-                Past order records are kept for tax and dispute reasons.
+                You can export your data first, then request account deletion. The request has a
+                14-day grace period and does not erase your account immediately.
               </p>
-              <button
-                type="button"
-                onClick={() => {
-                  setConfirmDelete(true);
-                  setDeleteText('');
-                  setDeleteError(null);
-                }}
-                className="rounded-xl border border-scotch/40 bg-white px-4 py-2 text-xs font-bold text-scotch hover:bg-scotch/10"
-              >
-                Delete account
-              </button>
+              <p className="text-xs text-charcoal-mid">
+                Financial and legal records are retained in anonymised form for six years.
+                Restricted seller identity information required by law may be retained for five
+                years after the last reporting period. Ordinary profile, contact, address, photo,
+                document and sign-in identity data is erased only after final processing.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={onExportData}
+                  disabled={exportData.isPending}
+                  className="rounded-xl border border-cream-deep bg-white px-4 py-2 text-xs font-bold text-charcoal hover:bg-cream disabled:opacity-50"
+                >
+                  {exportData.isPending ? 'Preparing export…' : 'Export my data'}
+                </button>
+                {!deletion.data?.request || deletion.data.request.status === 'cancelled' ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setConfirmDelete(true);
+                      setDeleteText('');
+                      setDeleteError(null);
+                    }}
+                    className="rounded-xl border border-scotch/40 bg-white px-4 py-2 text-xs font-bold text-scotch hover:bg-scotch/10"
+                  >
+                    Request account deletion
+                  </button>
+                ) : null}
+              </div>
+              {deletion.isLoading && (
+                <p className="text-xs text-charcoal-mid">Checking request status…</p>
+              )}
+              {deletion.error && (
+                <p role="alert" className="text-xs font-medium text-scotch">
+                  Could not load deletion status. Refresh this page to try again.
+                </p>
+              )}
+              {deletion.data?.request && deletion.data.request.status !== 'cancelled' && (
+                <div className="space-y-3 rounded-xl border border-scotch/20 bg-white p-4">
+                  <p className="text-sm font-bold text-charcoal">
+                    Request status:{' '}
+                    <span className="capitalize">{deletion.data.request.status}</span>
+                  </p>
+                  <p className="text-sm text-charcoal-mid">
+                    Your request is queued. The grace period ends{' '}
+                    <strong>
+                      {new Date(deletion.data.request.eligibleAt).toLocaleString('en-GB', {
+                        dateStyle: 'long',
+                        timeStyle: 'short',
+                      })}
+                    </strong>
+                    . We will not treat the request as completed until final processing is
+                    confirmed.
+                  </p>
+                  {deletion.data.blockers.length > 0 && (
+                    <div className="space-y-1">
+                      <p className="text-xs font-bold text-scotch">Live checks still outstanding</p>
+                      {deletion.data.blockers.map((blocker) => (
+                        <p key={blocker.code} className="text-xs text-charcoal-mid">
+                          <strong>{blocker.code}:</strong> {blocker.message}
+                          {blocker.count > 1 ? ` (${blocker.count})` : ''}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-charcoal-mid">
+                    The 14-day period is a cancellation window, not a promise of automatic deletion.
+                    Final erasure waits for verified processing and any outstanding checks.
+                  </p>
+                  {['requested', 'blocked'].includes(deletion.data.request.status) && (
+                    <button
+                      type="button"
+                      onClick={onCancelDeletion}
+                      disabled={del.isPending}
+                      className="rounded-xl border border-cream-deep px-4 py-2 text-xs font-bold text-charcoal hover:bg-cream disabled:opacity-50"
+                    >
+                      {del.isPending ? 'Cancelling…' : 'Cancel deletion request'}
+                    </button>
+                  )}
+                </div>
+              )}
+              {deleteError && (
+                <p role="alert" className="text-xs font-medium text-scotch">
+                  {deleteError}
+                </p>
+              )}
             </div>
           )}
         </section>
@@ -375,9 +474,12 @@ export default function ProfilePage() {
               className="w-full max-w-sm space-y-3 rounded-2xl bg-white p-5 shadow-lg"
               onClick={(e) => e.stopPropagation()}
             >
-              <h2 className="font-display text-lg font-black text-scotch">Delete account?</h2>
+              <h2 className="font-display text-lg font-black text-scotch">
+                Request account deletion?
+              </h2>
               <p className="text-sm text-charcoal-mid">
-                This will permanently delete your account and all your data. This cannot be undone.
+                This queues a cancellable request for 14 days. Your account will not be signed out
+                or erased now. Export your data before proceeding if you need a copy.
               </p>
               <label className="block text-sm">
                 <span className="mb-1 block font-bold text-charcoal">
@@ -413,7 +515,7 @@ export default function ProfilePage() {
                   onClick={onConfirmDelete}
                   className="rounded-xl bg-scotch px-4 py-2.5 text-sm font-bold text-white hover:bg-scotch-dark disabled:opacity-50"
                 >
-                  {del.isPending ? 'Deleting…' : 'Delete account'}
+                  {del.isPending ? 'Submitting…' : 'Request deletion'}
                 </button>
               </div>
             </div>

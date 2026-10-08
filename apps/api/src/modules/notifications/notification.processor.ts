@@ -1,4 +1,4 @@
-import { InjectQueue, OnQueueFailed, Process, Processor } from '@nestjs/bull';
+import { OnQueueFailed, Process, Processor } from '@nestjs/bull';
 import { Injectable, Logger } from '@nestjs/common';
 import {
   AmendmentStatus,
@@ -8,7 +8,7 @@ import {
   Prisma,
 } from '@prisma/client';
 import * as Sentry from '@sentry/nestjs';
-import type { Job, Queue } from 'bull';
+import type { Job } from 'bull';
 
 import { PrismaService } from '../../prisma/prisma.service';
 import { shouldReportQueueFailure } from '../../queues/queue-failure';
@@ -20,6 +20,7 @@ import {
   type NotificationEventName,
 } from './notification-events';
 import { findPreferenceDefinition } from './notification-preferences.constants';
+import { NotificationsService } from './notifications.service';
 import { EmailProvider, type EmailAttachment } from './providers/email.provider';
 import { PushProvider } from './providers/push.provider';
 import { SmsProvider } from './providers/sms.provider';
@@ -130,7 +131,7 @@ export class NotificationProcessor {
     private readonly whatsapp: WhatsappProvider,
     private readonly push: PushProvider,
     private readonly sms: SmsProvider,
-    @InjectQueue(NOTIFICATIONS_QUEUE) private readonly notifications: Queue,
+    private readonly notifications: NotificationsService,
   ) {}
 
   /**
@@ -156,23 +157,18 @@ export class NotificationProcessor {
       await this.handleEtaOverdue(job.data as { orderId?: string });
       return { sent: [], skipped: [] };
     }
+    if (eventName === 'review_trigger') {
+      await this.handleReviewTrigger(job.data as { orderId?: string });
+      return { sent: [], skipped: [] };
+    }
 
     /*
      * Declared no-ops: these jobs remain registered so their producers are
      * explicit, but they deliberately send no notification.
      *
      * - referral_rewarded / points_expired: the loyalty ledger is authoritative.
-     * - catering_completed: completion is recorded and the customer already gets
-     *   the dedicated completion email from CateringBookingsService.
-     * - review_trigger: legacy delayed marker only. The compliance cron separately
-     *   finds eligible delivered orders and enqueues the real review_request event.
      */
-    if (
-      eventName === 'referral_rewarded' ||
-      eventName === 'points_expired' ||
-      eventName === 'catering_completed' ||
-      eventName === 'review_trigger'
-    ) {
+    if (eventName === 'referral_rewarded' || eventName === 'points_expired') {
       this.logger.debug(`Declared no-op notification event "${eventName}" completed.`);
       return { sent: [], skipped: [] };
     }
@@ -188,6 +184,12 @@ export class NotificationProcessor {
     }
 
     if (eventName === 'vendor_application_email_raw') {
+      const deletionId = job.data?.accountDeletionRequestId;
+      if (deletionId && job.data?.isTestData === true) {
+        // Isolated fixture notices must never reach real providers, especially
+        // when development and production share Redis. This is not delivery proof.
+        return { sent: [], skipped: ['email' as Channel] };
+      }
       const {
         to,
         subject: rawSubject,
@@ -203,7 +205,32 @@ export class NotificationProcessor {
         );
         return { sent: [], skipped: [] };
       }
-      const r = await this.email.send({ to, subject: rawSubject, html: rawHtml });
+      const r = await this.email.send({
+        to,
+        subject: rawSubject,
+        html: rawHtml,
+        ...(typeof deletionId === 'string'
+          ? {
+              idempotencyKey: `account-deletion:${deletionId}:${String(job.data.accountDeletionNoticeKind)}`,
+            }
+          : {}),
+      });
+      if (typeof deletionId === 'string') {
+        if (!r.delivered || !r.id) {
+          throw new Error('Account deletion email was not accepted by the provider');
+        }
+        const kind = String(job.data.accountDeletionNoticeKind ?? 'unknown');
+        const evidence = JSON.stringify({
+          kind,
+          providerMessageId: r.id,
+          evidenceType: 'provider_accepted',
+          recordedAt: new Date().toISOString(),
+        });
+        await this.prisma.$executeRaw`
+          UPDATE public.account_deletion_requests
+          SET notification_evidence = notification_evidence || ${evidence}::jsonb
+          WHERE id = ${deletionId}::uuid`;
+      }
       this.logger.log(
         `vendor_application_email_raw job=${job.id} delivered=${r.delivered} providerMessageId=${r.id ?? 'none'}`,
       );
@@ -236,7 +263,7 @@ export class NotificationProcessor {
 
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, email: true, phone: true, firstName: true },
+      select: { id: true, email: true, phone: true, phoneVerified: true, firstName: true },
     });
     if (!user) {
       this.logger.warn(`Event "${eventName}" user ${userId} not found - dropping.`);
@@ -275,6 +302,23 @@ export class NotificationProcessor {
               ? (['sms'] as Channel[])
               : (['email'] as Channel[])
         : template.channels;
+    if (eventName === NotificationEvent.vendor_onboarding_recovery) {
+      const vendor = await this.prisma.vendor.findUnique({
+        where: { userId: user.id },
+        select: { application: { select: { marketingConsent: true } } },
+      });
+      if (
+        vendor?.application?.marketingConsent !== true ||
+        (recoveryChannel.includes('sms') && (!user.phone || !user.phoneVerified))
+      ) {
+        await this.updateRecoveryDelivery(
+          data,
+          'skipped',
+          'positive consent or verified phone absent',
+        );
+        return { sent: [], skipped: recoveryChannel };
+      }
+    }
     const enabledChannels = await this.filterEnabledChannels(user.id, eventName, recoveryChannel);
 
     for (const channel of recoveryChannel) {
@@ -315,6 +359,7 @@ export class NotificationProcessor {
       }
 
       try {
+        let providerMessageId: string | undefined;
         const ok = await this.dispatch(channel, {
           eventName,
           user,
@@ -323,6 +368,9 @@ export class NotificationProcessor {
           data,
           template: template.whatsappTemplate,
           smsBody: template.sms ? template.sms(data) : undefined,
+          onProviderMessageId: (id) => {
+            providerMessageId = id;
+          },
         });
         if (ok) {
           sent.push(channel);
@@ -333,7 +381,7 @@ export class NotificationProcessor {
             subject,
             html,
             NotificationStatus.sent,
-            data,
+            { ...data, ...(providerMessageId ? { providerMessageId } : {}) },
           );
           await this.updateRecoveryDelivery(data, 'delivered');
         } else {
@@ -354,10 +402,9 @@ export class NotificationProcessor {
           data,
         );
         await this.updateRecoveryDelivery(data, 'failed', (e as Error).message);
-        // Re-throw so BullMQ retries the WHOLE job (all channels). Acceptable
-        // because each channel's send is itself idempotent on the provider side
-        // (Stripe-style: same event, same content) - duplicates are tolerable
-        // for transactional notifications.
+        // Retrying restarts the whole job. Provider sends are NOT implicitly
+        // idempotent. Check recorded acceptance evidence before manual replay;
+        // channel-level retry dedupe is a separate remaining audit gap.
         throw e;
       }
     }
@@ -472,7 +519,7 @@ export class NotificationProcessor {
               subject,
               html,
               NotificationStatus.sent,
-              data,
+              { ...data, ...(r.id ? { providerMessageId: r.id } : {}) },
             );
           } else {
             skipped.push('email');
@@ -497,6 +544,7 @@ export class NotificationProcessor {
     // ─── WhatsApp (no attachment) ────────────────────────────────────────
     if (enabledChannels.includes('whatsapp')) {
       try {
+        let providerMessageId: string | undefined;
         const ok = await this.dispatch('whatsapp', {
           eventName: 'payout_batch_ready',
           user,
@@ -505,6 +553,9 @@ export class NotificationProcessor {
           data,
           template: template.whatsappTemplate,
           smsBody: template.sms ? template.sms(data) : undefined,
+          onProviderMessageId: (id) => {
+            providerMessageId = id;
+          },
         });
         if (ok) {
           sent.push('whatsapp');
@@ -515,7 +566,7 @@ export class NotificationProcessor {
             subject,
             '',
             NotificationStatus.sent,
-            data,
+            { ...data, ...(providerMessageId ? { providerMessageId } : {}) },
           );
         } else {
           skipped.push('whatsapp');
@@ -545,6 +596,52 @@ export class NotificationProcessor {
     }
   }
 
+  private async handleReviewTrigger(data: { orderId?: string }): Promise<void> {
+    if (!data.orderId) throw new Error('review_trigger requires an orderId');
+    const order = await this.prisma.order.findUnique({
+      where: { id: data.orderId },
+      select: {
+        id: true,
+        customerId: true,
+        orderNumber: true,
+        status: true,
+        deliveredAt: true,
+        vendor: { select: { businessName: true } },
+        reviews: { select: { id: true }, take: 1 },
+      },
+    });
+    if (
+      !order ||
+      order.status !== OrderStatus.delivered ||
+      !order.deliveredAt ||
+      order.deliveredAt.getTime() > Date.now() - 2 * 60 * 60 * 1000 ||
+      order.deliveredAt.getTime() < Date.now() - 7 * 24 * 60 * 60 * 1000 ||
+      order.reviews.length > 0
+    ) {
+      return;
+    }
+    const sent = await this.prisma.notification.findFirst({
+      where: {
+        userId: order.customerId,
+        template: NotificationEvent.review_request,
+        status: NotificationStatus.sent,
+        metadata: { path: ['orderId'], equals: order.id },
+      },
+      select: { id: true },
+    });
+    if (sent) return;
+    await this.notifications.enqueue(
+      NotificationEvent.review_request,
+      {
+        userId: order.customerId,
+        orderId: order.id,
+        orderNumber: order.orderNumber,
+        vendorName: order.vendor.businessName,
+      },
+      { jobId: `review_request:${order.id}` },
+    );
+  }
+
   /**
    * Fired after vendor's ETA + grace window. Only nags the customer if the
    * order is still in-flight (not yet delivered/cancelled).
@@ -570,7 +667,7 @@ export class NotificationProcessor {
     ) {
       return;
     }
-    await this.notifications.add(
+    await this.notifications.enqueue(
       NotificationEvent.order_eta_overdue,
       {
         userId: order.customerId,
@@ -613,7 +710,7 @@ export class NotificationProcessor {
 
   private async handleCateringEnquiryExpired(
     data: NotificationJobData,
-  ): Promise<{ sent: Channel[]; skipped: Channel[] }> {
+  ): Promise<{ sent: Channel[]; skipped: Channel[]; providerMessageId?: string }> {
     const recipientEmail =
       typeof data.recipientEmail === 'string' ? data.recipientEmail.trim() : '';
     if (!recipientEmail) {
@@ -636,7 +733,13 @@ export class NotificationProcessor {
       return { sent: [], skipped: ['email'] };
     }
     const result = await this.email.send({ to: recipientEmail, subject, html });
-    return result.delivered ? { sent: ['email'], skipped: [] } : { sent: [], skipped: ['email'] };
+    return result.delivered
+      ? {
+          sent: ['email'],
+          skipped: [],
+          ...(result.id ? { providerMessageId: result.id } : {}),
+        }
+      : { sent: [], skipped: ['email'] };
   }
 
   /**
@@ -694,10 +797,12 @@ export class NotificationProcessor {
       data: NotificationJobData;
       template: string | undefined;
       smsBody: string | undefined;
+      onProviderMessageId?: (id: string) => void;
     },
   ): Promise<boolean> {
     if (channel === 'email') {
       const r = await this.email.send({ to: ctx.user.email, subject: ctx.subject, html: ctx.html });
+      if (r.delivered && r.id) ctx.onProviderMessageId?.(r.id);
       return r.delivered;
     }
     if (channel === 'whatsapp') {
@@ -715,6 +820,7 @@ export class NotificationProcessor {
             String(ctx.data.amountPence ? `£${(ctx.data.amountPence as number) / 100}` : ''),
           ];
       const r = await this.whatsapp.send({ to: ctx.user.phone, template: ctx.template, params });
+      if (r.delivered && r.id) ctx.onProviderMessageId?.(r.id);
       return r.delivered;
     }
     if (channel === 'push') {
@@ -733,6 +839,7 @@ export class NotificationProcessor {
       // declared a dedicated `sms()` renderer yet.
       const body = ctx.smsBody ?? ctx.subject;
       const r = await this.sms.send({ to: ctx.user.phone ?? '', body });
+      if (r.delivered && r.sid) ctx.onProviderMessageId?.(r.sid);
       return r.delivered;
     }
     return false;

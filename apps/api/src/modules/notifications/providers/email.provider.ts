@@ -14,6 +14,7 @@ export interface EmailMessage {
   subject: string;
   html: string;
   attachments?: EmailAttachment[];
+  idempotencyKey?: string;
 }
 
 @Injectable()
@@ -38,24 +39,31 @@ export class EmailProvider {
       this.logger.log(`[stub-email] to=${msg.to} subject="${msg.subject}"`);
       return { id: null, delivered: false };
     }
-    const { data, error } = await this.client.emails.send({
-      from: this.from,
-      to: msg.to,
-      subject: msg.subject,
-      html: msg.html,
-      ...(msg.attachments?.length
-        ? {
-            attachments: msg.attachments.map((a) => ({
-              filename: a.filename,
-              content: a.content.toString('base64'),
-            })),
-          }
-        : {}),
-    });
+    const { data, error } = await this.client.emails.send(
+      {
+        from: this.from,
+        to: msg.to,
+        subject: msg.subject,
+        html: msg.html,
+        ...(msg.attachments?.length
+          ? {
+              attachments: msg.attachments.map((a) => ({
+                filename: a.filename,
+                content: a.content.toString('base64'),
+              })),
+            }
+          : {}),
+      },
+      msg.idempotencyKey ? { idempotencyKey: msg.idempotencyKey } : undefined,
+    );
     if (error) {
       // Surface so BullMQ retry kicks in.
       throw new Error(`Resend error: ${error.message ?? JSON.stringify(error)}`);
     }
+    if (!data?.id) {
+      throw new Error('Resend accepted response is missing a provider message ID');
+    }
+    this.logger.log(`Resend accepted message providerMessageId=${data.id}`);
     return { id: data?.id ?? null, delivered: true };
   }
 }

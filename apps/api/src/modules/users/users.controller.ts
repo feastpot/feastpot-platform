@@ -18,6 +18,8 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import type { AuthUser } from '../../auth/types';
 
+import { AccountDeletionService } from './account-deletion.service';
+import { RequestAccountDeletionDto } from './dto/account-deletion.dto';
 import { SyncUserDto, UpdateUserDto, UpdateUserStatusDto } from './dto/update-user.dto';
 import { UsersService } from './users.service';
 
@@ -25,7 +27,10 @@ import { UsersService } from './users.service';
 @ApiBearerAuth()
 @Controller({ path: 'users', version: '1' })
 export class UsersController {
-  constructor(private readonly users: UsersService) {}
+  constructor(
+    private readonly users: UsersService,
+    private readonly deletions: AccountDeletionService,
+  ) {}
 
   @Get('me')
   @ApiOperation({ summary: 'Return the calling user (id, email, name, role, status, avatar)' })
@@ -49,12 +54,33 @@ export class UsersController {
   }
 
   @Delete('me')
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.ACCEPTED)
   @ApiOperation({
-    summary: 'Soft-delete the calling user’s account and revoke their Supabase session',
+    summary: 'Queue a cancellable account deletion request; never immediately erase the account',
   })
   async deleteMe(@CurrentUser() user: AuthUser | null) {
-    await this.users.deleteMe(this.requireUser(user).id);
+    return this.deletions.request(this.requireUser(user).id, this.requireUser(user).id);
+  }
+
+  @Get('me/deletion')
+  deletionStatus(@CurrentUser() user: AuthUser | null) {
+    return this.deletions.status(this.requireUser(user).id);
+  }
+
+  @Post('me/deletion')
+  @HttpCode(HttpStatus.ACCEPTED)
+  requestDeletion(@CurrentUser() user: AuthUser | null, @Body() _dto: RequestAccountDeletionDto) {
+    return this.deletions.request(this.requireUser(user).id, this.requireUser(user).id);
+  }
+
+  @Delete('me/deletion')
+  cancelDeletion(@CurrentUser() user: AuthUser | null) {
+    return this.deletions.cancel(this.requireUser(user).id, this.requireUser(user).id);
+  }
+
+  @Get('me/export')
+  exportData(@CurrentUser() user: AuthUser | null) {
+    return this.deletions.export(this.requireUser(user).id);
   }
 
   @Patch(':userId/status')
