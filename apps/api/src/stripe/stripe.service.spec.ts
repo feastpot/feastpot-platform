@@ -39,6 +39,7 @@ describe('StripeService Connect charge model', () => {
       amount: 4_200,
       currency: 'gbp',
       capture_method: 'manual',
+      payment_method_types: ['card'],
       metadata: {
         orderId: 'order-1',
         customerId: 'customer-1',
@@ -49,6 +50,29 @@ describe('StripeService Connect charge model', () => {
     expect(params).not.toHaveProperty('transfer_data');
     expect(params).not.toHaveProperty('on_behalf_of');
   });
+
+  it.each(['manual', 'automatic'] as const)(
+    'keeps generic %s intents card-backed for wallets with exact amounts and idempotency',
+    async (captureMethod) => {
+      const { service, stripe } = build();
+      await service.createPaymentIntentGeneric({
+        amountPence: 15_000,
+        captureMethod,
+        metadata: { bookingId: 'booking-1', kind: 'catering_deposit' },
+        idempotencyKey: 'catering_deposit:booking-1',
+      });
+      expect(stripe.paymentIntents.create).toHaveBeenCalledWith(
+        {
+          amount: 15_000,
+          currency: 'gbp',
+          capture_method: captureMethod,
+          payment_method_types: ['card'],
+          metadata: { bookingId: 'booking-1', kind: 'catering_deposit' },
+        },
+        { idempotencyKey: 'catering_deposit:booking-1' },
+      );
+    },
+  );
 
   it('moves the exact locally calculated payout in a separate transfer', async () => {
     const { service, stripe } = build();

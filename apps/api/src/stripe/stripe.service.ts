@@ -28,6 +28,7 @@ export class StripeService {
         amount: params.amountPence,
         currency: 'gbp',
         capture_method: 'manual',
+        payment_method_types: ['card'],
         metadata: {
           orderId: params.orderId,
           customerId: params.customerId,
@@ -54,6 +55,7 @@ export class StripeService {
         amount: args.amountPence,
         currency: 'gbp',
         capture_method: args.captureMethod ?? 'manual',
+        payment_method_types: ['card'],
         metadata: args.metadata,
       },
       args.idempotencyKey ? { idempotencyKey: args.idempotencyKey } : undefined,

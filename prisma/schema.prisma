@@ -573,6 +573,25 @@ model User {
   @@map("users")
 }
 
+model AccountDeletionRequest {
+  id                   String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId               String    @map("user_id") @db.Uuid
+  actorId              String    @map("actor_id") @db.Uuid
+  reason               String    @db.VarChar(500)
+  status               String    @default("requested") @db.VarChar(32)
+  requestedAt          DateTime  @default(now()) @map("requested_at") @db.Timestamptz
+  eligibleAt           DateTime  @map("eligible_at") @db.Timestamptz
+  cancelledAt          DateTime? @map("cancelled_at") @db.Timestamptz
+  completedAt          DateTime? @map("completed_at") @db.Timestamptz
+  reminderAt           DateTime? @map("reminder_at") @db.Timestamptz
+  notificationEvidence Json      @default("[]") @map("notification_evidence")
+  isTestData           Boolean   @default(false) @map("is_test_data")
+
+  @@index([userId, requestedAt])
+  @@index([status, eligibleAt])
+  @@map("account_deletion_requests")
+}
+
 // MfaRecoveryCode: single-use TOTP recovery codes for self-serve 2FA
 // recovery. We store HMAC-SHA256(code, server pepper) - never the
 // plaintext. A successful consume marks `usedAt` and the API then calls

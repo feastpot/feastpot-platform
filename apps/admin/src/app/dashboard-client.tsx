@@ -35,6 +35,7 @@ import {
   YAxis,
 } from 'recharts';
 import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 import { SearchTrendsCard } from '@/components/dashboard/search-trends-card';
 import { PageHeader } from '@/components/layout/page-header';
@@ -142,6 +143,17 @@ export function DashboardClient({
   const { data, isLoading, error } = useAdminDashboard();
   const { data: workQueue, isLoading: queueLoading, error: queueError } = useAdminWorkQueue();
   const { data: coverage, isLoading: coverageLoading } = useCoverageWaitlist();
+  const { request, ready } = useApi();
+  const { data: deletionQueue } = useQuery({
+    queryKey: ['dashboard-account-deletions'],
+    queryFn: () =>
+      request<{ activeCount: number }>('/admin/account-deletions/summary', { cache: 'no-store' }),
+    enabled: ready && role === 'admin',
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    refetchInterval: 30_000,
+  });
+  const activeDeletionCount = deletionQueue?.activeCount ?? 0;
   const topWaitlistPostcode = coverage?.topPostcodes?.[0];
   const metricsLoaded = !isLoading && !coverageLoading && data !== undefined;
   const allMetricsZero =
@@ -161,6 +173,19 @@ export function DashboardClient({
       <PageHeader title="Dashboard" description="Operations overview across the marketplace." />
 
       <CateringUrgencyStrip />
+      {role === 'admin' && activeDeletionCount > 0 && (
+        <div className="mb-4 flex items-center gap-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3">
+          <AlertTriangle className="h-4 w-4 shrink-0 text-amber-800" aria-hidden />
+          <p className="text-sm text-amber-950">
+            <span className="font-semibold">Account deletions: </span>
+            {activeDeletionCount} active {activeDeletionCount === 1 ? 'request' : 'requests'} need
+            monitoring.{' '}
+            <Link href="/account-deletions" className="font-semibold underline hover:no-underline">
+              Review queue
+            </Link>
+          </p>
+        </div>
+      )}
 
       <Card className="mb-6 border-primary/20">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 border-b border-border/70 pb-3">

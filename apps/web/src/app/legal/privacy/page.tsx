@@ -152,8 +152,11 @@ export default function PrivacyPage() {
           <p>
             <strong>Basis:</strong> Contract performance (Article 6(1)(b) UK&nbsp;GDPR).
             <br />
-            <strong>Retention:</strong> Until account deletion or 24 months of inactivity, then
-            purged.
+            <strong>Retention:</strong> Ordinary profile data is erased after final processing of an
+            account deletion request, or after 24 months of inactivity where the account is no
+            longer needed. Financial and legal records are retained in anonymised form for 6 years.
+            Only the minimum seller identity and due-diligence records legally required are retained
+            in restricted reporting storage for 5 years after the last relevant reporting period.
           </p>
 
           <h3 style={subHeading}>Order placement and fulfilment</h3>
@@ -176,7 +179,11 @@ export default function PrivacyPage() {
             <strong>Basis:</strong> Legal obligation (Article 6(1)(c)), Food Safety Act 1990, Food
             Information Regulations 2014, and Natasha&rsquo;s Law (PPDS Regulation 2021).
             <br />
-            <strong>Retention:</strong> Duration of vendor relationship + 6 years.
+            <strong>Retention:</strong> Ordinary profile data is erased after final processing of an
+            account deletion request. Only the minimum seller identity and due-diligence records
+            legally required are retained in restricted reporting storage for 5 years after the last
+            relevant reporting period. Financial and legal records are retained in anonymised form
+            for 6 years.
           </p>
 
           <h3 style={subHeading}>

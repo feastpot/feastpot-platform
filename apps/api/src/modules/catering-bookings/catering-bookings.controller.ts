@@ -11,6 +11,7 @@ import {
 import { UserRole } from '@prisma/client';
 
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
+import { Public } from '../../auth/decorators/public.decorator';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { RolesGuard } from '../../auth/guards/roles.guard';
 import { SupabaseAuthGuard } from '../../auth/guards/supabase-auth.guard';
@@ -68,6 +69,7 @@ export class CateringBookingsController {
   // ── Public: initiate deposit payment (customer clicks link) ───────────────
 
   @Post(':id/deposit')
+  @Public()
   initiateDeposit(@Param('id', ParseUUIDPipe) id: string) {
     return this.service.initiateDeposit(id);
   }
@@ -75,15 +77,25 @@ export class CateringBookingsController {
   // ── Public: confirm deposit after Stripe redirect ──────────────────────────
 
   @Post(':id/confirm-deposit')
-  confirmDeposit(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ConfirmDepositDto) {
-    return this.service.confirmDeposit(id, dto.paymentIntentId);
+  @Public()
+  async confirmDeposit(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ConfirmDepositDto) {
+    await this.service.confirmDeposit(id, dto.paymentIntentId);
+    return { confirmed: true };
   }
 
   // ── Public: confirm balance payment ───────────────────────────────────────
 
+  @Post(':id/balance')
+  @Public()
+  initiateBalance(@Param('id', ParseUUIDPipe) id: string) {
+    return this.service.initiateBalance(id);
+  }
+
   @Post(':id/confirm-balance')
-  confirmBalance(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ConfirmBalanceDto) {
-    return this.service.confirmBalance(id, dto.paymentIntentId);
+  @Public()
+  async confirmBalance(@Param('id', ParseUUIDPipe) id: string, @Body() dto: ConfirmBalanceDto) {
+    await this.service.confirmBalance(id, dto.paymentIntentId);
+    return { confirmed: true };
   }
 
   // ── Public: track QR scan + redirect ──────────────────────────────────────

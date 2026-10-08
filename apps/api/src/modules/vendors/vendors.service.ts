@@ -1738,8 +1738,27 @@ export class VendorsService {
     // Resolve membership-aware (a user may be a team member, not the owner)
     // so this matches /vendors/me - querying by userId alone would 404 for
     // non-owner members who can still reach the dashboard + welcome screen.
-    const { id: vendorId } = await this.resolveMyVendor(userId, VENDOR_READ_ROLES);
-    return this.onboarding.getReadiness(vendorId);
+    const vendor = await this.resolveMyVendor(userId, VENDOR_READ_ROLES);
+    const readiness = await this.onboarding.getReadiness(vendor.id);
+    if (vendor.status === VendorStatus.pending && readiness.canProfileGoLive) {
+      const notified = await this.prisma.notification.findFirst({
+        where: {
+          userId: vendor.userId,
+          template: NotificationEvent.vendor_onboarding_complete,
+          status: 'sent',
+          metadata: { path: ['vendorId'], equals: vendor.id },
+        },
+        select: { id: true },
+      });
+      if (!notified) {
+        await this.notifications.enqueue(
+          NotificationEvent.vendor_onboarding_complete,
+          { userId: vendor.userId, vendorId: vendor.id, vendorName: vendor.businessName },
+          { jobId: `vendor_onboarding_complete:${vendor.id}` },
+        );
+      }
+    }
+    return readiness;
   }
 
   getOnboardingReadiness(vendorId: string) {

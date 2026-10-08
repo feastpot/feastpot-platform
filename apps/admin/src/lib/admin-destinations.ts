@@ -28,6 +28,7 @@ export const ADMIN_DESTINATION_ROLES = {
   '/coverage': ['admin', 'support'],
   '/push/compose': ['admin'],
   '/legal': ['admin', 'compliance'],
+  '/account-deletions': ['admin'],
   '/audit-log': ['admin', 'compliance'],
   '/dead-letters': ['admin'],
   '/queues': ['admin'],

@@ -179,10 +179,9 @@ export class VendorRecoveryService {
     const sent: string[] = [];
     for (const stage of due) {
       if (
-        stage.stage === RecoveryNudgeStage.sms_2h &&
-        (!stage.schedule.vendor.user.phone ||
-          !stage.schedule.vendor.user.phoneVerified ||
-          stage.schedule.vendor.application?.marketingConsent !== true)
+        stage.schedule.vendor.application?.marketingConsent !== true ||
+        (stage.stage === RecoveryNudgeStage.sms_2h &&
+          (!stage.schedule.vendor.user.phone || !stage.schedule.vendor.user.phoneVerified))
       ) {
         await this.prisma.vendorRecoveryStage.updateMany({
           where: { id: stage.id, sentAt: null, skippedAt: null },

@@ -101,8 +101,9 @@ export const PREFERENCE_DEFINITIONS: readonly PreferenceDefinition[] = [
   def('order_eta_overdue', 'Running late alerts', 'email', { default: true }),
   def('order_eta_overdue', 'Running late alerts', 'sms', { default: true }),
   def('order_eta_overdue', 'Running late alerts', 'push', { default: true }),
-  // Recovery is optional email; SMS additionally requires explicit consent,
-  // a verified number and no suppression (enforced by VendorRecoveryService).
+  // Optional recovery nudges require positive application marketing consent.
+  // SMS also requires a verified number. Rechecked at dispatch so revocation
+  // after enqueue is respected. Stored opt-outs still override eligibility.
   def('vendor_onboarding_recovery', 'Vendor onboarding recovery', 'email', { default: true }),
   // Positive application consent makes this eligible by default; an explicit
   // preference row with enabled=false still wins in filterEnabledChannels.

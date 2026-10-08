@@ -13,6 +13,11 @@ import { useParams, useRouter } from 'next/navigation';
 import { useMemo, useState } from 'react';
 
 import { PageShell } from '@/components/layout/page-shell';
+import {
+  AppleGooglePayButton,
+  type ConfirmWalletPayment,
+  type ExpressPayComplete,
+} from '@/components/checkout/payment-request-button';
 import { useConfirmDeposit, useEventEnquiry, useSelectVendor } from '@/hooks/use-event-enquiries';
 import type { EventQuote } from '@/lib/api/event-enquiries';
 import { STRIPE_CONFIGURED, getStripe } from '@/lib/stripe';
@@ -134,6 +139,7 @@ function QuoteCard({
   const [depositPence, setDepositPence] = useState<number>(0);
   const [err, setErr] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [authorised, setAuthorised] = useState(false);
 
   const subtotal = quote.perHeadPence * guestCount;
   const total = subtotal + quote.deliveryFeePence;
@@ -158,8 +164,28 @@ function QuoteCard({
     }
   }
 
+  async function finaliseBooking() {
+    if (!clientSecret || submitting) return;
+    setSubmitting(true);
+    setErr(null);
+    try {
+      await confirmDeposit.mutateAsync();
+    } catch (e) {
+      setAuthorised(true);
+      setErr(
+        await userErrorMessage(
+          e,
+          'Your payment was authorised but we could not confirm the booking. Please retry confirmation before paying again.',
+        ),
+      );
+      setSubmitting(false);
+      return;
+    }
+    router.push(`/events/${enquiryId}/confirmed`);
+  }
+
   async function onPay() {
-    if (!stripe || !elements || !clientSecret) return;
+    if (!stripe || !elements || !clientSecret || submitting || authorised) return;
     setSubmitting(true);
     setErr(null);
     const card = elements.getElement(CardElement);
@@ -180,24 +206,39 @@ function QuoteCard({
       paymentIntent &&
       (paymentIntent.status === 'requires_capture' || paymentIntent.status === 'succeeded')
     ) {
-      // Server-side verifies the PI status before flipping booking to confirmed.
-      try {
-        await confirmDeposit.mutateAsync();
-      } catch (e) {
-        setErr(
-          await userErrorMessage(
-            e,
-            'Your payment succeeded but we could not confirm the booking. Please contact support before paying again.',
-          ),
-        );
-        setSubmitting(false);
-        return;
-      }
-      router.push(`/events/${enquiryId}/confirmed`);
+      setAuthorised(true);
+      await finaliseBooking();
       return;
     }
     setErr(`Unexpected status: ${paymentIntent?.status ?? 'unknown'}`);
     setSubmitting(false);
+  }
+
+  async function onWalletPay(
+    confirmWalletPayment: ConfirmWalletPayment,
+    complete: ExpressPayComplete,
+  ) {
+    if (!clientSecret || submitting || authorised) {
+      complete('fail');
+      return;
+    }
+    setSubmitting(true);
+    setErr(null);
+    try {
+      const result = await confirmWalletPayment(clientSecret);
+      if (result.error) throw result.error;
+      const intent = result.paymentIntent;
+      if (!intent || (intent.status !== 'requires_capture' && intent.status !== 'succeeded')) {
+        throw new Error(`Unexpected payment status: ${intent?.status ?? 'unknown'}`);
+      }
+      setAuthorised(true);
+      complete('success');
+      await finaliseBooking();
+    } catch (e) {
+      complete('fail');
+      setErr(await userErrorMessage(e, 'Could not complete your payment.'));
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -266,16 +307,40 @@ function QuoteCard({
             Pay deposit of <strong className="font-bold">{formatPounds(depositPence)}</strong> to
             confirm.
           </p>
-          <div className="rounded-xl border border-cream-deep bg-white p-3">
-            <CardElement options={{ style: { base: { fontSize: '16px' } } }} />
-          </div>
-          <Button
-            onClick={onPay}
-            disabled={submitting}
-            className="w-full rounded-xl bg-brand py-3 font-bold text-white hover:bg-brand-dark"
-          >
-            {submitting ? 'Processing…' : `Pay ${formatPounds(depositPence)}`}
-          </Button>
+          {authorised ? (
+            <div className="space-y-2">
+              <p className="rounded-xl bg-brand/10 p-3 text-sm font-medium text-brand-dark">
+                Payment authorised. Your booking confirmation is pending.
+              </p>
+              <Button
+                onClick={finaliseBooking}
+                disabled={submitting}
+                className="w-full rounded-xl bg-brand py-3 font-bold text-white hover:bg-brand-dark"
+              >
+                {submitting ? 'Confirming…' : 'Retry booking confirmation'}
+              </Button>
+            </div>
+          ) : (
+            <>
+              <AppleGooglePayButton
+                totalPence={depositPence}
+                label="Feastpot event deposit"
+                disabled={submitting}
+                captureMethod="manual"
+                onPaymentMethod={onWalletPay}
+              />
+              <div className="rounded-xl border border-cream-deep bg-white p-3">
+                <CardElement options={{ style: { base: { fontSize: '16px' } } }} />
+              </div>
+              <Button
+                onClick={onPay}
+                disabled={submitting}
+                className="w-full rounded-xl bg-brand py-3 font-bold text-white hover:bg-brand-dark"
+              >
+                {submitting ? 'Processing…' : `Pay ${formatPounds(depositPence)}`}
+              </Button>
+            </>
+          )}
         </div>
       )}
 

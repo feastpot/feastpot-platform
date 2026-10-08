@@ -2390,6 +2390,7 @@ export class AdminService {
     // STEP 5: magic link + portal invite email. Best effort.
     const vendorPortalUrl =
       this.config.get<string>('VENDOR_PORTAL_URL') ?? 'https://vendor.feastpot.co.uk';
+    let invitationSubmitted = false;
     try {
       const { data: linkData, error: linkErr } = await this.supabase
         .getClient()
@@ -2412,13 +2413,12 @@ export class AdminService {
           firstName,
           kitchenName: app.kitchenName,
           magicLinkUrl,
-          expiresInDays: 7,
         });
-        await this.sendAdminEmail(
-          tmpl,
-          normalisedEmail,
-          `portal invite for newly-provisioned vendor ${vendorId}`,
+        const providerMessageId = await this.sendVendorInviteEmail(tmpl, normalisedEmail);
+        this.logger.log(
+          `Portal invitation submitted for vendor ${vendorId}: providerMessageId=${providerMessageId}`,
         );
+        invitationSubmitted = true;
       }
     } catch (err) {
       this.logger.error(
@@ -2426,7 +2426,7 @@ export class AdminService {
       );
     }
 
-    return this.getVendorApplication(app.id);
+    return { ...(await this.getVendorApplication(app.id)), invitationSubmitted };
   }
 
   /**
@@ -2484,7 +2484,7 @@ export class AdminService {
       );
       throw new InternalServerErrorException({
         code: 'MAGIC_LINK_GENERATION_FAILED',
-        message: linkErr?.message ?? 'Supabase did not return an action link',
+        message: 'Could not create a fresh setup link. Please try again.',
       });
     }
 
@@ -2492,22 +2492,20 @@ export class AdminService {
       firstName,
       kitchenName: app.kitchenName,
       magicLinkUrl,
-      expiresInDays: 7,
     });
     // Send synchronously here (vs the fire-and-forget pattern in
     // updateVendorApplication) because the operator explicitly asked to
     // resend - they need to know if it failed.
+    let providerMessageId: string;
     try {
-      await Promise.race([
-        this.email.send({ to: normalisedEmail, subject: tmpl.subject, html: tmpl.html }),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('email timed out after 10s')), 10_000),
-        ),
-      ]);
+      providerMessageId = await this.sendVendorInviteEmail(tmpl, normalisedEmail);
     } catch (err) {
+      this.logger.error(
+        `Invite email submission failed for application ${applicationId}: ${(err as Error).message}`,
+      );
       throw new InternalServerErrorException({
         code: 'INVITE_EMAIL_SEND_FAILED',
-        message: (err as Error).message,
+        message: 'The invitation email could not be submitted. Please try again.',
       });
     }
 
@@ -2520,11 +2518,36 @@ export class AdminService {
         metadata: {
           vendorId: app.vendor.id,
           email: normalisedEmail,
+          providerMessageId,
         } as Prisma.JsonObject,
       },
     });
 
-    return { ok: true, applicationId, email: normalisedEmail };
+    return { ok: true, applicationId, email: normalisedEmail, providerMessageId };
+  }
+
+  /** Provider acceptance is not proof of inbox delivery. Never count stub sends as success. */
+  private sendVendorInviteEmail(
+    tmpl: { subject: string; html: string },
+    to: string,
+  ): Promise<string> {
+    return new Promise<string>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Invitation email timed out')), 10_000);
+      this.email
+        .send({ to, subject: tmpl.subject, html: tmpl.html })
+        .then((result) => {
+          clearTimeout(timer);
+          if (!result.delivered || !result.id) {
+            reject(new Error('Email provider did not accept the invitation'));
+            return;
+          }
+          resolve(result.id);
+        })
+        .catch((error: unknown) => {
+          clearTimeout(timer);
+          reject(error);
+        });
+    });
   }
 
   /**

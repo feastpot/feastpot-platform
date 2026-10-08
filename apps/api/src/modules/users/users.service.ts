@@ -1,4 +1,10 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import type { Prisma, User } from '@prisma/client';
 import { UserStatus } from '@prisma/client';
 
@@ -6,6 +12,7 @@ import { SupabaseService } from '../../auth/supabase.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { ReferralService } from '../loyalty/referral.service';
 
+import { AccountDeletionService } from './account-deletion.service';
 import type { SyncUserDto, UpdateUserDto, UpdateUserStatusDto } from './dto/update-user.dto';
 
 const PROFILE_SELECT = {
@@ -34,6 +41,7 @@ export class UsersService {
     private readonly prisma: PrismaService,
     private readonly supabase: SupabaseService,
     private readonly referrals: ReferralService,
+    private readonly deletions: AccountDeletionService,
   ) {}
 
   /**
@@ -151,7 +159,7 @@ export class UsersService {
     if (dto.phone !== undefined) {
       const { error } = await this.supabase
         .getClient()
-        .auth.admin.updateUserById(userId, { phone: dto.phone });
+        .auth.admin.updateUserById(userId, { phone: dto.phone ?? '' });
       if (error) {
         this.logger.warn(`Supabase phone update failed for ${userId}: ${error.message}`);
         throw new ForbiddenException({
@@ -175,6 +183,12 @@ export class UsersService {
    * before/after state for the compliance trail.
    */
   async updateStatus(userId: string, dto: UpdateUserStatusDto, actorId: string) {
+    if (dto.status === UserStatus.deleted) {
+      throw new ConflictException({
+        code: 'USE_ACCOUNT_DELETION_PROCESS',
+        message: 'Use the account deletion process with a recorded reason and grace period',
+      });
+    }
     if (userId === actorId) {
       throw new ForbiddenException({
         code: 'CANNOT_CHANGE_OWN_STATUS',
@@ -191,17 +205,6 @@ export class UsersService {
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
-      // Remove analytics identity/correlation before marking the account
-      // deleted. Keeping these links would create a hidden identity graph
-      // outside the user's operational data.
-      await tx.analyticsEvent.updateMany({
-        where: { userId },
-        data: { userId: null, vendorId: null, anonVisitorId: null, applicationId: null },
-      });
-      await tx.vendorApplication.updateMany({
-        where: { vendor: { userId } },
-        data: { anonVisitorId: null },
-      });
       const u = await tx.user.update({
         where: { id: userId },
         data: { status: dto.status },
@@ -222,48 +225,15 @@ export class UsersService {
       return u;
     });
 
-    // After the DB transaction commits, revoke Supabase tokens for the
-    // affected user so a hard delete actually severs their session. We do
-    // this last so a transient Supabase outage can't roll back a write
-    // that's already audited.
-    if (dto.status === UserStatus.deleted) {
-      const { error } = await this.supabase.getClient().auth.admin.deleteUser(userId);
-      if (error) {
-        this.logger.warn(`Supabase deleteUser failed for ${userId}: ${error.message}`);
-      }
-    }
-
     return this.toProfile(updated);
   }
 
   /**
-   * Self-service account deletion. Soft-deletes the public.users row
-   * (status=deleted) and revokes the Supabase auth user so all sessions
-   * end. The orders/audit history is preserved by the DB schema (FKs
-   * use SetNull / Cascade per relationship), so we don't have to touch
-   * dependent rows here.
+   * Legacy service entry point. Queue the same cancellable request as the
+   * settings flow; never revoke auth or mark an account deleted immediately.
    */
-  async deleteMe(userId: string): Promise<void> {
-    await this.prisma.$transaction(async (tx) => {
-      await tx.analyticsEvent.updateMany({
-        where: { userId },
-        data: { userId: null, vendorId: null, anonVisitorId: null, applicationId: null },
-      });
-      await tx.vendorApplication.updateMany({
-        where: { vendor: { userId } },
-        data: { anonVisitorId: null },
-      });
-      await tx.user.update({
-        where: { id: userId },
-        data: { status: UserStatus.deleted },
-        select: { id: true },
-      });
-    });
-
-    const { error } = await this.supabase.getClient().auth.admin.deleteUser(userId);
-    if (error) {
-      this.logger.warn(`Supabase deleteUser failed for ${userId}: ${error.message}`);
-    }
+  async deleteMe(userId: string) {
+    return this.deletions.request(userId, userId);
   }
 
   private toProfile(row: UserProfileRow): UserProfile {

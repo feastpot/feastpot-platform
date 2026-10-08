@@ -32,7 +32,7 @@ export class UpdateUserDto {
   @Transform(({ value }) => (typeof value === 'string' ? value.replace(/\s+/g, '') : value))
   @IsString()
   @Matches(E164_PHONE_REGEX, { message: 'phone must be in E.164 format (e.g. +447700900000)' })
-  phone?: string;
+  phone?: string | null;
 
   @ApiPropertyOptional({ description: 'Public URL of an uploaded avatar image.' })
   @IsOptional()

@@ -2,6 +2,7 @@ import * as Sentry from '@sentry/nestjs';
 
 import { NotificationProcessor } from './notification.processor';
 import { alertIfStubInProduction } from './providers/stub-alert';
+import { TEMPLATES } from './templates';
 
 jest.mock('@sentry/nestjs', () => ({
   captureException: jest.fn(),
@@ -14,7 +15,14 @@ function makePrisma(user: Record<string, unknown> | null) {
   return {
     user: { findUnique: jest.fn().mockResolvedValue(user) as Mock },
     notificationPreference: { findMany: jest.fn().mockResolvedValue([]) as Mock },
-    notification: { create: jest.fn().mockResolvedValue({ id: 'n-1' }) as Mock },
+    notification: {
+      create: jest.fn().mockResolvedValue({ id: 'n-1' }) as Mock,
+      findFirst: jest.fn().mockResolvedValue(null) as Mock,
+    },
+    order: { findUnique: jest.fn() as Mock },
+    vendor: {
+      findUnique: jest.fn().mockResolvedValue({ application: { marketingConsent: true } }) as Mock,
+    },
     // Suppression check: default to not suppressed.
     emailEvent: { findFirst: jest.fn().mockResolvedValue(null) as Mock },
   };
@@ -25,12 +33,12 @@ function makeProviders() {
     email: { send: jest.fn().mockResolvedValue({ id: 'e-1', delivered: true }) as Mock },
     whatsapp: { send: jest.fn().mockResolvedValue({ id: 'w-1', delivered: true }) as Mock },
     push: { send: jest.fn().mockResolvedValue({ delivered: 1, failed: 0 }) as Mock },
-    sms: { send: jest.fn().mockResolvedValue({ id: 's-1', delivered: true }) as Mock },
+    sms: { send: jest.fn().mockResolvedValue({ sid: 's-1', delivered: true }) as Mock },
   };
 }
 
 function makeProcessor(prisma: ReturnType<typeof makePrisma>, providers = makeProviders()) {
-  const queue = { add: jest.fn() };
+  const queue = { enqueue: jest.fn() };
   const processor = new NotificationProcessor(
     prisma as any,
     providers.email as any,
@@ -46,6 +54,7 @@ const vendorUser = {
   id: 'vendor-user-1',
   email: 'vendor@example.com',
   phone: '+447700900000',
+  phoneVerified: true,
   firstName: 'Priya',
 };
 
@@ -129,6 +138,174 @@ describe('NotificationProcessor - notify_vendor', () => {
   });
 });
 
+describe('notification audit delivery gaps', () => {
+  it.each([false, null, undefined])(
+    'recovery email requires positive consent, not %s',
+    async (marketingConsent) => {
+      const prisma = makePrisma(vendorUser);
+      prisma.vendor.findUnique.mockResolvedValue({ application: { marketingConsent } });
+      const { processor, providers } = makeProcessor(prisma);
+      const result = await processor.handle({
+        name: 'vendor_onboarding_recovery',
+        data: { userId: vendorUser.id, deliveryChannel: 'email' },
+      } as never);
+      expect(result).toEqual({ sent: [], skipped: ['email'] });
+      expect(providers.email.send).not.toHaveBeenCalled();
+    },
+  );
+
+  it('recovery SMS checks current phone verification at delivery', async () => {
+    const { processor, providers } = makeProcessor(
+      makePrisma({ ...vendorUser, phoneVerified: false }),
+    );
+    expect(
+      await processor.handle({
+        name: 'vendor_onboarding_recovery',
+        data: { userId: vendorUser.id, deliveryChannel: 'sms' },
+      } as never),
+    ).toEqual({ sent: [], skipped: ['sms'] });
+    expect(providers.sms.send).not.toHaveBeenCalled();
+  });
+  it.each(Object.keys(TEMPLATES))(
+    'dispatch contract: %s reaches the email adapter with opted-in fixture channels',
+    async (name) => {
+      const prisma = makePrisma(vendorUser);
+      prisma.notificationPreference.findMany.mockResolvedValue(
+        ['email', 'sms', 'whatsapp', 'push'].map((channel) => ({ channel, enabled: true })),
+      );
+      const { processor, providers } = makeProcessor(prisma);
+      const result = await processor.handle({
+        id: `contract:${name}`,
+        name,
+        data: {
+          userId: vendorUser.id,
+          email: 'controlled-fixture@example.test',
+          recipientEmail: 'controlled-fixture@example.test',
+          firstName: 'Test',
+          orderId: 'fixture-order',
+          orderNumber: 'FP-FIXTURE',
+          amountPence: 10_000,
+          depositPence: 3_000,
+          balancePence: 7_000,
+          netPayoutPence: 9_000,
+          eventDate: '2026-10-10',
+          bookingId: 'fixture-booking',
+          customerName: 'Test Customer',
+          statementUrl: 'https://vendor.feastpot.co.uk/payouts',
+        },
+      } as never);
+      expect(result.sent).toContain('email');
+      expect(providers.email.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          subject: expect.any(String),
+          html: expect.stringContaining('Notification preferences'),
+        }),
+      );
+    },
+  );
+
+  it.each([
+    [
+      'catering_deposit_received',
+      { depositPence: 10_000, balancePence: 20_000, balanceChargeDate: '10 October 2026' },
+    ],
+    [
+      'catering_completed',
+      { customerName: 'Test Customer', eventDate: '2026-10-10', netPayoutPence: 27_000 },
+    ],
+    [
+      'payout_transferred',
+      { amountPence: 27_000, periodStart: '1 October', periodEnd: '7 October' },
+    ],
+  ])('%s sends vendor email and retains the provider acceptance ID', async (name, payload) => {
+    const prisma = makePrisma(vendorUser);
+    const { processor, providers } = makeProcessor(prisma);
+    const result = await processor.handle({
+      id: `audit:${name}`,
+      name,
+      data: { userId: vendorUser.id, ...payload },
+    } as never);
+    expect(result.sent).toContain('email');
+    expect(providers.email.send).toHaveBeenCalledTimes(1);
+    expect(prisma.notification.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        template: name,
+        channel: 'email',
+        status: 'sent',
+        metadata: expect.objectContaining({ providerMessageId: 'e-1' }),
+      }),
+    });
+  });
+
+  const deliveredOrder = () => ({
+    id: 'review-order',
+    customerId: 'real-order-customer',
+    orderNumber: 'FP-REVIEW',
+    status: 'delivered',
+    deliveredAt: new Date(Date.now() - 3 * 60 * 60 * 1000),
+    vendor: { businessName: 'Test Kitchen' },
+    reviews: [],
+  });
+
+  it('review_trigger enqueues review_request for the actual order customer', async () => {
+    const prisma = makePrisma(vendorUser);
+    prisma.order.findUnique.mockResolvedValue(deliveredOrder());
+    const { processor, queue } = makeProcessor(prisma);
+    await processor.handle({
+      name: 'review_trigger',
+      data: { orderId: 'review-order', userId: 'untrusted-payload-recipient' },
+    } as never);
+    expect(queue.enqueue).toHaveBeenCalledWith(
+      'review_request',
+      {
+        userId: 'real-order-customer',
+        orderId: 'review-order',
+        orderNumber: 'FP-REVIEW',
+        vendorName: 'Test Kitchen',
+      },
+      { jobId: 'review_request:review-order' },
+    );
+  });
+
+  it.each([
+    ['missing', null],
+    ['cancelled', { status: 'cancelled' }],
+    ['refunded', { status: 'refunded' }],
+    ['already reviewed', { reviews: [{ id: 'review' }] }],
+    ['too recent', { deliveredAt: new Date() }],
+    ['stale', { deliveredAt: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000) }],
+  ])('review_trigger does not request a review for an order that is %s', async (_, overrides) => {
+    const prisma = makePrisma(vendorUser);
+    prisma.order.findUnique.mockResolvedValue(
+      overrides === null ? null : { ...deliveredOrder(), ...overrides },
+    );
+    const { processor, queue } = makeProcessor(prisma);
+    await processor.handle({ name: 'review_trigger', data: { orderId: 'review-order' } } as never);
+    expect(queue.enqueue).not.toHaveBeenCalled();
+  });
+
+  it('review_trigger skips a review request already accepted by a provider', async () => {
+    const prisma = makePrisma(vendorUser);
+    prisma.order.findUnique.mockResolvedValue(deliveredOrder());
+    prisma.notification.findFirst.mockResolvedValue({ id: 'sent-notice' });
+    const { processor, queue } = makeProcessor(prisma);
+    await processor.handle({ name: 'review_trigger', data: { orderId: 'review-order' } } as never);
+    expect(queue.enqueue).not.toHaveBeenCalled();
+  });
+
+  it.each(['referral_rewarded', 'points_expired'])(
+    '%s is an explicit non-messaging loyalty-ledger event',
+    async (name) => {
+      const { processor, providers } = makeProcessor(makePrisma(vendorUser));
+      expect(await processor.handle({ name, data: {} } as never)).toEqual({
+        sent: [],
+        skipped: [],
+      });
+      expect(providers.email.send).not.toHaveBeenCalled();
+    },
+  );
+});
+
 describe('NotificationProcessor - catering enquiry expiry', () => {
   it('renders the public-intake expiry template to its explicit email recipient only', async () => {
     const prisma = makePrisma(null);
@@ -144,7 +321,7 @@ describe('NotificationProcessor - catering enquiry expiry', () => {
       },
     } as any);
 
-    expect(result).toEqual({ sent: ['email'], skipped: [] });
+    expect(result).toEqual({ sent: ['email'], skipped: [], providerMessageId: 'e-1' });
     expect(providers.email.send).toHaveBeenCalledWith(
       expect.objectContaining({
         to: 'caterer@example.com',
