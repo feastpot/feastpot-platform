@@ -15,6 +15,7 @@ import { VendorResultsHeader } from '@/components/vendors/vendor-results-header'
 import { VendorResultsHero } from '@/components/vendors/vendor-results-hero';
 import { VendorRowCard } from '@/components/vendors/vendor-row-card';
 import { VendorSearchBar } from '@/components/vendors/vendor-search-bar';
+import { usePostcodeUrlSync } from '@/hooks/use-postcode-url-sync';
 import { useVendors } from '@/hooks/use-vendors';
 import { ALLERGEN_FREE_SLUG_SET, DIETARY_PREFERENCE_SLUG_SET } from '@feastpot/config/allergens';
 
@@ -23,7 +24,7 @@ import {
   type SearchVendorsParams,
   type VendorSortBy,
 } from '@/lib/api/vendors';
-import { readStoredPostcode, writeCoverageCookie, writeStoredPostcode } from '@/lib/postcode';
+import { writeCoverageCookie, writeStoredPostcode } from '@/lib/postcode';
 
 /**
  * Same regex as waitlist-block.tsx. Accepts outward-only (SE15) and full
@@ -77,26 +78,7 @@ function VendorSearch() {
   };
 
   // ── Postcode persistence - two-way sync between URL and localStorage ─────
-  const [postcodeSyncResolved, setPostcodeSyncResolved] = useState<boolean>(
-    () => typeof postcode === 'string' && postcode.length > 0,
-  );
-  useEffect(() => {
-    if (postcode) {
-      writeStoredPostcode(postcode);
-      writeCoverageCookie(postcode);
-      setPostcodeSyncResolved(true);
-      return;
-    }
-    const saved = readStoredPostcode();
-    if (!saved) {
-      setPostcodeSyncResolved(true);
-      return;
-    }
-    const next = new URLSearchParams(params?.toString() ?? '');
-    next.set('postcode', saved);
-    router.replace(`${pathname}?${next.toString()}`, { scroll: false });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [postcode]);
+  const postcodeSyncResolved = usePostcodeUrlSync(postcode);
 
   // ── Inline postcode format validation ───────────────────────────────────
   // Prevents a malformed URL param (copy-paste, external link) from firing

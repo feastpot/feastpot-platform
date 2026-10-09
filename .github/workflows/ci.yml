@@ -35,30 +35,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Set up Node.js 22
-        uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Pin npm (10.9.8 on the runner crashes with "Exit handler never called" on this lockfile)
-        run: npm install -g npm@10.9.4
-
-      - name: Install workspace dependencies
-        # `npm ci` honours workspaces declared in the root package.json.
-        run: npm ci --no-audit --no-fund
-
-      - name: Dump npm debug log on failure
-        if: failure()
-        run: tail -n 200 /home/runner/.npm/_logs/*.log || true
-
-      - name: Cache Turbo build artefacts
-        uses: actions/cache@v4
-        with:
-          path: .turbo
-          key: turbo-${{ runner.os }}-${{ github.sha }}
-          restore-keys: |
-            turbo-${{ runner.os }}-
+      - uses: ./.github/actions/setup-workspace
 
   # ----------------------------------------------------------------------------
   # 2. Typecheck - every workspace must satisfy `tsc --noEmit`.
@@ -69,20 +46,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm install -g npm@10.9.4
-      - run: npm ci
+      - uses: ./.github/actions/setup-workspace
       - name: Restore Turbo cache
         uses: actions/cache@v4
         with:
           path: .turbo
           key: turbo-${{ runner.os }}-${{ github.sha }}
           restore-keys: turbo-${{ runner.os }}-
-      - name: Generate Prisma client (needed for type-aware compiles)
-        run: npm run db:generate
       - name: Run typecheck across all workspaces
         run: npx turbo run typecheck
 
@@ -95,12 +65,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm install -g npm@10.9.4
-      - run: npm ci
+      - uses: ./.github/actions/setup-workspace
       - name: Restore Turbo cache
         uses: actions/cache@v4
         with:
@@ -177,12 +142,7 @@ jobs:
       NEXT_PUBLIC_SUPABASE_ANON_KEY: local-link-audit-key
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm install -g npm@10.9.4
-      - run: npm ci --no-audit --no-fund
+      - uses: ./.github/actions/setup-workspace
       - name: Serve applications and audit every internal target
         shell: bash
         run: |
@@ -238,12 +198,7 @@ jobs:
       SHADOW_DATABASE_URL: postgresql://feastpot:feastpot@localhost:5432/feastpot_shadow?schema=public
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm install -g npm@10.9.4
-      - run: npm ci
+      - uses: ./.github/actions/setup-workspace
       - name: Validate schema
         run: npx prisma validate --schema=./prisma/schema.prisma
       - name: Schema is correctly formatted
@@ -318,20 +273,13 @@ jobs:
       SUPABASE_DIRECT_URL: postgresql://feastpot:feastpot@localhost:5432/feastpot_test
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm install -g npm@10.9.4
-      - run: npm ci
+      - uses: ./.github/actions/setup-workspace
       - name: Restore Turbo cache
         uses: actions/cache@v4
         with:
           path: .turbo
           key: turbo-${{ runner.os }}-${{ github.sha }}
           restore-keys: turbo-${{ runner.os }}-
-      - name: Generate Prisma client
-        run: npm run db:generate
       - name: Create Supabase roles (migrations GRANT to them; vanilla Postgres lacks them)
         run: |
           PGPASSWORD=feastpot psql -h localhost -U feastpot -d feastpot_test -v ON_ERROR_STOP=1 \
@@ -396,14 +344,7 @@ jobs:
       SUPABASE_DIRECT_URL: postgresql://feastpot:feastpot@localhost:5432/feastpot_financial
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm install -g npm@10.9.4
-      - run: npm ci --no-audit --no-fund
-      - name: Generate Prisma client
-        run: npm run db:generate
+      - uses: ./.github/actions/setup-workspace
       - name: Create Supabase roles
         run: |
           PGPASSWORD=feastpot psql -h localhost -U feastpot -d feastpot_financial -v ON_ERROR_STOP=1 \
@@ -458,14 +399,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm install -g npm@10.9.4
-
-      - run: npm ci --no-audit --no-fund
+      - uses: ./.github/actions/setup-workspace
 
       - name: Verify vendor Playwright discovery (noninteractive)
         run: npm run test:e2e:discovery --workspace=@feastpot/vendor
@@ -494,11 +428,6 @@ jobs:
       # ---- Prisma client ------------------------------------------------------
       # The vendor app's shared packages may reference Prisma types at build
       # time. Generate the client with dummy URLs (no DB connection is made).
-      - name: Generate Prisma client
-        run: npm run db:generate
-        env:
-          SUPABASE_DB_URL: postgresql://dummy:dummy@localhost:5432/dummy
-          SUPABASE_DIRECT_URL: postgresql://dummy:dummy@localhost:5432/dummy
 
       # ---- Browser setup ------------------------------------------------------
       # install-chromium.js replaces Playwright's downloaded binary with a
@@ -507,13 +436,9 @@ jobs:
       # installed by `playwright install` is already correctly linked, so this
       # step may be a harmless no-op. continue-on-error prevents a hard stop
       # if `which chromium` cannot locate a system binary on this runner.
-      - name: Run install-chromium.js (NixOS symlink helper, may be no-op)
-        run: node apps/vendor/e2e/install-chromium.js
-        continue-on-error: true
-
-      - name: Install Playwright browsers and OS dependencies
-        run: npx playwright install --with-deps chromium
-        working-directory: apps/vendor
+      - uses: ./.github/actions/setup-browser
+        with:
+          working-directory: apps/vendor
 
       # ---- Vendor dev server --------------------------------------------------
       - name: Start vendor dev server on port 3002 (background)
@@ -588,6 +513,7 @@ jobs:
   # --------------------------------------------------------------------------
   e2e-admin:
     name: E2E (admin portal, all projects)
+    # Staff acceptance mutates globally current records; preserve its sequence.
     needs: [setup, e2e-customer]
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -623,12 +549,7 @@ jobs:
       ADMIN_E2E_ALLOW_AAL1: 'false'
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm install -g npm@10.9.4
-      - run: npm ci --no-audit --no-fund
+      - uses: ./.github/actions/setup-workspace
       - name: Verify admin Playwright discovery (noninteractive)
         run: npm run test:e2e:discovery --workspace=@feastpot/admin
       - name: Require admin E2E credentials
@@ -658,8 +579,6 @@ jobs:
           set -euo pipefail
           curl --fail --silent --show-error --retry 5 --retry-all-errors \
             "${TEST_API_URL%/}/healthz" > /dev/null
-      - name: Generate Prisma client
-        run: npm run db:generate
         env:
           SUPABASE_DB_URL: postgresql://dummy:dummy@localhost:5432/dummy
           SUPABASE_DIRECT_URL: postgresql://dummy:dummy@localhost:5432/dummy
@@ -667,9 +586,9 @@ jobs:
         run: npm run test --workspace=@feastpot/api -- --runInBand --forceExit src/e2e/admin-authoritative-actions.spec.ts
         env:
           NODE_ENV: test
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
-        working-directory: apps/admin
+      - uses: ./.github/actions/setup-browser
+        with:
+          working-directory: apps/admin
       - name: Start admin server
         run: npm run dev --workspace=@feastpot/admin &
       - name: Wait for admin server
@@ -717,13 +636,15 @@ jobs:
   # environment only; no secret is written to the repository or artefacts.
   # Add "e2e-customer" to the branch-protection required checks for main.
   # --------------------------------------------------------------------------
-  e2e-customer:
-    name: E2E (customer checkout)
+  e2e-customer-shards:
+    name: Customer checkout shard ${{ matrix.shard }}/3
     needs: [setup]
     runs-on: ubuntu-latest
-    # The serial, DB-backed suite took 28 minutes before setup and reporting.
-    # Leave time for fixture cleanup and evidence upload, not just assertions.
-    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    timeout-minutes: 30
     services:
       redis:
         image: redis:7-alpine
@@ -747,7 +668,8 @@ jobs:
       REDIS_URL: redis://localhost:6379
       SESSION_SECRET: customer-ci-only-session-secret-not-for-deployment
       TEST_FACTORY_PASSWORD: ${{ secrets.TEST_FACTORY_PASSWORD }}
-      TEST_FACTORY_NAMESPACE: customer-${{ github.run_id }}-${{ github.run_attempt }}
+      TEST_FACTORY_NAMESPACE: customer-${{ github.run_id }}-${{ github.run_attempt }}-shard-${{ matrix.shard }}
+      CI_SHARD: ${{ matrix.shard }}
       CUSTOMER_E2E_USE_FACTORY: 'true'
       CUSTOMER_E2E_ISOLATED_ENVIRONMENT: 'true'
       # Keep the safety allowlist identical to the API this job exercises.
@@ -757,12 +679,7 @@ jobs:
       PROD_DIRECT_URL: ${{ secrets.PROD_DIRECT_URL }}
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm install -g npm@10.9.4
-      - run: npm ci --no-audit --no-fund
+      - uses: ./.github/actions/setup-workspace
       - name: Verify customer Playwright discovery (noninteractive)
         run: npm run test:e2e:discovery --workspace=@feastpot/web
       - name: Require isolated customer and Stripe test credentials
@@ -790,8 +707,6 @@ jobs:
             sk_test_*) ;;
             *) echo "::error title=Unsafe Stripe key::STRIPE_SECRET_KEY_TEST must be an sk_test_ key."; exit 1 ;;
           esac
-      - name: Generate customer API Prisma client
-        run: npm run db:generate
       - name: Start isolated customer API from this PR
         run: NODE_ENV=test npm run dev --workspace=@feastpot/api > /tmp/customer-e2e-api.log 2>&1 &
       - name: Verify isolated customer API health
@@ -808,14 +723,9 @@ jobs:
               throw new Error('Customer E2E API health response was unavailable.');
             }
           "
-      - name: Generate Prisma client
-        run: npm run db:generate
-        env:
-          SUPABASE_DB_URL: postgresql://dummy:dummy@localhost:5432/dummy
-          SUPABASE_DIRECT_URL: postgresql://dummy:dummy@localhost:5432/dummy
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
-        working-directory: apps/web
+      - uses: ./.github/actions/setup-browser
+        with:
+          working-directory: apps/web
       - name: Start customer web server
         run: npm run dev --workspace=@feastpot/web &
       - name: Wait for customer web server
@@ -836,58 +746,11 @@ jobs:
         shell: bash
         run: |
           set +e
-          npx playwright test --config playwright.config.ts e2e/customer --global-timeout=2400000
+          npx playwright test --config playwright.config.ts e2e/customer --shard=${{ matrix.shard }}/3 --global-timeout=1500000
           status=$?
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit 0
         working-directory: apps/web
-      - name: Assert CP-1 real purchase was discovered and executed
-        if: always()
-        shell: bash
-        run: |
-          node - <<'NODE_SCRIPT'
-          const fs = require('fs');
-          const path = require('path');
-
-          const resultsFile = path.join('apps', 'web', 'e2e-results.json');
-          if (!fs.existsSync(resultsFile)) {
-            console.error('::error title=Missing customer results::e2e-results.json not found; CP-1 execution cannot be verified.');
-            process.exit(1);
-          }
-
-          const report = JSON.parse(fs.readFileSync(resultsFile, 'utf8'));
-          let cp1Found = false;
-          let cp1Executed = false;
-          let cp1Skipped = false;
-
-          function walk(suite) {
-            for (const spec of suite.specs ?? []) {
-              if (!spec.title.includes('CP-1:')) continue;
-              cp1Found = true;
-              for (const test of spec.tests ?? []) {
-                const results = test.results ?? [];
-                if (results.length === 0 || results.every((result) => result.status === 'skipped')) {
-                  cp1Skipped = true;
-                }
-                if (results.some((result) => result.status !== 'skipped')) {
-                  cp1Executed = true;
-                }
-              }
-            }
-            for (const child of suite.suites ?? []) walk(child);
-          }
-          walk(report);
-
-          if (!cp1Found) {
-            console.error('::error title=CP-1 absent::CP-1 real purchase was not discovered in the customer Playwright result.');
-            process.exit(1);
-          }
-          if (!cp1Executed || cp1Skipped) {
-            console.error('::error title=CP-1 not executed::CP-1 real purchase was skipped or had no execution result.');
-            process.exit(1);
-          }
-          console.log('CP-1 real purchase was discovered, executed, and not skipped.');
-          NODE_SCRIPT
       - name: Preserve customer Playwright failure status
         if: always() && steps.playwright-run.outputs.exit_code != '0'
         run: exit "${{ steps.playwright-run.outputs.exit_code }}"
@@ -895,12 +758,37 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: customer-playwright-report-${{ github.run_id }}
+          name: customer-playwright-report-${{ github.run_id }}-${{ github.run_attempt }}-shard-${{ matrix.shard }}
           path: |
             apps/web/e2e-results.json
             apps/web/playwright-report/
             apps/web/test-results/
           retention-days: 14
+
+  e2e-customer:
+    name: E2E (customer checkout)
+    if: ${{ always() }}
+    needs: [setup, e2e-customer-shards]
+    runs-on: ubuntu-latest
+    env:
+      CUSTOMER_E2E_USE_FACTORY: 'true'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-workspace
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: customer-playwright-report-${{ github.run_id }}-${{ github.run_attempt }}-shard-*
+          path: customer-shards
+      - name: Discover the full customer suite independently of sharding
+        working-directory: apps/web
+        run: npx --no-install playwright test --config playwright.config.ts e2e/customer --list --reporter=json > customer-discovery.json
+      - name: Verify every discovered test, all three shards and CP-1
+        run: |
+          node --test scripts/validate-customer-shards.test.cjs
+          node scripts/validate-customer-shards.cjs apps/web/customer-discovery.json customer-shards
+      - name: Preserve failed or incomplete matrix status
+        if: ${{ always() && needs.e2e-customer-shards.result != 'success' }}
+        run: exit 1
 
   # --------------------------------------------------------------------------
   # Parts A-D are required inventories. Part A reads four real local HTTP
@@ -958,12 +846,7 @@ jobs:
       SESSION_SECRET: cross-surface-test-only-session-secret-34125348434
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm install -g npm@10.9.4
-      - run: npm ci --no-audit --no-fund
+      - uses: ./.github/actions/setup-workspace
       - name: Require cross-surface integration credentials
         run: |
           required=(
@@ -1119,24 +1002,19 @@ jobs:
   # ----------------------------------------------------------------------------
   build:
     name: Build all apps
-    needs: [typecheck, lint, prisma-validate, test, cross-surface-consistency]
+    # Compile while acceptance runs; Release readiness still requires every
+    # financial, coverage and browser check before this build can qualify.
+    needs: [setup, typecheck, lint, prisma-validate]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm install -g npm@10.9.4
-      - run: npm ci
+      - uses: ./.github/actions/setup-workspace
       - name: Restore Turbo cache
         uses: actions/cache@v4
         with:
           path: .turbo
           key: turbo-${{ runner.os }}-${{ github.sha }}
           restore-keys: turbo-${{ runner.os }}-
-      - name: Generate Prisma client
-        run: npm run db:generate
       - name: Sitemap contract regression tests
         run: npm run test:sitemap --workspace=@feastpot/web
       - name: Build (api, web, vendor, admin)
@@ -1158,6 +1036,7 @@ jobs:
         link-audit-live,
         rls-check,
         e2e-customer,
+        e2e-customer-shards,
         e2e-admin,
         e2e-vendor,
         cross-surface-consistency,

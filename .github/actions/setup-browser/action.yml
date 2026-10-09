@@ -1,0 +1,24 @@
+name: Set up cached Chromium
+description: Cache the installed Playwright revision while installing fresh runner OS dependencies.
+inputs:
+  working-directory:
+    description: Workspace whose Playwright CLI owns the browser revision.
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Identify locked Playwright version
+      id: version
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: |
+        version="$(npx --no-install playwright --version)"
+        echo "version=${version#Version }" >> "$GITHUB_OUTPUT"
+    - uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: chromium-${{ runner.os }}-${{ runner.arch }}-${{ steps.version.outputs.version }}
+    - name: Ensure Chromium and runner libraries are installed
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      run: npx --no-install playwright install --with-deps chromium

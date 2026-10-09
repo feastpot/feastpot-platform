@@ -10,6 +10,7 @@ const REQUIRED_JOBS = [
   'link-audit-live',
   'rls-check',
   'e2e-customer',
+  'e2e-customer-shards',
   'e2e-admin',
   'e2e-vendor',
   'cross-surface-consistency',

@@ -220,7 +220,7 @@ async function interceptOrderFailure(page: Page, failure: OrderFailure): Promise
 test.describe('customer checkout conditions and first-price disclosure', () => {
   // These tests include remote Auth provisioning and teardown, not just UI.
   test.describe.configure({ timeout: 120_000 });
-  test.describe.configure({ mode: 'default', retries: 0 });
+  test.describe.configure({ mode: process.env.CI_SHARD ? 'parallel' : 'default', retries: 0 });
 
   test('all five checkout financial snapshots preserve the same vendor payout', async ({
     customer,

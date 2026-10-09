@@ -3,12 +3,12 @@
 # IMPORTANT: this pipeline does NOT deploy the API. The API runs as an always-on
 # Replit VM deployment and must be (re)published manually from the Replit
 # "Publish" UI - there is no public Replit API to trigger it from CI. So the
-# rollout is NOT atomic: this workflow migrates the prod DB, build-verifies the
+# rollout is NOT atomic: this workflow build-verifies the API, migrates the prod DB,
 # API, fires the three Vercel front-end deploy hooks, then smoke-tests whatever
 # API is currently live. If you ship an API change, republish it on Replit.
 # (See .agents/memory/deployment.md.)
 #
-# The flow is serial for migrate -> build-api and parallel for the three Vercel
+# The flow is serial for build-api -> migrate and parallel for the three Vercel
 # front-ends. Smoke tests then verify every public endpoint before posting to
 # Slack (Slack failures are non-fatal).
 
@@ -56,9 +56,7 @@ jobs:
 
   # ----------------------------------------------------------------------------
   # 0. Typecheck all workspaces before touching the database or triggering any
-  #    Vercel deploy. Running this in parallel with deploy-database means we get
-  #    fast type-error feedback without lengthening the critical path.
-  #    Both typecheck and deploy-database must pass before build-api runs.
+  #    Vercel deploy. Build verification completes before production migrations.
   # ----------------------------------------------------------------------------
   typecheck:
     name: Typecheck all workspaces
@@ -75,14 +73,7 @@ jobs:
             echo "Then commit the corrected lockfile."
             exit 1
           fi
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm install -g npm@10.9.4
-      - run: npm ci
-      - name: Generate Prisma client (required for type-aware compiles)
-        run: npm run db:generate
+      - uses: ./.github/actions/setup-workspace
       - name: Run tsc --noEmit across every workspace
         run: npx turbo run typecheck
 
@@ -92,7 +83,7 @@ jobs:
   # ----------------------------------------------------------------------------
   deploy-database:
     name: Migrate production DB
-    needs: [validate-admin-mfa]
+    needs: [validate-admin-mfa, build-api]
     runs-on: ubuntu-latest
     environment: production
     env:
@@ -116,13 +107,7 @@ jobs:
       SUPABASE_DIRECT_URL: ${{ secrets.PROD_DIRECT_URL }}
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Generate Prisma client
-        run: npm run db:generate
+      - uses: ./.github/actions/setup-workspace
       - name: Apply migrations
         run: npx prisma migrate deploy --schema=./prisma/schema.prisma
 
@@ -141,30 +126,24 @@ jobs:
   # ----------------------------------------------------------------------------
   build-api:
     name: Build API (deployed separately on Replit)
-    needs: [deploy-database, typecheck]
+    needs: [validate-admin-mfa, typecheck]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - name: Generate Prisma client
-        run: npm run db:generate
+      - uses: ./.github/actions/setup-workspace
       - name: Build API
         run: npx turbo run build --filter=@feastpot/api
 
   # ----------------------------------------------------------------------------
   # 3-5. Trigger Vercel deploy hooks for the three front-ends. These run in
-  #      parallel with each other but are gated on `build-api` (which itself
-  #      requires `deploy-database`), so a failed migration or API build
+  #      parallel with each other but are gated on `deploy-database`, which
+  #      requires `build-api`, so a failed migration or API build
   #      blocks the frontend deploys and prevents a broken schema from
   #      reaching prod.
   # ----------------------------------------------------------------------------
   deploy-web:
     name: Deploy web (Vercel)
-    needs: [build-api]
+    needs: [deploy-database]
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -173,7 +152,7 @@ jobs:
 
   deploy-vendor:
     name: Deploy vendor (Vercel)
-    needs: [build-api]
+    needs: [deploy-database]
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -182,7 +161,7 @@ jobs:
 
   deploy-admin:
     name: Deploy admin (Vercel)
-    needs: [build-api]
+    needs: [deploy-database]
     runs-on: ubuntu-latest
     environment: production
     steps:

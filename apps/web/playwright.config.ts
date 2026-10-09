@@ -14,8 +14,16 @@ export default defineConfig({
   timeout: 30_000,
   retries: process.env.CI ? 2 : 0,
   workers: 1,
-  fullyParallel: false,
+  // Shard independent tests rather than whole, unevenly sized spec files.
+  // Each runner still executes one test at a time in its own API/Redis scope.
+  fullyParallel: !!process.env.CI_SHARD,
   maxFailures: 0,
+  metadata: {
+    ciRunId: process.env.GITHUB_RUN_ID,
+    ciRunAttempt: process.env.GITHUB_RUN_ATTEMPT,
+    ciCommitSha: process.env.GITHUB_SHA,
+    ciShard: process.env.CI_SHARD,
+  },
   // CI keeps a JSON result so the required customer-purchase guard can prove
   // CP-1 was discovered and actually ran rather than being silently skipped.
   reporter: [['list'], ['json', { outputFile: 'e2e-results.json' }]],

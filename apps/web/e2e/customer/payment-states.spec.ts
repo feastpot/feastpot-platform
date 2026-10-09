@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 
 import type { CheckoutScenarioFixture, TestDataFactory } from '../../../../scripts/test-factory';
+import { abandonThreeDs } from './three-ds';
 
 import {
   assertCustomerSmokeEnvironment,
@@ -143,35 +144,6 @@ function expectNoOrphans(
   for (const order of state.orders) expect(order.payments).toHaveLength(1);
 }
 
-async function abandonThreeDs(page: Page): Promise<void> {
-  await expect
-    .poll(
-      async () => {
-        for (const frame of page.frames()) {
-          const button = frame
-            .locator('#test-source-fail-3ds')
-            .or(frame.getByRole('button', { name: /fail|cancel|decline/i }))
-            .first();
-          if (await button.isVisible().catch(() => false)) return true;
-        }
-        return false;
-      },
-      { timeout: 30_000 },
-    )
-    .toBe(true);
-  for (const frame of page.frames()) {
-    const button = frame
-      .locator('#test-source-fail-3ds')
-      .or(frame.getByRole('button', { name: /fail|cancel|decline/i }))
-      .first();
-    if (await button.isVisible().catch(() => false)) {
-      await button.click();
-      return;
-    }
-  }
-  throw new Error('CUSTOMER_E2E_3DS_CHALLENGE_NOT_FOUND');
-}
-
 async function withScenario(
   request: Parameters<typeof inspectFactoryPaymentState>[0],
   customer: CustomerFixture,
@@ -199,7 +171,7 @@ async function withScenario(
 
 test.describe('customer payment outcomes', () => {
   test.describe.configure({ timeout: 120_000 });
-  test.describe.configure({ mode: 'default', retries: 0 });
+  test.describe.configure({ mode: process.env.CI_SHARD ? 'parallel' : 'default', retries: 0 });
 
   test('success', async ({ page, request, customer }) => {
     await withScenario(request, customer, async ({ factory, fixture, accessToken }) => {
@@ -256,9 +228,8 @@ test.describe('customer payment outcomes', () => {
       await openReadyCheckout(page, fixture);
       await enterCard(page, cards['3DS abandoned']);
       await submit(page);
-      // Test-mode Stripe exposes a failed challenge action; using it models a
-      // customer abandoning authentication while retaining the normal browser
-      // cancellation compensation path.
+      // Cancel Stripe's authentication dialog, then verify the real checkout
+      // compensation path releases both the order and its payment.
       await abandonThreeDs(page);
       await expect(page.locator('main').getByRole('alert')).toBeVisible({ timeout: 30_000 });
       expectNoOrphans(await inspectFactoryPaymentState(request, accessToken), {
