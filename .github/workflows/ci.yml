@@ -1138,3 +1138,40 @@ jobs:
         # CI is non-release: no sitemap is published and robots denies crawling.
         # Sitemap contracts above test production's fail-closed catalogue gate.
         run: npx turbo run build
+
+  release-readiness:
+    name: Release readiness
+    if: ${{ always() }}
+    needs:
+      [
+        setup,
+        typecheck,
+        lint,
+        prisma-validate,
+        test,
+        financial-suite,
+        link-audit-live,
+        rls-check,
+        e2e-customer,
+        e2e-admin,
+        e2e-vendor,
+        cross-surface-consistency,
+        build,
+      ]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      statuses: read
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Test the fail-closed release gate
+        run: node --test scripts/check-release-readiness.test.cjs
+      - name: Verify mandatory CI jobs and same-commit Vercel previews
+        env:
+          CI_REQUIRED_RESULTS: ${{ toJSON(needs) }}
+          RELEASE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/check-release-readiness.cjs

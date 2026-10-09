@@ -77,7 +77,9 @@ async function openReadyCheckout(page: Page, fixture: CheckoutScenarioFixture): 
 }
 
 async function enterCard(page: Page, number: string): Promise<void> {
-  const card = page.frameLocator('iframe[name^="__privateStripeFrame"][title$="input frame" i]');
+  const card = page.frameLocator(
+    'iframe[name^="__privateStripeFrame"][title="Secure card payment input frame" i]',
+  );
   await expect(card.locator('input[name="exp-date"]')).toBeVisible({ timeout: 30_000 });
   await card.locator('input[name="cardnumber"]').fill(number);
   await card.locator('input[name="exp-date"]').fill('1230');

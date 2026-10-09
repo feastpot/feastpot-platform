@@ -1,3 +1,4 @@
+import { PLATFORM_FACTS } from '@feastpot/config/platform-facts';
 import { redirect } from 'next/navigation';
 
 import { PortalShell } from '@/components/layout/portal-shell';
@@ -33,6 +34,17 @@ export default async function CloseAccountPage() {
   return (
     <PortalShell businessName={vendor.businessName} maxWidth="form">
       <CloseAccountClient businessName={vendor.businessName} />
+      <p className="mt-4 text-sm text-mid">
+        Questions about closing your account? Contact{' '}
+        <a className="underline" href={`mailto:${PLATFORM_FACTS.contact.complianceEmail}`}>
+          {PLATFORM_FACTS.contact.complianceEmail}
+        </a>
+        . For privacy and data protection enquiries, contact{' '}
+        <a className="underline" href="mailto:privacy@feastpot.co.uk">
+          privacy@feastpot.co.uk
+        </a>
+        .
+      </p>
     </PortalShell>
   );
 }
