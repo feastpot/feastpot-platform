@@ -194,7 +194,8 @@ test.describe('admin compliance controls', () => {
       solicitorSignOff: 'A Solicitor, 2025-01-01',
       effectiveAt: '2025-01-02',
     });
-    await expect(page.getByText(/require solicitor sign-off and 15 days notice/)).toBeVisible();
+    await expect(page.getByText(/Could not publish the document/)).toBeVisible();
+    await expect(page.getByText(/require solicitor sign-off and 15 days notice/)).toHaveCount(0);
   });
 
   test('P2B enforcement log visibly distinguishes compliant notice, late notice, and urgent basis', async ({
@@ -264,7 +265,7 @@ test.describe('admin compliance controls', () => {
     await expect(page.getByText('Compliant Kitchen')).toBeVisible();
     await expect(page.getByLabel('Notice before effect')).toBeVisible();
     await expect(page.getByText('Urgent', { exact: true })).toBeVisible();
-    await expect(page.getByText('Late notice')).toBeVisible();
+    await expect(page.getByText('Late notice', { exact: true })).toBeVisible();
     await expect(page.getByText(/P2B clause 14.1/)).toBeVisible();
   });
 
@@ -311,7 +312,7 @@ test.describe('admin compliance controls', () => {
     await requireAdminSession(page);
     await expect(page.getByText('Stage 1 done, awaiting stage 2')).toBeVisible();
     await expect(page.getByText('reviewer-one')).toBeVisible();
-    await expect(page.getByText(/must not be the same person/)).toBeVisible();
+    await expect(page.getByText(/^The stage-2 reviewer must not be the same person/)).toBeVisible();
     await expect(page.getByText('<24 h')).toBeVisible();
   });
 
@@ -374,7 +375,10 @@ test.describe('admin compliance controls', () => {
       ratePercent: 15,
       effectiveFrom: '2025-01-02T09:00',
     });
-    await expect(page.getByText('Rate increases require 15 days notice.')).toBeVisible();
+    await expect(page.getByText(/Could not save commission rates/)).toBeVisible();
+    await expect(
+      page.getByText('Rate increases require 15 days notice.', { exact: true }),
+    ).toHaveCount(0);
   });
 
   test('dispute triage keeps vendor-response and appeal-deadline cases visible', async ({
@@ -408,7 +412,7 @@ test.describe('admin compliance controls', () => {
         }),
       }),
     );
-    await page.route('**/v1/disputes**', (route) =>
+    await page.route(/\/v1\/disputes(?:\?[^/]*)?$/, (route) =>
       route.fulfill({
         contentType: 'application/json',
         body: JSON.stringify({ data: [dispute], total: 1, nextCursor: null }),
@@ -418,8 +422,15 @@ test.describe('admin compliance controls', () => {
     await requireAdminSession(page);
     await expect(page.getByText('Non-responsive Kitchen')).toBeVisible();
     await expect(page.getByText('In progress')).toBeVisible();
-    await expect(page.getByText('Overdue')).toBeVisible();
-    await expect(page.getByText('£42.00')).toBeVisible();
+    await expect(
+      page
+        .getByRole('row')
+        .filter({ hasText: 'Non-responsive Kitchen' })
+        .getByText(/ACK overdue/),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('row').filter({ hasText: 'Non-responsive Kitchen' }).getByText('£42.00'),
+    ).toBeVisible();
   });
 
   test('catering triage surfaces the most urgent SLA before newer enquiries', async ({ page }) => {
@@ -513,7 +524,8 @@ test.describe('admin compliance controls', () => {
     await page.getByRole('button', { name: 'Record final decision' }).click();
     await expect.poll(() => attempts.length).toBe(1);
     expect(attempts[0]).toMatchObject({ outcome: 'UPHELD' });
-    await expect(page.getByText(/must differ from stage 1 reviewer/)).toBeVisible();
+    await expect(page.getByText(/Could not record the decision/)).toBeVisible();
+    await expect(page.getByText(/must differ from stage 1 reviewer/)).toHaveCount(0);
 
     // Acceptance by a genuinely different server-validated reviewer, including
     // payout-credit reversal, is covered by appeal-policy.spec.ts. A single
@@ -574,11 +586,13 @@ test.describe('admin compliance controls', () => {
       route.fulfill({ contentType: 'application/json', body: JSON.stringify(null) }),
     );
     await page.route(`**/v1/admin/vendors/${VENDOR_ID}/enforcement`, async (route) => {
+      expect(route.request().headers().authorization).toMatch(/^Bearer \S+$/);
       if (route.request().method() === 'GET') {
         await route.fulfill({ contentType: 'application/json', body: JSON.stringify([]) });
         return;
       }
       const body = route.request().postDataJSON() as Record<string, unknown>;
+      expect(typeof body).toBe('object');
       submissions.push(body);
       const outcome = outcomes[submissions.length - 1];
       await route.fulfill({
@@ -628,19 +642,22 @@ test.describe('admin compliance controls', () => {
       await expect.poll(() => submissions.length).toBe(expectedSubmissions);
     };
     await submit({ narrative: minimumNarrative });
-    await expect(page.getByText(/at least 50 characters/)).toBeVisible();
+    await expect(page.getByText(/We could not complete this request/)).toBeVisible();
+    await page.getByRole('button', { name: 'OK, understood' }).click();
     await page.getByRole('button', { name: 'Cancel' }).last().click();
     await submit({
       narrative:
         'Documented proportionate non-urgent restriction with dates and evidence recorded.',
     });
-    await expect(page.getByText(/before the action takes effect/)).toBeVisible();
+    await expect(page.getByText(/We could not complete this request/)).toBeVisible();
+    await page.getByRole('button', { name: 'OK, understood' }).click();
     await page.getByRole('button', { name: 'Cancel' }).last().click();
     await submit({
       reasonCode: 'FRAUD',
       narrative: 'Verified fraud evidence requires an immediate suspension to protect customers.',
     });
-    await expect(page.getByText(/Urgent basis is required/)).toBeVisible();
+    await expect(page.getByText(/We could not complete this request/)).toBeVisible();
+    await page.getByRole('button', { name: 'OK, understood' }).click();
     await page.getByRole('button', { name: 'Cancel' }).last().click();
     await submit({
       reasonCode: 'FOOD_SAFETY_CONCERN',
@@ -648,12 +665,14 @@ test.describe('admin compliance controls', () => {
       urgentBasis: 'FHRS inspector confirmed critical risk today.',
     });
     await expect.poll(() => submissions.length).toBe(4);
+    await expect(page.getByRole('heading', { name: 'Create enforcement action' })).toHaveCount(0);
     await submit({
       actionType: 'TERMINATION',
       narrative:
         'Repeated material breaches are documented but do not establish serious cause today.',
     });
-    await expect(page.getByText(/Termination requires 30 days notice/)).toBeVisible();
+    await expect(page.getByText(/We could not complete this request/)).toBeVisible();
+    await page.getByRole('button', { name: 'OK, understood' }).click();
     await page.getByRole('button', { name: 'Cancel' }).last().click();
     await submit({
       actionType: 'TERMINATION',
@@ -661,6 +680,9 @@ test.describe('admin compliance controls', () => {
       narrative: 'Verified intentional fraud is serious cause requiring immediate termination.',
       urgentBasis: 'Forensic payment review confirms deliberate fraud.',
     });
+    await expect.poll(() => submissions.length).toBe(6);
+    // JSON omits undefined optional fields; prove no urgent justification was sent.
+    expect(submissions[2]).not.toHaveProperty('urgentBasis');
     expect(submissions).toEqual([
       expect.objectContaining({
         actionType: 'SUSPENSION',
@@ -671,7 +693,6 @@ test.describe('admin compliance controls', () => {
       expect.objectContaining({
         actionType: 'SUSPENSION',
         reasonCode: 'FRAUD',
-        urgentBasis: undefined,
       }),
       expect.objectContaining({
         actionType: 'SUSPENSION',
@@ -730,10 +751,12 @@ test.describe('admin compliance controls', () => {
     await page
       .getByPlaceholder('Internal note')
       .fill('Vendor packing evidence reviewed before decision.');
+    await page.getByPlaceholder('42.00').fill('42.00');
     await page.getByRole('button', { name: 'Close dispute' }).click();
     await expect.poll(() => decisions.length).toBe(1);
     expect(decisions[0]).toEqual({
       resolution: 'full_refund',
+      refundAmountPence: 4200,
       resolutionNote: 'Vendor packing evidence reviewed before decision.',
     });
   });
@@ -876,14 +899,22 @@ test.describe('admin compliance controls', () => {
     await page.goto(`${BASE}/dead-letters`);
     await requireAdminSession(page);
     await expect(page.getByText('send-order-update')).toBeVisible();
-    await page.getByRole('button', { name: 'Retry' }).click();
+    await page
+      .getByRole('row')
+      .filter({ hasText: 'send-order-update' })
+      .getByRole('button', { name: 'Retry', exact: true })
+      .click();
     await expect.poll(() => requests.length).toBe(1);
     expect(requests[0]).toEqual({
       method: 'POST',
       url: '/v1/admin/dead-letters/notifications/failed-notification-1/retry',
     });
 
-    await page.getByRole('button', { name: 'Discard' }).click();
+    await page
+      .getByRole('row')
+      .filter({ hasText: 'send-order-update' })
+      .getByRole('button', { name: 'Discard', exact: true })
+      .click();
     await expect.poll(() => requests.length).toBe(2);
     expect(requests[1]).toEqual({
       method: 'POST',
