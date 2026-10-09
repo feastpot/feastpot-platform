@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { apiRequest } from '@/lib/api/client';
+import { useApi } from './use-api';
 
 export type EnforcementActionType = 'RESTRICTION' | 'SUSPENSION' | 'TERMINATION';
 
@@ -62,23 +62,25 @@ export interface CreateEnforcementActionPayload {
 }
 
 export function useVendorEnforcementActions(vendorId: string) {
+  const { request, ready } = useApi();
   return useQuery({
     queryKey: ['vendor-enforcement', vendorId],
     queryFn: () =>
-      apiRequest<EnforcementAction[]>(`/admin/vendors/${vendorId}/enforcement`, {
+      request<EnforcementAction[]>(`/admin/vendors/${vendorId}/enforcement`, {
         next: { revalidate: 0 },
       }),
-    enabled: Boolean(vendorId),
+    enabled: ready && Boolean(vendorId),
   });
 }
 
 export function useCreateEnforcementAction(vendorId: string) {
+  const { request } = useApi();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateEnforcementActionPayload) =>
-      apiRequest<EnforcementAction>(`/admin/vendors/${vendorId}/enforcement`, {
+      request<EnforcementAction>(`/admin/vendors/${vendorId}/enforcement`, {
         method: 'POST',
-        body: JSON.stringify(payload),
+        body: payload,
         headers: { 'Content-Type': 'application/json' },
       }),
     onSuccess: () => {
@@ -89,12 +91,13 @@ export function useCreateEnforcementAction(vendorId: string) {
 }
 
 export function useLiftEnforcementAction(vendorId: string) {
+  const { request } = useApi();
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ actionId, liftNote }: { actionId: string; liftNote?: string }) =>
-      apiRequest<EnforcementAction>(`/admin/vendors/${vendorId}/enforcement/${actionId}/lift`, {
+      request<EnforcementAction>(`/admin/vendors/${vendorId}/enforcement/${actionId}/lift`, {
         method: 'PATCH',
-        body: JSON.stringify({ liftNote }),
+        body: { liftNote },
         headers: { 'Content-Type': 'application/json' },
       }),
     onSuccess: () => {

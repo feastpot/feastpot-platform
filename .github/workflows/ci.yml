@@ -35,30 +35,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Set up Node.js 22
-        uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-
-      - name: Pin npm (10.9.8 on the runner crashes with "Exit handler never called" on this lockfile)
-        run: npm install -g npm@10.9.4
-
-      - name: Install workspace dependencies
-        # `npm ci` honours workspaces declared in the root package.json.
-        run: npm ci --no-audit --no-fund
-
-      - name: Dump npm debug log on failure
-        if: failure()
-        run: tail -n 200 /home/runner/.npm/_logs/*.log || true
-
-      - name: Cache Turbo build artefacts
-        uses: actions/cache@v4
-        with:
-          path: .turbo
-          key: turbo-${{ runner.os }}-${{ github.sha }}
-          restore-keys: |
-            turbo-${{ runner.os }}-
+      - uses: ./.github/actions/setup-workspace
 
   # ----------------------------------------------------------------------------
   # 2. Typecheck - every workspace must satisfy `tsc --noEmit`.
@@ -69,20 +46,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm install -g npm@10.9.4
-      - run: npm ci
+      - uses: ./.github/actions/setup-workspace
       - name: Restore Turbo cache
         uses: actions/cache@v4
         with:
           path: .turbo
           key: turbo-${{ runner.os }}-${{ github.sha }}
           restore-keys: turbo-${{ runner.os }}-
-      - name: Generate Prisma client (needed for type-aware compiles)
-        run: npm run db:generate
       - name: Run typecheck across all workspaces
         run: npx turbo run typecheck
 
@@ -95,12 +65,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm install -g npm@10.9.4
-      - run: npm ci
+      - uses: ./.github/actions/setup-workspace
       - name: Restore Turbo cache
         uses: actions/cache@v4
         with:
@@ -177,12 +142,7 @@ jobs:
       NEXT_PUBLIC_SUPABASE_ANON_KEY: local-link-audit-key
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm install -g npm@10.9.4
-      - run: npm ci --no-audit --no-fund
+      - uses: ./.github/actions/setup-workspace
       - name: Serve applications and audit every internal target
         shell: bash
         run: |
@@ -220,7 +180,7 @@ jobs:
     # schema.prisma).  validate/format steps do not connect but work fine regardless.
     services:
       postgres:
-        image: postgres:16
+        image: public.ecr.aws/docker/library/postgres:16
         env:
           POSTGRES_USER: feastpot
           POSTGRES_PASSWORD: feastpot
@@ -238,12 +198,7 @@ jobs:
       SHADOW_DATABASE_URL: postgresql://feastpot:feastpot@localhost:5432/feastpot_shadow?schema=public
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm install -g npm@10.9.4
-      - run: npm ci
+      - uses: ./.github/actions/setup-workspace
       - name: Validate schema
         run: npx prisma validate --schema=./prisma/schema.prisma
       - name: Schema is correctly formatted
@@ -297,7 +252,7 @@ jobs:
     # acceptance suites run in their explicitly credentialed jobs, not as skips.
     services:
       postgres:
-        image: postgres:16
+        image: public.ecr.aws/docker/library/postgres:16
         env:
           POSTGRES_USER: feastpot
           POSTGRES_PASSWORD: feastpot
@@ -318,20 +273,13 @@ jobs:
       SUPABASE_DIRECT_URL: postgresql://feastpot:feastpot@localhost:5432/feastpot_test
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm install -g npm@10.9.4
-      - run: npm ci
+      - uses: ./.github/actions/setup-workspace
       - name: Restore Turbo cache
         uses: actions/cache@v4
         with:
           path: .turbo
           key: turbo-${{ runner.os }}-${{ github.sha }}
           restore-keys: turbo-${{ runner.os }}-
-      - name: Generate Prisma client
-        run: npm run db:generate
       - name: Create Supabase roles (migrations GRANT to them; vanilla Postgres lacks them)
         run: |
           PGPASSWORD=feastpot psql -h localhost -U feastpot -d feastpot_test -v ON_ERROR_STOP=1 \
@@ -378,7 +326,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        image: public.ecr.aws/docker/library/postgres:16
         env:
           POSTGRES_USER: feastpot
           POSTGRES_PASSWORD: feastpot
@@ -396,14 +344,7 @@ jobs:
       SUPABASE_DIRECT_URL: postgresql://feastpot:feastpot@localhost:5432/feastpot_financial
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm install -g npm@10.9.4
-      - run: npm ci --no-audit --no-fund
-      - name: Generate Prisma client
-        run: npm run db:generate
+      - uses: ./.github/actions/setup-workspace
       - name: Create Supabase roles
         run: |
           PGPASSWORD=feastpot psql -h localhost -U feastpot -d feastpot_financial -v ON_ERROR_STOP=1 \
@@ -458,14 +399,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-
-      - run: npm install -g npm@10.9.4
-
-      - run: npm ci --no-audit --no-fund
+      - uses: ./.github/actions/setup-workspace
 
       - name: Verify vendor Playwright discovery (noninteractive)
         run: npm run test:e2e:discovery --workspace=@feastpot/vendor
@@ -494,11 +428,6 @@ jobs:
       # ---- Prisma client ------------------------------------------------------
       # The vendor app's shared packages may reference Prisma types at build
       # time. Generate the client with dummy URLs (no DB connection is made).
-      - name: Generate Prisma client
-        run: npm run db:generate
-        env:
-          SUPABASE_DB_URL: postgresql://dummy:dummy@localhost:5432/dummy
-          SUPABASE_DIRECT_URL: postgresql://dummy:dummy@localhost:5432/dummy
 
       # ---- Browser setup ------------------------------------------------------
       # install-chromium.js replaces Playwright's downloaded binary with a
@@ -507,13 +436,9 @@ jobs:
       # installed by `playwright install` is already correctly linked, so this
       # step may be a harmless no-op. continue-on-error prevents a hard stop
       # if `which chromium` cannot locate a system binary on this runner.
-      - name: Run install-chromium.js (NixOS symlink helper, may be no-op)
-        run: node apps/vendor/e2e/install-chromium.js
-        continue-on-error: true
-
-      - name: Install Playwright browsers and OS dependencies
-        run: npx playwright install --with-deps chromium
-        working-directory: apps/vendor
+      - uses: ./.github/actions/setup-browser
+        with:
+          working-directory: apps/vendor
 
       # ---- Vendor dev server --------------------------------------------------
       - name: Start vendor dev server on port 3002 (background)
@@ -562,7 +487,10 @@ jobs:
 
       - name: Validate every authoritative vendor project executed
         if: always()
-        run: node scripts/validate-playwright-results.mjs --results apps/vendor/e2e-results.json --expected-project-count 8
+        run: >-
+          node scripts/validate-playwright-results.mjs
+          --results apps/vendor/e2e-results.json --expected-project-count 8
+          --projects vendor-state-matrix-setup,vendor-state-matrix,vendor-state-matrix-mobile,vendor-authorization,vendor-order-contracts,vendor-menu-contracts,vendor-lifecycle-evidence,vendor-state-matrix-teardown
 
       # ---- Artefact upload ----------------------------------------------------
       # Upload the HTML report (with traces and screenshots) only on failure so
@@ -586,14 +514,51 @@ jobs:
   # Admin portal E2E is a separate required check. Missing credentials fail
   # loudly so branch protection can never treat an unexecuted suite as green.
   # --------------------------------------------------------------------------
-  e2e-admin:
-    name: E2E (admin portal, all projects)
+  e2e-admin-actions:
+    name: Admin authoritative actions
+    # Staff acceptance mutates globally current records; preserve its sequence.
     needs: [setup, e2e-customer]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      redis:
+        image: public.ecr.aws/docker/library/redis:7-alpine
+        ports:
+          - 6379:6379
+    env:
+      SUPABASE_DB_URL: ${{ secrets.TEST_SUPABASE_DB_URL }}
+      SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TEST_FACTORY_PASSWORD: ${{ secrets.TEST_FACTORY_PASSWORD }}
+      TEST_FACTORY_NAMESPACE: admin-actions-${{ github.run_id }}-${{ github.run_attempt }}
+      REDIS_URL: redis://localhost:6379
+      STRIPE_SECRET_KEY_TEST: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
+      SESSION_SECRET: admin-actions-ci-only-not-production
+      ADMIN_REQUIRE_AAL2: 'true'
+      NEXT_PUBLIC_ADMIN_REQUIRE_AAL2: 'true'
+      ADMIN_E2E_ALLOW_AAL1: 'false'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-workspace
+      - name: Run authoritative admin action acceptance
+        run: npm run test --workspace=@feastpot/api -- --runInBand --forceExit src/e2e/admin-authoritative-actions.spec.ts
+        env:
+          NODE_ENV: test
+
+  e2e-admin-shards:
+    name: Admin browser shard ${{ matrix.shard }}/4
+    needs: [setup, e2e-admin-actions]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     timeout-minutes: 30
     services:
       redis:
-        image: redis:7-alpine
+        image: public.ecr.aws/docker/library/redis:7-alpine
         ports:
           - 6379:6379
         options: >-
@@ -614,7 +579,8 @@ jobs:
       SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       TEST_FACTORY_PASSWORD: ${{ secrets.TEST_FACTORY_PASSWORD }}
-      TEST_FACTORY_NAMESPACE: admin-${{ github.run_id }}-${{ github.run_attempt }}
+      TEST_FACTORY_NAMESPACE: admin-${{ github.run_id }}-${{ github.run_attempt }}-shard-${{ matrix.shard }}
+      CI_SHARD: ${{ matrix.shard }}
       REDIS_URL: redis://localhost:6379
       STRIPE_SECRET_KEY_TEST: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
       SESSION_SECRET: admin-e2e-test-only-session-secret-34125348434
@@ -623,12 +589,7 @@ jobs:
       ADMIN_E2E_ALLOW_AAL1: 'false'
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm install -g npm@10.9.4
-      - run: npm ci --no-audit --no-fund
+      - uses: ./.github/actions/setup-workspace
       - name: Verify admin Playwright discovery (noninteractive)
         run: npm run test:e2e:discovery --workspace=@feastpot/admin
       - name: Require admin E2E credentials
@@ -657,25 +618,19 @@ jobs:
         run: |
           set -euo pipefail
           curl --fail --silent --show-error --retry 5 --retry-all-errors \
-            "${TEST_API_URL%/}/healthz" > /dev/null
-      - name: Generate Prisma client
-        run: npm run db:generate
+            --connect-timeout 5 --max-time 15 "${TEST_API_URL%/}/healthz" > /dev/null
         env:
           SUPABASE_DB_URL: postgresql://dummy:dummy@localhost:5432/dummy
           SUPABASE_DIRECT_URL: postgresql://dummy:dummy@localhost:5432/dummy
-      - name: Run authoritative admin action acceptance
-        run: npm run test --workspace=@feastpot/api -- --runInBand --forceExit src/e2e/admin-authoritative-actions.spec.ts
-        env:
-          NODE_ENV: test
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
-        working-directory: apps/admin
+      - uses: ./.github/actions/setup-browser
+        with:
+          working-directory: apps/admin
       - name: Start admin server
-        run: npm run dev --workspace=@feastpot/admin &
+        run: npm run dev --workspace=@feastpot/admin > /tmp/admin-e2e-server.log 2>&1 &
       - name: Wait for admin server
         run: |
           for i in $(seq 1 60); do
-            curl -sf http://localhost:3003 > /dev/null && exit 0
+            curl -sf --connect-timeout 2 --max-time 5 http://localhost:3003 > /dev/null && exit 0
             sleep 2
           done
           echo "::error title=Admin server timeout::The admin app did not open port 3003."
@@ -688,25 +643,79 @@ jobs:
         shell: bash
         run: |
           set +e
-          npx playwright test
+          npx playwright test --shard="${CI_SHARD}/4"
           status=$?
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit 0
         working-directory: apps/admin
-      - name: Validate every admin project executed
+      - name: Reject empty or incomplete admin shard reports
         if: always()
-        run: node scripts/validate-playwright-results.mjs --results apps/admin/e2e-results.json --expected-project-count 9
+        run: |
+          node -e "
+            const r = JSON.parse(require('node:fs').readFileSync('apps/admin/e2e-results.json', 'utf8'));
+            if (!r.stats || r.stats.expected < 1 || r.stats.unexpected > 0 || r.stats.skipped > 0) {
+              throw new Error('Admin shard must execute passing tests with no failed or skipped cases.');
+            }
+          "
       - name: Preserve admin Playwright failure status
         if: always() && steps.playwright-run.outputs.exit_code != '0'
         run: exit "${{ steps.playwright-run.outputs.exit_code }}"
       - name: Upload admin Playwright results and HTML report
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: admin-playwright-report-${{ github.run_id }}
+          name: admin-shard-${{ github.run_id }}-${{ matrix.shard }}
+          overwrite: true
           path: |
             apps/admin/e2e-results.json
             apps/admin/e2e-report/
+          retention-days: 14
+
+  # Keep the required check name stable and relocate full coverage validation
+  # here: every project and every discovered test must pass across all shards.
+  e2e-admin:
+    name: E2E (admin portal, all projects)
+    needs: [setup, e2e-admin-shards]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      TEST_FACTORY_NAMESPACE: admin-discovery-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: Require every admin shard to succeed
+        env:
+          SHARD_RESULT: ${{ needs.e2e-admin-shards.result }}
+        run: test "$SHARD_RESULT" = success
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-workspace
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: admin-shard-${{ github.run_id }}-*
+          path: admin-shard-artifacts
+      - name: Merge admin execution reports
+        shell: bash
+        run: |
+          mapfile -d '' reports < <(find admin-shard-artifacts -name e2e-results.json -print0)
+          test "${#reports[@]}" -eq 4
+          node scripts/validate-admin-shards.mjs --merge "${reports[@]}"
+      - name: Validate every admin project and discovered test executed
+        shell: bash
+        run: |
+          cd apps/admin
+          npx playwright test --list --reporter=json > /tmp/admin-discovery.json
+          cd ../..
+          node --test scripts/validate-admin-shards.test.mjs
+          node scripts/validate-playwright-results.mjs \
+            --results apps/admin/e2e-results.json --expected-project-count 9
+          node scripts/validate-admin-shards.mjs \
+            /tmp/admin-discovery.json apps/admin/e2e-results.json
+      - name: Upload merged admin execution evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-merged-results-${{ github.run_id }}
+          overwrite: true
+          path: apps/admin/e2e-results.json
           retention-days: 14
 
   # --------------------------------------------------------------------------
@@ -717,16 +726,18 @@ jobs:
   # environment only; no secret is written to the repository or artefacts.
   # Add "e2e-customer" to the branch-protection required checks for main.
   # --------------------------------------------------------------------------
-  e2e-customer:
-    name: E2E (customer checkout)
+  e2e-customer-shards:
+    name: Customer checkout shard ${{ matrix.shard }}/3
     needs: [setup]
     runs-on: ubuntu-latest
-    # The serial, DB-backed suite took 28 minutes before setup and reporting.
-    # Leave time for fixture cleanup and evidence upload, not just assertions.
-    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    timeout-minutes: 30
     services:
       redis:
-        image: redis:7-alpine
+        image: public.ecr.aws/docker/library/redis:7-alpine
         ports:
           - 6379:6379
     env:
@@ -747,7 +758,8 @@ jobs:
       REDIS_URL: redis://localhost:6379
       SESSION_SECRET: customer-ci-only-session-secret-not-for-deployment
       TEST_FACTORY_PASSWORD: ${{ secrets.TEST_FACTORY_PASSWORD }}
-      TEST_FACTORY_NAMESPACE: customer-${{ github.run_id }}-${{ github.run_attempt }}
+      TEST_FACTORY_NAMESPACE: customer-${{ github.run_id }}-${{ github.run_attempt }}-shard-${{ matrix.shard }}
+      CI_SHARD: ${{ matrix.shard }}
       CUSTOMER_E2E_USE_FACTORY: 'true'
       CUSTOMER_E2E_ISOLATED_ENVIRONMENT: 'true'
       # Keep the safety allowlist identical to the API this job exercises.
@@ -757,12 +769,7 @@ jobs:
       PROD_DIRECT_URL: ${{ secrets.PROD_DIRECT_URL }}
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm install -g npm@10.9.4
-      - run: npm ci --no-audit --no-fund
+      - uses: ./.github/actions/setup-workspace
       - name: Verify customer Playwright discovery (noninteractive)
         run: npm run test:e2e:discovery --workspace=@feastpot/web
       - name: Require isolated customer and Stripe test credentials
@@ -790,8 +797,9 @@ jobs:
             sk_test_*) ;;
             *) echo "::error title=Unsafe Stripe key::STRIPE_SECRET_KEY_TEST must be an sk_test_ key."; exit 1 ;;
           esac
-      - name: Generate customer API Prisma client
-        run: npm run db:generate
+      - name: Bound shared development database connection pools
+        # API and factory Prisma clients both inherit this bounded URL.
+        run: node scripts/ci-database.cjs customer
       - name: Start isolated customer API from this PR
         run: NODE_ENV=test npm run dev --workspace=@feastpot/api > /tmp/customer-e2e-api.log 2>&1 &
       - name: Verify isolated customer API health
@@ -808,14 +816,9 @@ jobs:
               throw new Error('Customer E2E API health response was unavailable.');
             }
           "
-      - name: Generate Prisma client
-        run: npm run db:generate
-        env:
-          SUPABASE_DB_URL: postgresql://dummy:dummy@localhost:5432/dummy
-          SUPABASE_DIRECT_URL: postgresql://dummy:dummy@localhost:5432/dummy
-      - name: Install Playwright Chromium
-        run: npx playwright install --with-deps chromium
-        working-directory: apps/web
+      - uses: ./.github/actions/setup-browser
+        with:
+          working-directory: apps/web
       - name: Start customer web server
         run: npm run dev --workspace=@feastpot/web &
       - name: Wait for customer web server
@@ -836,58 +839,11 @@ jobs:
         shell: bash
         run: |
           set +e
-          npx playwright test --config playwright.config.ts e2e/customer --global-timeout=2400000
+          npx playwright test --config playwright.config.ts e2e/customer --shard=${{ matrix.shard }}/3 --global-timeout=1500000
           status=$?
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit 0
         working-directory: apps/web
-      - name: Assert CP-1 real purchase was discovered and executed
-        if: always()
-        shell: bash
-        run: |
-          node - <<'NODE_SCRIPT'
-          const fs = require('fs');
-          const path = require('path');
-
-          const resultsFile = path.join('apps', 'web', 'e2e-results.json');
-          if (!fs.existsSync(resultsFile)) {
-            console.error('::error title=Missing customer results::e2e-results.json not found; CP-1 execution cannot be verified.');
-            process.exit(1);
-          }
-
-          const report = JSON.parse(fs.readFileSync(resultsFile, 'utf8'));
-          let cp1Found = false;
-          let cp1Executed = false;
-          let cp1Skipped = false;
-
-          function walk(suite) {
-            for (const spec of suite.specs ?? []) {
-              if (!spec.title.includes('CP-1:')) continue;
-              cp1Found = true;
-              for (const test of spec.tests ?? []) {
-                const results = test.results ?? [];
-                if (results.length === 0 || results.every((result) => result.status === 'skipped')) {
-                  cp1Skipped = true;
-                }
-                if (results.some((result) => result.status !== 'skipped')) {
-                  cp1Executed = true;
-                }
-              }
-            }
-            for (const child of suite.suites ?? []) walk(child);
-          }
-          walk(report);
-
-          if (!cp1Found) {
-            console.error('::error title=CP-1 absent::CP-1 real purchase was not discovered in the customer Playwright result.');
-            process.exit(1);
-          }
-          if (!cp1Executed || cp1Skipped) {
-            console.error('::error title=CP-1 not executed::CP-1 real purchase was skipped or had no execution result.');
-            process.exit(1);
-          }
-          console.log('CP-1 real purchase was discovered, executed, and not skipped.');
-          NODE_SCRIPT
       - name: Preserve customer Playwright failure status
         if: always() && steps.playwright-run.outputs.exit_code != '0'
         run: exit "${{ steps.playwright-run.outputs.exit_code }}"
@@ -895,12 +851,37 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: customer-playwright-report-${{ github.run_id }}
+          name: customer-playwright-report-${{ github.run_id }}-${{ github.run_attempt }}-shard-${{ matrix.shard }}
           path: |
             apps/web/e2e-results.json
             apps/web/playwright-report/
             apps/web/test-results/
           retention-days: 14
+
+  e2e-customer:
+    name: E2E (customer checkout)
+    if: ${{ always() }}
+    needs: [setup, e2e-customer-shards]
+    runs-on: ubuntu-latest
+    env:
+      CUSTOMER_E2E_USE_FACTORY: 'true'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-workspace
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: customer-playwright-report-${{ github.run_id }}-${{ github.run_attempt }}-shard-*
+          path: customer-shards
+      - name: Discover the full customer suite independently of sharding
+        working-directory: apps/web
+        run: npx --no-install playwright test --config playwright.config.ts e2e/customer --list --reporter=json > customer-discovery.json
+      - name: Verify every discovered test, all three shards and CP-1
+        run: |
+          node --test scripts/validate-customer-shards.test.cjs
+          node scripts/validate-customer-shards.cjs apps/web/customer-discovery.json customer-shards
+      - name: Preserve failed or incomplete matrix status
+        if: ${{ always() && needs.e2e-customer-shards.result != 'success' }}
+        run: exit 1
 
   # --------------------------------------------------------------------------
   # Parts A-D are required inventories. Part A reads four real local HTTP
@@ -916,7 +897,7 @@ jobs:
     timeout-minutes: 30
     services:
       postgres:
-        image: postgres:16
+        image: public.ecr.aws/docker/library/postgres:16
         env:
           POSTGRES_USER: feastpot
           POSTGRES_PASSWORD: feastpot
@@ -929,7 +910,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
       redis:
-        image: redis:7-alpine
+        image: public.ecr.aws/docker/library/redis:7-alpine
         ports:
           - 6379:6379
         options: >-
@@ -945,6 +926,8 @@ jobs:
       PART_A_API_URL: http://127.0.0.1:3001
       PART_A_VENDOR_URL: http://127.0.0.1:3002
       PART_A_ADMIN_URL: http://127.0.0.1:3003
+      PLAYWRIGHT_BASE_URL: http://127.0.0.1:3003
+      NEXT_PUBLIC_ADMIN_REQUIRE_AAL2: 'true'
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       SUPABASE_DB_URL: ${{ secrets.TEST_SUPABASE_DB_URL }}
@@ -958,12 +941,7 @@ jobs:
       SESSION_SECRET: cross-surface-test-only-session-secret-34125348434
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm install -g npm@10.9.4
-      - run: npm ci --no-audit --no-fund
+      - uses: ./.github/actions/setup-workspace
       - name: Require cross-surface integration credentials
         run: |
           required=(
@@ -1069,19 +1047,35 @@ jobs:
     name: RLS coverage + denial tests
     needs: [setup]
     runs-on: ubuntu-latest
+    outputs:
+      verified: ${{ steps.denial-tests.outputs.verified }}
     env:
-      SUPABASE_DIRECT_URL: ${{ secrets.SUPABASE_DIRECT_URL }}
+      # Use the same approved development DB and Auth project as customer E2E.
+      SUPABASE_DB_URL: ${{ secrets.TEST_SUPABASE_DB_URL }}
+      CUSTOMER_E2E_ALLOWED_SUPABASE_REF: ${{ vars.CUSTOMER_E2E_ALLOWED_SUPABASE_REF }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
     steps:
       - uses: actions/checkout@v5
 
-      - name: Skip notice for fork PRs (secrets unavailable)
+      - name: Skip only actual fork PRs (secrets unavailable)
         id: fork-guard
-        if: env.SUPABASE_DIRECT_URL == ''
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |
           echo "::notice title=RLS check skipped (fork PR)::Repository secrets are not available to fork-originated workflows. The RLS coverage and denial tests are skipped. A maintainer will trigger the full suite after reviewing the changes."
           echo "skip=true" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v5
+        if: steps.fork-guard.outputs.skip != 'true'
+        with:
+          node-version: 22
+
+      - name: Verify database safety and connection pool regression tests
+        run: node --test scripts/ci-database.test.cjs
+
+      - name: Require matching development database and anon credentials
+        if: steps.fork-guard.outputs.skip != 'true'
+        run: node scripts/ci-database.cjs rls
 
       - name: Install psql client
         if: steps.fork-guard.outputs.skip != 'true'
@@ -1096,45 +1090,76 @@ jobs:
         # before the PR can be merged.
         run: psql "$SUPABASE_DIRECT_URL" -v ON_ERROR_STOP=1 -f scripts/check-rls-coverage.sql
 
-      - uses: actions/setup-node@v5
-        if: steps.fork-guard.outputs.skip != 'true'
-        with:
-          node-version: 22
-
       - name: RLS denial tests (anon key, never service key)
+        id: denial-tests
         if: steps.fork-guard.outputs.skip != 'true'
         # Uses the Supabase anon key - the key that is public by design and
         # shipped in every browser bundle - to assert that sensitive tables
         # return zero rows through the PostgREST API. A test using service_role
         # would bypass RLS and prove nothing.
-        run: node scripts/test-rls-denial.mjs
+        run: |
+          node scripts/test-rls-denial.mjs
+          echo "verified=true" >> "$GITHUB_OUTPUT"
 
   # ----------------------------------------------------------------------------
   # 8. Build - only after every quality gate has passed.
   # ----------------------------------------------------------------------------
   build:
     name: Build all apps
-    needs: [typecheck, lint, prisma-validate, test, cross-surface-consistency]
+    # Compile while acceptance runs; Release readiness still requires every
+    # financial, coverage and browser check before this build can qualify.
+    needs: [setup, typecheck, lint, prisma-validate]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm install -g npm@10.9.4
-      - run: npm ci
+      - uses: ./.github/actions/setup-workspace
       - name: Restore Turbo cache
         uses: actions/cache@v4
         with:
           path: .turbo
           key: turbo-${{ runner.os }}-${{ github.sha }}
           restore-keys: turbo-${{ runner.os }}-
-      - name: Generate Prisma client
-        run: npm run db:generate
       - name: Sitemap contract regression tests
         run: npm run test:sitemap --workspace=@feastpot/web
       - name: Build (api, web, vendor, admin)
         # CI is non-release: no sitemap is published and robots denies crawling.
         # Sitemap contracts above test production's fail-closed catalogue gate.
         run: npx turbo run build
+
+  release-readiness:
+    name: Release readiness
+    if: ${{ always() }}
+    needs:
+      [
+        setup,
+        typecheck,
+        lint,
+        prisma-validate,
+        test,
+        financial-suite,
+        link-audit-live,
+        rls-check,
+        e2e-customer,
+        e2e-customer-shards,
+        e2e-admin,
+        e2e-vendor,
+        cross-surface-consistency,
+        build,
+      ]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      statuses: read
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Test the fail-closed release gate
+        run: node --test scripts/check-release-readiness.test.cjs
+      - name: Verify mandatory CI jobs and same-commit Vercel previews
+        env:
+          CI_REQUIRED_RESULTS: ${{ toJSON(needs) }}
+          RELEASE_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node scripts/check-release-readiness.cjs

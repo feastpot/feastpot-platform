@@ -3,6 +3,7 @@ import { writeFileSync } from 'node:fs';
 import { expect, test as setup, type Page } from '@playwright/test';
 
 import { TestDataFactory, type TestIdentity } from '../../../scripts/test-factory';
+import { browserAccessToken } from './helpers/browser-access-token';
 
 import {
   configuredMatrixStates,
@@ -110,6 +111,44 @@ setup('provision and authenticate V1-V11 vendor states', async ({ browser }) => 
         }
         const page = await context.newPage();
         await signIn(page, identity.credentials.email, identity.credentials.password);
+        await browserAccessToken(page);
+        // This recovery page intentionally signs out. Check that contract before
+        // saving a fresh session for the remaining, authenticated route audit.
+        await page.goto('/not-registered');
+        await expect(page.getByRole('heading', { name: 'Vendor account required' })).toBeVisible();
+        if (state === 'V4') {
+          const viewport = page.viewportSize();
+          await page.setViewportSize({ width: 375, height: 812 });
+          const dimensions = await page.evaluate(() => ({
+            clientWidth: document.documentElement.clientWidth,
+            scrollWidth: document.documentElement.scrollWidth,
+          }));
+          expect(dimensions.clientWidth).toBe(375);
+          expect(
+            dimensions.scrollWidth,
+            'Recovery page must not overflow on mobile',
+          ).toBeLessThanOrEqual(dimensions.clientWidth);
+          if (viewport) await page.setViewportSize(viewport);
+        }
+        await expect
+          .poll(
+            async () =>
+              (await context.cookies()).filter(({ name }) =>
+                /^sb-.+-auth-token(?:\.\d+)?$/.test(name),
+              ).length,
+            { timeout: 20_000, message: `${state} recovery must clear its SSR session cookies` },
+          )
+          .toBe(0);
+        await page.goto('/orders');
+        await expect(page).toHaveURL(/\/sign-in(?:\?|$)/);
+        await signIn(page, identity.credentials.email, identity.credentials.password);
+        await browserAccessToken(page);
+      } else {
+        const page = await context.newPage();
+        await page.goto('/not-registered');
+        await expect(page.getByRole('heading', { name: 'Vendor account required' })).toBeVisible();
+        await page.goto('/orders');
+        await expect(page).toHaveURL(/\/sign-in(?:\?|$)/);
       }
       await context.storageState({ path: matrixStorageStatePath(state, namespace) });
       await context.close();

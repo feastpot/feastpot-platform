@@ -1,0 +1,31 @@
+name: Set up cached workspace
+description: Restore lockfile-exact dependencies and the matching generated Prisma client.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v5
+      with:
+        node-version: 22
+        cache: npm
+    - name: Restore installed workspace dependencies
+      id: dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          node_modules
+          apps/*/node_modules
+          packages/*/node_modules
+        key: workspace-deps-${{ runner.os }}-${{ runner.arch }}-node22-npm10.9.4-${{ hashFiles('package-lock.json', '**/package.json', 'prisma/schema.prisma', '.github/actions/setup-workspace/action.yml') }}
+    - name: Install pinned dependencies on a cache miss
+      if: steps.dependencies.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        npm install -g npm@10.9.4
+        npm ci --include=dev --no-audit --no-fund
+    - name: Generate matching Prisma client on a cache miss
+      if: steps.dependencies.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        SUPABASE_DB_URL: postgresql://dummy:dummy@localhost:5432/dummy
+        SUPABASE_DIRECT_URL: postgresql://dummy:dummy@localhost:5432/dummy
+      run: npm run db:generate

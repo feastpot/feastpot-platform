@@ -97,7 +97,9 @@ async function expectMobilePageWidth(page: Page): Promise<void> {
 }
 
 async function enterDeterministicSuccessCard(page: Page): Promise<void> {
-  const card = page.frameLocator('iframe[name^="__privateStripeFrame"][title$="input frame" i]');
+  const card = page.frameLocator(
+    'iframe[name^="__privateStripeFrame"][title="Secure card payment input frame" i]',
+  );
   await expect(card.locator('input[name="exp-date"]')).toBeVisible({ timeout: 30_000 });
   // This is the same test-mode success card used by payment-states.spec.ts;
   // no alternate Stripe adapter or live-mode payment path is introduced here.
@@ -152,7 +154,14 @@ test.describe('post-order customer journeys', () => {
       await expect(page).toHaveURL(/\/vendors\?postcode=SE15(?:%20|\+)4ST/);
       await expectMobilePageWidth(page);
 
-      await page.locator(`a[href="/vendors/${fixture.vendor.vendorSlug}#menu"]`).click();
+      const vendorCard = page.locator(`a[href="/vendors/${fixture.vendor.vendorSlug}"]`);
+      await expect(vendorCard).toBeVisible();
+      await Promise.all([
+        page.waitForURL(new RegExp(`/vendors/${fixture.vendor.vendorSlug}`), {
+          timeout: 30_000,
+        }),
+        vendorCard.click(),
+      ]);
       await expect(page).toHaveURL(new RegExp(`/vendors/${fixture.vendor.vendorSlug}`), {
         timeout: 30_000,
       });

@@ -2,7 +2,8 @@ import { existsSync, readFileSync } from 'node:fs';
 
 import { expect, test, type Page } from '@playwright/test';
 
-import { TestDataFactory } from '../../../scripts/test-factory';
+import { TestDataFactory, type TestIdentity } from '../../../scripts/test-factory';
+import { browserAccessToken } from './helpers/browser-access-token';
 
 import {
   matrixManifestPath,
@@ -18,17 +19,7 @@ function manifest(): VendorStateMatrixManifest {
 }
 
 async function token(page: Page): Promise<string> {
-  const accessToken = await page.evaluate(() => {
-    for (let index = 0; index < localStorage.length; index += 1) {
-      const key = localStorage.key(index);
-      if (!key?.includes('auth-token')) continue;
-      const session = JSON.parse(localStorage.getItem(key) ?? '{}') as { access_token?: string };
-      if (session.access_token) return session.access_token;
-    }
-    return null;
-  });
-  if (!accessToken) throw new Error('Factory V5 browser session has no access token.');
-  return accessToken;
+  return browserAccessToken(page);
 }
 
 test.describe.serial('factory-backed vendor menu contracts', () => {

@@ -15,8 +15,12 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
     request,
   }) => {
     test.setTimeout(360_000);
-    const namespace = process.env.TEST_FACTORY_NAMESPACE;
-    if (!namespace) throw new Error('TEST_FACTORY_NAMESPACE is required for lifecycle evidence.');
+    const baseNamespace = process.env.TEST_FACTORY_NAMESPACE;
+    if (!baseNamespace)
+      throw new Error('TEST_FACTORY_NAMESPACE is required for lifecycle evidence.');
+    // Teardown discovers canonical V5 fixtures as well as explicit applicant IDs.
+    // Keep this public lifecycle applicant separate from the matrix's V5 vendor.
+    const namespace = `${baseNamespace}-lifecycle`;
     const factory = TestDataFactory.fromEnvironment({ namespace });
     let admin: TestIdentity | undefined;
     let customer: TestIdentity | undefined;
@@ -179,7 +183,7 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
             file: {
               name: `lifecycle-${type}.pdf`,
               mimeType: 'application/pdf',
-              buffer: Buffer.from(`%PDF-1.4\n% lifecycle ${type} evidence\n`),
+              buffer: Buffer.from(`%PDF-1.4\n% lifecycle ${type} evidence\n%%EOF\n`),
             },
           },
         });

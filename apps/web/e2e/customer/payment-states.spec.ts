@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 
 import type { CheckoutScenarioFixture, TestDataFactory } from '../../../../scripts/test-factory';
+import { abandonThreeDs } from './three-ds';
 
 import {
   assertCustomerSmokeEnvironment,
@@ -28,7 +29,7 @@ async function openReadyCheckout(page: Page, fixture: CheckoutScenarioFixture): 
   await page.locator('#signin-email').fill(fixture.customer.credentials.email);
   await page.locator('#signin-password').fill(fixture.customer.credentials.password!);
   await page.getByRole('button', { name: /sign in/i }).click();
-  await expect(page).toHaveURL((url) => url.pathname === '/vendors');
+  await expect(page).toHaveURL((url) => url.pathname === '/vendors', { timeout: 30_000 });
 
   await page.addInitScript(
     (value) => {
@@ -77,7 +78,9 @@ async function openReadyCheckout(page: Page, fixture: CheckoutScenarioFixture): 
 }
 
 async function enterCard(page: Page, number: string): Promise<void> {
-  const card = page.frameLocator('iframe[name^="__privateStripeFrame"][title$="input frame" i]');
+  const card = page.frameLocator(
+    'iframe[name^="__privateStripeFrame"][title="Secure card payment input frame" i]',
+  );
   await expect(card.locator('input[name="exp-date"]')).toBeVisible({ timeout: 30_000 });
   await card.locator('input[name="cardnumber"]').fill(number);
   await card.locator('input[name="exp-date"]').fill('1230');
@@ -98,6 +101,35 @@ async function submit(page: Page): Promise<void> {
       `CUSTOMER_ORDER_CREATION_FAILED: ${orderResponse.status()} ${body.code ?? body.error?.code ?? 'UNKNOWN'} ${body.ref ?? body.errorRef ?? ''}`,
     );
   }
+}
+
+async function expectLoadedConfirmation(
+  page: Page,
+  completePayment: () => Promise<void>,
+): Promise<void> {
+  // Navigation commits before the protected order query finishes. Observe the
+  // real read before submitting, so a fast response cannot be missed either.
+  const [response] = await Promise.all([
+    page.waitForResponse(
+      (result) =>
+        result.request().method() === 'GET' &&
+        /^\/v1\/orders\/[^/]+$/.test(new URL(result.url()).pathname),
+      { timeout: 60_000 },
+    ),
+    (async () => {
+      await completePayment();
+      await expect(page).toHaveURL(/\/orders\/[^/]+\/confirmation$/, { timeout: 30_000 });
+    })(),
+  ]);
+  expect(response.status(), 'Confirmation must load the actual authorised order').toBe(200);
+  const order = await response.json();
+  const orderId = new URL(page.url()).pathname.split('/')[2];
+  expect(order.id).toBe(orderId);
+  expect(order.orderNumber).toBeTruthy();
+  await expect(page.getByRole('heading', { name: 'Order placed!', exact: true })).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByText(`#${order.orderNumber}`, { exact: true })).toBeVisible();
 }
 
 async function completeThreeDs(page: Page): Promise<void> {
@@ -141,35 +173,6 @@ function expectNoOrphans(
   for (const order of state.orders) expect(order.payments).toHaveLength(1);
 }
 
-async function abandonThreeDs(page: Page): Promise<void> {
-  await expect
-    .poll(
-      async () => {
-        for (const frame of page.frames()) {
-          const button = frame
-            .locator('#test-source-fail-3ds')
-            .or(frame.getByRole('button', { name: /fail|cancel|decline/i }))
-            .first();
-          if (await button.isVisible().catch(() => false)) return true;
-        }
-        return false;
-      },
-      { timeout: 30_000 },
-    )
-    .toBe(true);
-  for (const frame of page.frames()) {
-    const button = frame
-      .locator('#test-source-fail-3ds')
-      .or(frame.getByRole('button', { name: /fail|cancel|decline/i }))
-      .first();
-    if (await button.isVisible().catch(() => false)) {
-      await button.click();
-      return;
-    }
-  }
-  throw new Error('CUSTOMER_E2E_3DS_CHALLENGE_NOT_FOUND');
-}
-
 async function withScenario(
   request: Parameters<typeof inspectFactoryPaymentState>[0],
   customer: CustomerFixture,
@@ -197,15 +200,13 @@ async function withScenario(
 
 test.describe('customer payment outcomes', () => {
   test.describe.configure({ timeout: 120_000 });
-  test.describe.configure({ mode: 'default', retries: 0 });
+  test.describe.configure({ mode: process.env.CI_SHARD ? 'parallel' : 'default', retries: 0 });
 
   test('success', async ({ page, request, customer }) => {
     await withScenario(request, customer, async ({ factory, fixture, accessToken }) => {
       await openReadyCheckout(page, fixture);
       await enterCard(page, cards.success);
-      await submit(page);
-      await expect(page).toHaveURL(/\/orders\/[^/]+\/confirmation$/, { timeout: 30_000 });
-      await expect(page.getByRole('heading', { name: 'Order placed!', exact: true })).toBeVisible();
+      await expectLoadedConfirmation(page, () => submit(page));
       const state = await inspectFactoryPaymentState(request, accessToken);
       expectNoOrphans(state, {
         orders: 1,
@@ -236,9 +237,10 @@ test.describe('customer payment outcomes', () => {
     await withScenario(request, customer, async ({ factory, fixture, accessToken }) => {
       await openReadyCheckout(page, fixture);
       await enterCard(page, cards['3DS completed']);
-      await submit(page);
-      await completeThreeDs(page);
-      await expect(page).toHaveURL(/\/orders\/[^/]+\/confirmation$/, { timeout: 30_000 });
+      await expectLoadedConfirmation(page, async () => {
+        await submit(page);
+        await completeThreeDs(page);
+      });
       const state = await inspectFactoryPaymentState(request, accessToken);
       expectNoOrphans(state, {
         orders: 1,
@@ -254,9 +256,8 @@ test.describe('customer payment outcomes', () => {
       await openReadyCheckout(page, fixture);
       await enterCard(page, cards['3DS abandoned']);
       await submit(page);
-      // Test-mode Stripe exposes a failed challenge action; using it models a
-      // customer abandoning authentication while retaining the normal browser
-      // cancellation compensation path.
+      // Cancel Stripe's authentication dialog, then verify the real checkout
+      // compensation path releases both the order and its payment.
       await abandonThreeDs(page);
       await expect(page.locator('main').getByRole('alert')).toBeVisible({ timeout: 30_000 });
       expectNoOrphans(await inspectFactoryPaymentState(request, accessToken), {

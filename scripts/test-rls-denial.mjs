@@ -7,8 +7,8 @@
 //   node scripts/test-rls-denial.mjs
 //
 // In CI this script is run after migrate deploy so that the checks reflect
-// the current schema. It skips with a warning when the env vars are absent
-// (fork PRs, local runs without credentials). The job that wraps this script
+// the current schema. Missing credentials fail explicitly; the workflow
+// handles actual fork PRs before invoking this script. The wrapping job
 // must fail when it exits non-zero.
 //
 // Why anon key only: service_role bypasses RLS entirely. A passing test that
@@ -24,11 +24,11 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? '';
 const ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '';
 
 if (!SUPABASE_URL || !ANON_KEY || !SUPABASE_URL.startsWith('https://')) {
-  console.warn(
+  console.error(
     '[rls-denial] NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY not set ' +
-      '(or URL is not a real Supabase project). Skipping RLS denial tests.',
+      '(or URL is not a real Supabase project). RLS denial tests cannot be verified.',
   );
-  process.exit(0);
+  process.exit(1);
 }
 
 const REST = `${SUPABASE_URL}/rest/v1`;

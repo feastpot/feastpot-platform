@@ -8,7 +8,7 @@
     { "id": "D5", "project": "cross-surface-consistency" }
   ],
   "partA": {
-    "expectedProjects": ["part-a-platform-facts"],
+    "expectedProjects": ["setup", "auth-teardown", "part-a-platform-facts"],
     "requiredTests": [
       { "id": "A1", "project": "part-a-platform-facts" },
       { "id": "A2", "project": "part-a-platform-facts" },
