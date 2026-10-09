@@ -180,7 +180,7 @@ jobs:
     # schema.prisma).  validate/format steps do not connect but work fine regardless.
     services:
       postgres:
-        image: postgres:16
+        image: public.ecr.aws/docker/library/postgres:16
         env:
           POSTGRES_USER: feastpot
           POSTGRES_PASSWORD: feastpot
@@ -252,7 +252,7 @@ jobs:
     # acceptance suites run in their explicitly credentialed jobs, not as skips.
     services:
       postgres:
-        image: postgres:16
+        image: public.ecr.aws/docker/library/postgres:16
         env:
           POSTGRES_USER: feastpot
           POSTGRES_PASSWORD: feastpot
@@ -326,7 +326,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        image: public.ecr.aws/docker/library/postgres:16
         env:
           POSTGRES_USER: feastpot
           POSTGRES_PASSWORD: feastpot
@@ -519,7 +519,7 @@ jobs:
     timeout-minutes: 10
     services:
       redis:
-        image: redis:7-alpine
+        image: public.ecr.aws/docker/library/redis:7-alpine
         ports:
           - 6379:6379
     env:
@@ -555,7 +555,7 @@ jobs:
     timeout-minutes: 30
     services:
       redis:
-        image: redis:7-alpine
+        image: public.ecr.aws/docker/library/redis:7-alpine
         ports:
           - 6379:6379
         options: >-
@@ -734,7 +734,7 @@ jobs:
     timeout-minutes: 30
     services:
       redis:
-        image: redis:7-alpine
+        image: public.ecr.aws/docker/library/redis:7-alpine
         ports:
           - 6379:6379
     env:
@@ -894,7 +894,7 @@ jobs:
     timeout-minutes: 30
     services:
       postgres:
-        image: postgres:16
+        image: public.ecr.aws/docker/library/postgres:16
         env:
           POSTGRES_USER: feastpot
           POSTGRES_PASSWORD: feastpot
@@ -907,7 +907,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
       redis:
-        image: redis:7-alpine
+        image: public.ecr.aws/docker/library/redis:7-alpine
         ports:
           - 6379:6379
         options: >-
