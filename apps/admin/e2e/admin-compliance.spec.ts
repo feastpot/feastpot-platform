@@ -4,6 +4,7 @@
  * real admin client (including its role-gated pages and mutation payloads).
  */
 import { expect, test, type Page } from '@playwright/test';
+import type { VendorApplicationDetail } from '../src/hooks/use-vendor-applications';
 
 const BASE = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3003';
 const now = new Date();
@@ -16,7 +17,10 @@ async function requireAdminSession(page: Page) {
   }
 }
 
-const application = (id: string, status = 'pending') => ({
+const application = (
+  id: string,
+  status: VendorApplicationDetail['status'] = 'pending',
+): VendorApplicationDetail => ({
   id,
   fullName: 'Ada Caterer',
   kitchenName: 'Ada Kitchen',
@@ -24,6 +28,11 @@ const application = (id: string, status = 'pending') => ({
   phone: '07123456789',
   postcode: 'SE15 4EE',
   cuisineType: 'Nigerian',
+  cuisineTypes: ['Nigerian'],
+  occasionSlugs: [],
+  menuPhotoUrl: null,
+  menuBuildFromPhoto: false,
+  submittedAt: iso(-3),
   kitchenType: 'Commercial',
   hasFsaRegistration: true,
   hygieneRegNumber: 'FHRS-123',

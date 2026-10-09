@@ -511,11 +511,47 @@ jobs:
   # Admin portal E2E is a separate required check. Missing credentials fail
   # loudly so branch protection can never treat an unexecuted suite as green.
   # --------------------------------------------------------------------------
-  e2e-admin:
-    name: E2E (admin portal, all projects)
+  e2e-admin-actions:
+    name: Admin authoritative actions
     # Staff acceptance mutates globally current records; preserve its sequence.
     needs: [setup, e2e-customer]
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+    env:
+      SUPABASE_DB_URL: ${{ secrets.TEST_SUPABASE_DB_URL }}
+      SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TEST_FACTORY_PASSWORD: ${{ secrets.TEST_FACTORY_PASSWORD }}
+      TEST_FACTORY_NAMESPACE: admin-actions-${{ github.run_id }}-${{ github.run_attempt }}
+      REDIS_URL: redis://localhost:6379
+      STRIPE_SECRET_KEY_TEST: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
+      SESSION_SECRET: admin-actions-ci-only-not-production
+      ADMIN_REQUIRE_AAL2: 'true'
+      NEXT_PUBLIC_ADMIN_REQUIRE_AAL2: 'true'
+      ADMIN_E2E_ALLOW_AAL1: 'false'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-workspace
+      - name: Run authoritative admin action acceptance
+        run: npm run test --workspace=@feastpot/api -- --runInBand --forceExit src/e2e/admin-authoritative-actions.spec.ts
+        env:
+          NODE_ENV: test
+
+  e2e-admin-shards:
+    name: Admin browser shard ${{ matrix.shard }}/4
+    needs: [setup, e2e-admin-actions]
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     timeout-minutes: 30
     services:
       redis:
@@ -540,7 +576,8 @@ jobs:
       SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       TEST_FACTORY_PASSWORD: ${{ secrets.TEST_FACTORY_PASSWORD }}
-      TEST_FACTORY_NAMESPACE: admin-${{ github.run_id }}-${{ github.run_attempt }}
+      TEST_FACTORY_NAMESPACE: admin-${{ github.run_id }}-${{ github.run_attempt }}-shard-${{ matrix.shard }}
+      CI_SHARD: ${{ matrix.shard }}
       REDIS_URL: redis://localhost:6379
       STRIPE_SECRET_KEY_TEST: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
       SESSION_SECRET: admin-e2e-test-only-session-secret-34125348434
@@ -578,23 +615,19 @@ jobs:
         run: |
           set -euo pipefail
           curl --fail --silent --show-error --retry 5 --retry-all-errors \
-            "${TEST_API_URL%/}/healthz" > /dev/null
+            --connect-timeout 5 --max-time 15 "${TEST_API_URL%/}/healthz" > /dev/null
         env:
           SUPABASE_DB_URL: postgresql://dummy:dummy@localhost:5432/dummy
           SUPABASE_DIRECT_URL: postgresql://dummy:dummy@localhost:5432/dummy
-      - name: Run authoritative admin action acceptance
-        run: npm run test --workspace=@feastpot/api -- --runInBand --forceExit src/e2e/admin-authoritative-actions.spec.ts
-        env:
-          NODE_ENV: test
       - uses: ./.github/actions/setup-browser
         with:
           working-directory: apps/admin
       - name: Start admin server
-        run: npm run dev --workspace=@feastpot/admin &
+        run: npm run dev --workspace=@feastpot/admin > /tmp/admin-e2e-server.log 2>&1 &
       - name: Wait for admin server
         run: |
           for i in $(seq 1 60); do
-            curl -sf http://localhost:3003 > /dev/null && exit 0
+            curl -sf --connect-timeout 2 --max-time 5 http://localhost:3003 > /dev/null && exit 0
             sleep 2
           done
           echo "::error title=Admin server timeout::The admin app did not open port 3003."
@@ -607,25 +640,79 @@ jobs:
         shell: bash
         run: |
           set +e
-          npx playwright test
+          npx playwright test --shard="${CI_SHARD}/4"
           status=$?
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit 0
         working-directory: apps/admin
-      - name: Validate every admin project executed
+      - name: Reject empty or incomplete admin shard reports
         if: always()
-        run: node scripts/validate-playwright-results.mjs --results apps/admin/e2e-results.json --expected-project-count 9
+        run: |
+          node -e "
+            const r = JSON.parse(require('node:fs').readFileSync('apps/admin/e2e-results.json', 'utf8'));
+            if (!r.stats || r.stats.expected < 1 || r.stats.unexpected > 0 || r.stats.skipped > 0) {
+              throw new Error('Admin shard must execute passing tests with no failed or skipped cases.');
+            }
+          "
       - name: Preserve admin Playwright failure status
         if: always() && steps.playwright-run.outputs.exit_code != '0'
         run: exit "${{ steps.playwright-run.outputs.exit_code }}"
       - name: Upload admin Playwright results and HTML report
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: admin-playwright-report-${{ github.run_id }}
+          name: admin-shard-${{ github.run_id }}-${{ matrix.shard }}
+          overwrite: true
           path: |
             apps/admin/e2e-results.json
             apps/admin/e2e-report/
+          retention-days: 14
+
+  # Keep the required check name stable and relocate full coverage validation
+  # here: every project and every discovered test must pass across all shards.
+  e2e-admin:
+    name: E2E (admin portal, all projects)
+    needs: [setup, e2e-admin-shards]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      TEST_FACTORY_NAMESPACE: admin-discovery-${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: Require every admin shard to succeed
+        env:
+          SHARD_RESULT: ${{ needs.e2e-admin-shards.result }}
+        run: test "$SHARD_RESULT" = success
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-workspace
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: admin-shard-${{ github.run_id }}-*
+          path: admin-shard-artifacts
+      - name: Merge admin execution reports
+        shell: bash
+        run: |
+          mapfile -d '' reports < <(find admin-shard-artifacts -name e2e-results.json -print0)
+          test "${#reports[@]}" -eq 4
+          node scripts/validate-admin-shards.mjs --merge "${reports[@]}"
+      - name: Validate every admin project and discovered test executed
+        shell: bash
+        run: |
+          cd apps/admin
+          npx playwright test --list --reporter=json > /tmp/admin-discovery.json
+          cd ../..
+          node --test scripts/validate-admin-shards.test.mjs
+          node scripts/validate-playwright-results.mjs \
+            --results apps/admin/e2e-results.json --expected-project-count 9
+          node scripts/validate-admin-shards.mjs \
+            /tmp/admin-discovery.json apps/admin/e2e-results.json
+      - name: Upload merged admin execution evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-merged-results-${{ github.run_id }}
+          overwrite: true
+          path: apps/admin/e2e-results.json
           retention-days: 14
 
   # --------------------------------------------------------------------------

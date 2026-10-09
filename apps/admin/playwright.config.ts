@@ -28,6 +28,8 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   workers: 1,
   maxFailures: 0,
+  // Leave time for teardown and evidence upload before the 30-minute job limit.
+  globalTimeout: process.env.CI ? 22 * 60 * 1000 : undefined,
   reporter: [
     ['list'],
     ['html', { open: 'never', outputFolder: 'e2e-report' }],
