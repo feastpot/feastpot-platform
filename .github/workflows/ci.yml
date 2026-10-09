@@ -487,7 +487,10 @@ jobs:
 
       - name: Validate every authoritative vendor project executed
         if: always()
-        run: node scripts/validate-playwright-results.mjs --results apps/vendor/e2e-results.json --expected-project-count 8
+        run: >-
+          node scripts/validate-playwright-results.mjs
+          --results apps/vendor/e2e-results.json --expected-project-count 8
+          --projects vendor-state-matrix-setup,vendor-state-matrix,vendor-state-matrix-mobile,vendor-authorization,vendor-order-contracts,vendor-menu-contracts,vendor-lifecycle-evidence,vendor-state-matrix-teardown
 
       # ---- Artefact upload ----------------------------------------------------
       # Upload the HTML report (with traces and screenshots) only on failure so

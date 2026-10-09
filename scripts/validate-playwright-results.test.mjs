@@ -50,6 +50,42 @@ test('rejects an unexpected configured project count', () => {
   assert.equal(result.error, 'Expected 2 configured Playwright projects, found 1.');
 });
 
+test('validates the selected eight projects within a 24-project JSON configuration', () => {
+  const projects = Array.from({ length: 24 }, (_, index) => `project-${index}`);
+  const selected = projects.slice(0, 8);
+  const results = selected.map((projectName) => ({
+    projectName,
+    results: [{ status: 'passed' }],
+  }));
+  assert.deepEqual(evaluateExecution(report(projects, results), 8, selected), {
+    error: null,
+    unexecutedProjects: [],
+  });
+  assert.deepEqual(
+    evaluateExecution(report(projects, results.slice(1)), 8, selected).unexecutedProjects,
+    [selected[0]],
+  );
+  const skipped = results.map((result, index) =>
+    index === 0 ? { ...result, results: [{ status: 'skipped' }] } : result,
+  );
+  assert.deepEqual(evaluateExecution(report(projects, skipped), 8, selected).unexecutedProjects, [
+    selected[0],
+  ]);
+  assert.ok(
+    evaluateExecution(
+      report(projects, [...results, { projectName: projects[8], results: [{ status: 'passed' }] }]),
+      8,
+      selected,
+    ).error,
+  );
+  assert.ok(
+    evaluateExecution(report(projects, results), 8, [...selected.slice(1), 'missing']).error,
+  );
+  assert.ok(
+    evaluateExecution(report(projects, results), 8, [...selected.slice(1), selected[1]]).error,
+  );
+});
+
 const manifest = {
   expectedProjects: ['truthfulness'],
   requiredTests: [

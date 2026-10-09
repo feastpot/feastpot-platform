@@ -177,12 +177,16 @@ async function visitRoute(
 async function visitEveryRoute(context: BrowserContext, state: VendorMatrixState, mobile = false) {
   test.setTimeout(10 * 60_000);
   const concurrency = mobile ? 1 : ROUTE_CHECK_CONCURRENCY;
+  // /not-registered deliberately clears authentication. Its explanation,
+  // sign-out and protected-route redirect are checked in setup before a fresh
+  // session is saved, rather than invalidating this shared context mid-audit.
+  const routes = VENDOR_PORTAL_ROUTES.filter((route) => route.label !== 'not registered');
 
-  for (let index = 0; index < VENDOR_PORTAL_ROUTES.length; index += concurrency) {
+  for (let index = 0; index < routes.length; index += concurrency) {
     await Promise.all(
-      VENDOR_PORTAL_ROUTES.slice(index, index + concurrency).map((route) =>
-        visitRoute(context, state, route, mobile),
-      ),
+      routes
+        .slice(index, index + concurrency)
+        .map((route) => visitRoute(context, state, route, mobile)),
     );
   }
 }
