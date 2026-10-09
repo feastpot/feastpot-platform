@@ -26,6 +26,11 @@ function validateRequiredJobs(needs) {
     (job) => `${job}: ${needs?.[job]?.result ?? 'missing'}`,
   );
   if (failures.length) throw new Error(`Mandatory CI jobs did not pass: ${failures.join(', ')}`);
+  if (needs['rls-check'].outputs?.verified !== 'true') {
+    throw new Error(
+      'Mandatory RLS coverage and denial checks have no successful execution evidence',
+    );
+  }
 }
 
 function validateVercelStatuses(statuses) {

@@ -1069,6 +1069,8 @@ jobs:
     name: RLS coverage + denial tests
     needs: [setup]
     runs-on: ubuntu-latest
+    outputs:
+      verified: ${{ steps.denial-tests.outputs.verified }}
     env:
       SUPABASE_DIRECT_URL: ${{ secrets.SUPABASE_DIRECT_URL }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
@@ -1102,12 +1104,15 @@ jobs:
           node-version: 22
 
       - name: RLS denial tests (anon key, never service key)
+        id: denial-tests
         if: steps.fork-guard.outputs.skip != 'true'
         # Uses the Supabase anon key - the key that is public by design and
         # shipped in every browser bundle - to assert that sensitive tables
         # return zero rows through the PostgREST API. A test using service_role
         # would bypass RLS and prove nothing.
-        run: node scripts/test-rls-denial.mjs
+        run: |
+          node scripts/test-rls-denial.mjs
+          echo "verified=true" >> "$GITHUB_OUTPUT"
 
   # ----------------------------------------------------------------------------
   # 8. Build - only after every quality gate has passed.

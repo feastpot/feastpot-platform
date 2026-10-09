@@ -11,7 +11,12 @@ const {
 } = require('./check-release-readiness.cjs');
 
 const successfulJobs = () =>
-  Object.fromEntries(REQUIRED_JOBS.map((job) => [job, { result: 'success' }]));
+  Object.fromEntries(
+    REQUIRED_JOBS.map((job) => [
+      job,
+      { result: 'success', ...(job === 'rls-check' ? { outputs: { verified: 'true' } } : {}) },
+    ]),
+  );
 const successfulDeployments = () =>
   REQUIRED_VERCEL_CONTEXTS.map((context) => ({ context, state: 'success' }));
 
@@ -31,6 +36,18 @@ test('missing mandatory jobs fail closed', () => {
   const jobs = successfulJobs();
   delete jobs.build;
   assert.throws(() => validateRequiredJobs(jobs), /build: missing/);
+});
+
+test('a green RLS job with skipped validation steps does not qualify', () => {
+  const jobs = successfulJobs();
+  jobs['rls-check'].outputs = {};
+  assert.throws(() => validateRequiredJobs(jobs), /no successful execution evidence/);
+});
+
+test('unsuccessful RLS execution evidence blocks release', () => {
+  const jobs = successfulJobs();
+  jobs['rls-check'].outputs.verified = 'false';
+  assert.throws(() => validateRequiredJobs(jobs), /no successful execution evidence/);
 });
 
 test('all three successful Vercel previews qualify', () => {
