@@ -707,6 +707,9 @@ jobs:
             sk_test_*) ;;
             *) echo "::error title=Unsafe Stripe key::STRIPE_SECRET_KEY_TEST must be an sk_test_ key."; exit 1 ;;
           esac
+      - name: Bound shared development database connection pools
+        # API and factory Prisma clients both inherit this bounded URL.
+        run: node scripts/ci-database.cjs customer
       - name: Start isolated customer API from this PR
         run: NODE_ENV=test npm run dev --workspace=@feastpot/api > /tmp/customer-e2e-api.log 2>&1 &
       - name: Verify isolated customer API health
@@ -955,18 +958,32 @@ jobs:
     outputs:
       verified: ${{ steps.denial-tests.outputs.verified }}
     env:
-      SUPABASE_DIRECT_URL: ${{ secrets.SUPABASE_DIRECT_URL }}
+      # Use the same approved development DB and Auth project as customer E2E.
+      SUPABASE_DB_URL: ${{ secrets.TEST_SUPABASE_DB_URL }}
+      CUSTOMER_E2E_ALLOWED_SUPABASE_REF: ${{ vars.CUSTOMER_E2E_ALLOWED_SUPABASE_REF }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
     steps:
       - uses: actions/checkout@v5
 
-      - name: Skip notice for fork PRs (secrets unavailable)
+      - name: Skip only actual fork PRs (secrets unavailable)
         id: fork-guard
-        if: env.SUPABASE_DIRECT_URL == ''
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository
         run: |
           echo "::notice title=RLS check skipped (fork PR)::Repository secrets are not available to fork-originated workflows. The RLS coverage and denial tests are skipped. A maintainer will trigger the full suite after reviewing the changes."
           echo "skip=true" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-node@v5
+        if: steps.fork-guard.outputs.skip != 'true'
+        with:
+          node-version: 22
+
+      - name: Verify database safety and connection pool regression tests
+        run: node --test scripts/ci-database.test.cjs
+
+      - name: Require matching development database and anon credentials
+        if: steps.fork-guard.outputs.skip != 'true'
+        run: node scripts/ci-database.cjs rls
 
       - name: Install psql client
         if: steps.fork-guard.outputs.skip != 'true'
@@ -980,11 +997,6 @@ jobs:
         # A new table reaching the dev database without RLS will fail this job
         # before the PR can be merged.
         run: psql "$SUPABASE_DIRECT_URL" -v ON_ERROR_STOP=1 -f scripts/check-rls-coverage.sql
-
-      - uses: actions/setup-node@v5
-        if: steps.fork-guard.outputs.skip != 'true'
-        with:
-          node-version: 22
 
       - name: RLS denial tests (anon key, never service key)
         id: denial-tests

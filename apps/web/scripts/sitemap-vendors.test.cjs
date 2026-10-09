@@ -227,7 +227,8 @@ test('preview and production pre-launch headers and metadata agree; launch remai
       [
         '--input-type=module',
         '-e',
-        `const config = (await import(${JSON.stringify(configPath)})).default;
+        `const configure = (await import(${JSON.stringify(configPath)})).default;
+         const config = await configure('phase-production-server');
          console.log(JSON.stringify({headers: await config.headers(), disabled: config.env.FEASTPOT_INDEXING_DISABLED}));`,
       ],
       { env: { ...process.env, VERCEL_ENV: environment, FEASTPOT_RELEASE_MODE: mode } },
