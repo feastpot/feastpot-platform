@@ -50,8 +50,8 @@
   },
   "devDependencies": {
     "@prisma/client": "^5.22.0",
-    "@typescript-eslint/eslint-plugin": "^8.71.0",
-    "@typescript-eslint/parser": "^8.71.0",
+    "@typescript-eslint/eslint-plugin": "^8.71.1",
+    "@typescript-eslint/parser": "^8.71.1",
     "eslint": "^8.57.1",
     "eslint-config-next": "15.5.25",
     "eslint-config-prettier": "^9.1.0",
