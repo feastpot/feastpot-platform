@@ -174,8 +174,9 @@ export function ReAcceptanceGate({ children }: { children: React.ReactNode }) {
 
     return (
       <>
-        {/* Render children behind the overlay so the DOM is not torn down. */}
-        <div aria-hidden className="pointer-events-none select-none opacity-0">
+        {/* Keep children mounted, but block keyboard focus as well as pointer input.
+            React 18 needs the empty-string form of the native boolean attribute. */}
+        <div {...{ inert: '' }} aria-hidden className="pointer-events-none select-none opacity-0">
           {children}
         </div>
 

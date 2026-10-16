@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 
-import { expect, test, type BrowserContext } from '@playwright/test';
+import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 
 import {
   configuredMatrixStates,
@@ -90,10 +90,7 @@ const STATE_ROUTE_BLOCKS: Partial<
   ],
   V7: [{ href: '/menu', destination: /\/onboarding(?:\?|$)/ }],
   V8: [{ href: '/menu', destination: /\/onboarding(?:\?|$)/ }],
-  V9: [
-    { href: '/menu', destination: /\/onboarding\/terms(?:\?|$)/ },
-    { href: '/payouts', destination: /\/onboarding\/terms(?:\?|$)/ },
-  ],
+  V9: [{ href: '/menu', destination: /\/onboarding\/terms(?:\?|$)/ }],
 };
 
 function readManifest(): VendorStateMatrixManifest {
@@ -223,16 +220,7 @@ async function assertStateLandmarks(context: BrowserContext, state: VendorMatrix
           timeout: STATE_CONTENT_TIMEOUT,
         });
         if (state === 'V9') {
-          await expect(landmarkRegion).toBeVisible();
-          await expect(
-            landmarkRegion.getByRole('link', { name: 'Review and accept terms', exact: true }),
-          ).toHaveAttribute('href', '/onboarding/terms');
-          const hiddenContent = page
-            .locator('[aria-hidden="true"]')
-            .filter({ has: page.locator('main') });
-          await expect(hiddenContent).toHaveCount(1);
-          await expect(hiddenContent).toHaveCSS('pointer-events', 'none');
-          await expect(hiddenContent).toHaveCSS('opacity', '0');
+          await assertBlockingTermsDialog(page);
         } else if (state === 'V2') {
           for (const name of [/^As yourself/, /^Through a registered company/]) {
             const entityChoice = page.getByRole('button', { name });
@@ -254,6 +242,35 @@ async function assertStateLandmarks(context: BrowserContext, state: VendorMatrix
   } finally {
     await page.close();
   }
+}
+
+async function assertBlockingTermsDialog(page: Page) {
+  const dialog = page.getByRole('dialog', {
+    name: 'Updated Vendor Terms now in effect',
+    exact: true,
+  });
+  await expect(dialog).toBeVisible({ timeout: STATE_CONTENT_TIMEOUT });
+  await expect(dialog).toHaveAttribute('aria-modal', 'true');
+  const review = dialog.getByRole('link', { name: 'Review and accept terms', exact: true });
+  await expect(review).toHaveAttribute('href', '/onboarding/terms');
+  await expect(
+    dialog.getByRole('link', { name: 'Close my account instead', exact: true }),
+  ).toHaveAttribute('href', '/settings/close-account');
+  const hiddenContent = page.locator('[aria-hidden="true"]').filter({ has: page.locator('main') });
+  await expect(hiddenContent).toHaveCount(1);
+  await expect(hiddenContent).toHaveCSS('pointer-events', 'none');
+  await expect(hiddenContent).toHaveCSS('opacity', '0');
+  await expect(hiddenContent).toHaveAttribute('inert', '');
+  await review.focus();
+  // Exercise the native keyboard boundary, not just the CSS/accessibility flags.
+  for (let press = 0; press < 4; press++) {
+    await page.keyboard.press('Tab');
+    expect(
+      await hiddenContent.evaluate((element) => element.contains(document.activeElement)),
+      'Tab must not focus controls behind the terms dialog',
+    ).toBe(false);
+  }
+  await expect(dialog).toBeVisible();
 }
 
 async function assertLiveEmptyVendorOrders(context: BrowserContext) {
@@ -329,6 +346,16 @@ async function assertStateRouteBlocks(context: BrowserContext, state: VendorMatr
           page,
           `${state} must not expose ${block.href} before its blocking condition is cleared`,
         ).toHaveURL(block.destination, { timeout: 10_000 });
+      });
+    }
+    if (state === 'V9') {
+      await test.step('V9: /payouts is blocked by the global terms dialog', async () => {
+        // Unlike /menu's server redirect, this read-only page uses the root
+        // re-acceptance overlay. The underlying portal must not be operable.
+        await page.goto('/payouts', { waitUntil: 'domcontentloaded', timeout: 60_000 });
+        await assertBlockingTermsDialog(page);
+        await expect(page).toHaveURL(/\/payouts(?:\?|$)/);
+        await assertNoErrorBoundary((await page.locator('body').textContent()) ?? '', '/payouts');
       });
     }
   } finally {
