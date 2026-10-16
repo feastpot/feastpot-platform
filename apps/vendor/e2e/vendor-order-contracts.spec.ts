@@ -160,15 +160,43 @@ test.describe.serial('factory-backed vendor order contracts', () => {
   });
 
   test('no response auto-rejects and a dispatch delay persists an ETA', async ({ page }) => {
+    test.setTimeout(120_000);
     const expired = await pendingOrder('TIMEOUT', new Date(Date.now() - 20 * 60 * 1000));
-    await page.goto('/orders', { waitUntil: 'domcontentloaded' });
+    // The countdown runs only after authentication, order queries and card
+    // hydration. Observe its real mutation before checking persistence; DOM
+    // readiness alone does not establish that the expiry action has started.
+    const [automaticRejection] = await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === `/v1/orders/${expired.id}/status` &&
+          response.request().method() === 'PATCH',
+        { timeout: 60_000 },
+      ),
+      page.goto('/orders?type=standard', { waitUntil: 'domcontentloaded' }),
+    ]);
+    expect(automaticRejection.request().postDataJSON()).toMatchObject({
+      status: 'rejected',
+      rejectionReason: 'auto_rejected_timeout',
+    });
+    expect(automaticRejection.status()).toBe(200);
+    expect((await automaticRejection.json()).status).toBe('rejected');
+    await expect(
+      page.getByRole('button', { name: 'Standard orders', exact: true }),
+    ).toHaveAttribute('aria-pressed', 'true');
     await expect
       .poll(
         async () =>
-          (await factory.prisma.order.findUniqueOrThrow({ where: { id: expired.id } })).status,
+          factory.prisma.order.findUniqueOrThrow({
+            where: { id: expired.id },
+            select: { status: true, cancellationReason: true, cancelledBy: true },
+          }),
         { timeout: 10_000 },
       )
-      .toBe('rejected');
+      .toMatchObject({
+        status: 'rejected',
+        cancellationReason: 'auto_rejected_timeout',
+        cancelledBy: 'vendor',
+      });
 
     const delayed = await pendingOrder('DELAY');
     expect(delayed.id).not.toBe(expired.id);
