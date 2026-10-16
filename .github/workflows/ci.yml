@@ -455,7 +455,16 @@ jobs:
       - name: Bound and validate the vendor development database
         run: node scripts/ci-database.cjs customer
       - name: Start isolated vendor API from this PR
-        run: NODE_ENV=test RESEND_API_KEY='' TWILIO_ACCOUNT_SID='' TWILIO_AUTH_TOKEN='' npm run dev --workspace=@feastpot/api > /tmp/vendor-e2e-api.log 2>&1 &
+        run: |
+          umask 077
+          (
+            set +e
+            NODE_ENV=test RESEND_API_KEY='' TWILIO_ACCOUNT_SID='' TWILIO_AUTH_TOKEN='' npm run dev --workspace=@feastpot/api
+            status=$?
+            printf '%s\n' "$status" > /tmp/vendor-e2e-api.exit
+            exit "$status"
+          ) > /tmp/vendor-e2e-api.log 2>&1 &
+          echo "$!" > /tmp/vendor-e2e-api.pid
       - name: Verify isolated vendor API health
         shell: bash
         run: |
@@ -484,22 +493,41 @@ jobs:
         with:
           working-directory: apps/vendor
 
-      # ---- Vendor dev server --------------------------------------------------
-      - name: Start vendor dev server on port 3002 (background)
-        run: npm run dev --workspace=@feastpot/vendor &
+      # Compile once: long route audits must not depend on dev-server
+      # recompilation or development worker restarts.
+      - name: Build vendor production server against the isolated API
+        timeout-minutes: 10
+        run: npm run build --workspace=@feastpot/vendor
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
 
-      - name: Wait for vendor dev server (timeout 120 s)
+      - name: Start vendor production server on port 3002 (background)
         run: |
-          echo "Polling http://localhost:3002 ..."
+          umask 077
+          (
+            set +e
+            npm run start --workspace=@feastpot/vendor
+            status=$?
+            printf '%s\n' "$status" > /tmp/vendor-e2e-web.exit
+            exit "$status"
+          ) > /tmp/vendor-e2e-web.log 2>&1 &
+          echo "$!" > /tmp/vendor-e2e-web.pid
+
+      - name: Wait for vendor production server
+        timeout-minutes: 3
+        run: |
           for i in $(seq 1 60); do
-            if curl -sf http://localhost:3002 > /dev/null 2>&1; then
-              echo "Vendor dev server ready (attempt ${i}/60)."
+            if ! kill -0 "$(cat /tmp/vendor-e2e-web.pid)" 2>/dev/null; then
+              echo "::error::Vendor production server exited before readiness."
+              exit 1
+            fi
+            if curl --max-time 5 -sf http://localhost:3002/sign-in > /dev/null 2>&1; then
+              echo "Vendor production server ready (attempt ${i}/60)."
               exit 0
             fi
-            echo "  [${i}/60] not ready - retrying in 2 s"
             sleep 2
           done
-          echo "::error title=Dev server timeout::Vendor dev server did not open port 3002 within 120 s. Inspect the Next.js startup output above for compilation errors or missing environment variables."
+          echo "::error::Vendor production server did not become ready within its bounded startup window."
           exit 1
 
       # ---- Playwright (authoritative lifecycle projects) ---------------------
@@ -544,6 +572,14 @@ jobs:
       - name: Preserve vendor Playwright failure status
         if: always() && steps.playwright-run.outputs.exit_code != '0'
         run: exit "${{ steps.playwright-run.outputs.exit_code }}"
+
+      # Raw server logs stay private to the ephemeral runner. Only fixed
+      # diagnostic categories and numeric resource/exit data are uploaded.
+      - name: Capture safe vendor server diagnostics
+        if: always()
+        run: |
+          mkdir -p apps/vendor/e2e-report
+          node scripts/vendor-ci-diagnostics.cjs > apps/vendor/e2e-report/server-diagnostics.json
 
       - name: Upload vendor Playwright results and HTML report
         if: failure()
