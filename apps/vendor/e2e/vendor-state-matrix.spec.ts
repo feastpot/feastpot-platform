@@ -194,11 +194,46 @@ async function assertStateLandmarks(context: BrowserContext, state: VendorMatrix
   try {
     for (const landmark of STATE_LANDMARKS[state]) {
       await test.step(`${state}: ${landmark.href} shows its expected state`, async () => {
+        const roleReady =
+          state === 'V11'
+            ? page.waitForResponse(
+                (response) => new URL(response.url()).pathname === '/v1/vendor/members/me/role',
+                { timeout: STATE_CONTENT_TIMEOUT },
+              )
+            : null;
         await page.goto(landmark.href, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-        await expect(page.locator('main')).toContainText(landmark.text, {
+        if (roleReady) {
+          const roleResponse = await roleReady;
+          expect(roleResponse.status()).toBe(200);
+          expect((await roleResponse.json()).role).toBe('owner');
+          const confirmed = page
+            .locator('[aria-label="Status filter"]')
+            .getByRole('button', { name: /^Confirmed(?:\s*\d+)?$/ });
+          await confirmed.click();
+          await expect(confirmed).toHaveAttribute('aria-pressed', 'true');
+        }
+        const landmarkRegion =
+          state === 'V9'
+            ? page.getByRole('dialog', {
+                name: 'Updated Vendor Terms now in effect',
+                exact: true,
+              })
+            : page.locator('main');
+        await expect(landmarkRegion).toContainText(landmark.text, {
           timeout: STATE_CONTENT_TIMEOUT,
         });
-        if (state === 'V2') {
+        if (state === 'V9') {
+          await expect(landmarkRegion).toBeVisible();
+          await expect(
+            landmarkRegion.getByRole('link', { name: 'Review and accept terms', exact: true }),
+          ).toHaveAttribute('href', '/onboarding/terms');
+          const hiddenContent = page
+            .locator('[aria-hidden="true"]')
+            .filter({ has: page.locator('main') });
+          await expect(hiddenContent).toHaveCount(1);
+          await expect(hiddenContent).toHaveCSS('pointer-events', 'none');
+          await expect(hiddenContent).toHaveCSS('opacity', '0');
+        } else if (state === 'V2') {
           for (const name of [/^As yourself/, /^Through a registered company/]) {
             const entityChoice = page.getByRole('button', { name });
             await expect(entityChoice).toBeVisible();
