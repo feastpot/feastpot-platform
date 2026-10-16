@@ -19,20 +19,17 @@ const ERROR_BOUNDARY_COPY =
 // The isolated CI API deliberately has a single database connection. Auditing
 // several pages at once queues duplicate SSR reads and can time out safe routes.
 const ROUTE_CHECK_CONCURRENCY = 1;
+// These messages depend on hydration, role lookup and data queries through
+// the single-connection test API, not just on the initial server-rendered shell.
+const STATE_CONTENT_TIMEOUT = 60_000;
 
 const STATE_LANDMARKS: Record<
   VendorMatrixState,
   ReadonlyArray<{ href: string; text: string | RegExp }>
 > = {
   V1: [{ href: '/onboarding/welcome', text: 'Sign in to your vendor account' }],
-  V2: [
-    { href: '/onboarding', text: 'Set up payouts (Stripe)' },
-    { href: '/onboarding', text: 'Connect with Stripe' },
-  ],
-  V3: [
-    { href: '/onboarding', text: 'Set up payouts (Stripe)' },
-    { href: '/onboarding', text: 'Connect with Stripe' },
-  ],
+  V2: [{ href: '/onboarding', text: 'Set up payouts (Stripe)' }],
+  V3: [{ href: '/onboarding', text: 'Set up payouts (Stripe)' }],
   V4: [
     { href: '/menu', text: 'No dishes yet' },
     { href: '/performance', text: 'No completed orders yet' },
@@ -177,7 +174,6 @@ async function visitRoute(
 }
 
 async function visitEveryRoute(context: BrowserContext, state: VendorMatrixState, mobile = false) {
-  test.setTimeout(10 * 60_000);
   const concurrency = mobile ? 1 : ROUTE_CHECK_CONCURRENCY;
   // /not-registered deliberately clears authentication. Its explanation,
   // sign-out and protected-route redirect are checked in setup before a fresh
@@ -199,7 +195,23 @@ async function assertStateLandmarks(context: BrowserContext, state: VendorMatrix
     for (const landmark of STATE_LANDMARKS[state]) {
       await test.step(`${state}: ${landmark.href} shows its expected state`, async () => {
         await page.goto(landmark.href, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-        await expect(page.locator('main')).toContainText(landmark.text, { timeout: 10_000 });
+        await expect(page.locator('main')).toContainText(landmark.text, {
+          timeout: STATE_CONTENT_TIMEOUT,
+        });
+        if (state === 'V2') {
+          for (const name of [/^As yourself/, /^Through a registered company/]) {
+            const entityChoice = page.getByRole('button', { name });
+            await expect(entityChoice).toBeVisible();
+            await expect(entityChoice).toBeEnabled();
+          }
+        } else if (state === 'V3') {
+          const continueSetup = page.getByRole('button', {
+            name: 'Continue Stripe setup',
+            exact: true,
+          });
+          await expect(continueSetup).toBeVisible();
+          await expect(continueSetup).toBeEnabled();
+        }
         const pageText = (await page.locator('body').textContent()) ?? '';
         await assertNoErrorBoundary(pageText, landmark.href);
       });
@@ -221,22 +233,51 @@ async function assertLiveEmptyVendorOrders(context: BrowserContext) {
       { href: '/payouts', text: 'No payouts yet. Your first will land next Monday.' },
       { href: '/performance', text: 'No completed orders yet' },
       { href: '/disputes', text: 'No disputes' },
-      { href: '/share', text: 'No orders yet. Marketplace orders come from Feastpot discovery' },
-      { href: '/tax-information', text: 'No reports yet.' },
+      {
+        href: '/share',
+        text: 'No orders yet. Marketplace orders come from Feastpot discovery; your referral orders come from customers using your personal link.',
+      },
+      {
+        href: '/tax-information',
+        text: 'No reports yet. Your first annual report will appear here after HMRC reporting runs in January.',
+      },
     ] as const;
     for (const empty of emptyStates) {
       await page.goto(empty.href, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-      await expect(page.getByText(empty.text, { exact: true })).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByText(empty.text, { exact: true })).toBeVisible({
+        timeout: STATE_CONTENT_TIMEOUT,
+      });
       await assertNoErrorBoundary((await page.locator('body').textContent()) ?? '', empty.href);
     }
+  } finally {
+    await page.close();
+  }
+  await assertLiveEmptyOrderTabs(context);
+}
 
+async function assertLiveEmptyOrderTabs(context: BrowserContext) {
+  const page = await context.newPage();
+  try {
+    const roleReady = page.waitForResponse(
+      (response) => new URL(response.url()).pathname === '/v1/vendor/members/me/role',
+      { timeout: STATE_CONTENT_TIMEOUT },
+    );
     await page.goto('/orders', { waitUntil: 'domcontentloaded', timeout: 60_000 });
-    await page.getByRole('button', { name: 'Standard orders' }).click();
-    await expect(page.getByText('Nothing needs your attention right now')).toBeVisible({
-      timeout: 10_000,
+    const roleResponse = await roleReady;
+    expect(roleResponse.status()).toBe(200);
+    expect((await roleResponse.json()).role).toBe('owner');
+    const standard = page.getByRole('button', { name: 'Standard orders', exact: true });
+    await standard.click();
+    await expect(standard).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByText('No pending orders', { exact: true })).toBeVisible({
+      timeout: STATE_CONTENT_TIMEOUT,
     });
-    await page.getByRole('button', { name: 'Catering' }).click();
-    await expect(page.getByText('No catering bookings yet')).toBeVisible({ timeout: 10_000 });
+    const catering = page.getByRole('button', { name: 'Catering', exact: true });
+    await catering.click();
+    await expect(catering).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByText('No catering bookings yet', { exact: true })).toBeVisible({
+      timeout: STATE_CONTENT_TIMEOUT,
+    });
   } finally {
     await page.close();
   }
@@ -267,10 +308,11 @@ for (const state of configuredMatrixStates()) {
     test(`${state} routes render their safe state without an error boundary`, async ({
       context,
     }) => {
-      await visitEveryRoute(context, state);
+      test.setTimeout(10 * 60_000);
       await assertStateLandmarks(context, state);
       if (state === 'V4') await assertLiveEmptyVendorOrders(context);
       await assertStateRouteBlocks(context, state);
+      await visitEveryRoute(context, state);
     });
   });
 }
@@ -279,6 +321,7 @@ test.describe('V4 mobile route safety', () => {
   test.use({ storageState: matrixStorageStatePath('V4') });
 
   test('V4 routes do not overflow horizontally at 375px', async ({ context }) => {
+    test.setTimeout(10 * 60_000);
     await visitEveryRoute(context, 'V4', true);
   });
 });

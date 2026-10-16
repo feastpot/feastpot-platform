@@ -180,7 +180,7 @@ jobs:
     # schema.prisma).  validate/format steps do not connect but work fine regardless.
     services:
       postgres:
-        image: public.ecr.aws/docker/library/postgres:16
+        image: postgres:16
         env:
           POSTGRES_USER: feastpot
           POSTGRES_PASSWORD: feastpot
@@ -252,7 +252,7 @@ jobs:
     # acceptance suites run in their explicitly credentialed jobs, not as skips.
     services:
       postgres:
-        image: public.ecr.aws/docker/library/postgres:16
+        image: postgres:16
         env:
           POSTGRES_USER: feastpot
           POSTGRES_PASSWORD: feastpot
@@ -326,7 +326,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: public.ecr.aws/docker/library/postgres:16
+        image: postgres:16
         env:
           POSTGRES_USER: feastpot
           POSTGRES_PASSWORD: feastpot
@@ -371,7 +371,9 @@ jobs:
     name: E2E (vendor authoritative lifecycle)
     needs: [setup, cross-surface-consistency]
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    # Eleven complete, serial route audits plus mobile/contracts/lifecycle.
+    # Per-navigation and per-test deadlines remain independently bounded.
+    timeout-minutes: 90
     services:
       redis:
         image: redis:7-alpine
@@ -514,6 +516,7 @@ jobs:
         run: |
           set +e
           npx playwright test \
+            --retries=0 --max-failures=1 \
             --project=vendor-state-matrix-setup \
             --project=vendor-state-matrix \
             --project=vendor-state-matrix-mobile \
@@ -939,7 +942,7 @@ jobs:
     timeout-minutes: 30
     services:
       postgres:
-        image: public.ecr.aws/docker/library/postgres:16
+        image: postgres:16
         env:
           POSTGRES_USER: feastpot
           POSTGRES_PASSWORD: feastpot

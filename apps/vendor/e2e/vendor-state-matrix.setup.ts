@@ -58,7 +58,10 @@ async function signIn(page: Page, email: string, password: string): Promise<void
     .catch(() => null);
   try {
     await Promise.all([
-      page.waitForURL((url) => !url.pathname.startsWith('/sign-in'), { timeout: 20_000 }),
+      page.waitForURL((url) => !url.pathname.startsWith('/sign-in'), {
+        waitUntil: 'domcontentloaded',
+        timeout: 60_000,
+      }),
       page.locator('button[type="submit"]').click(),
     ]);
   } catch (error) {
@@ -92,6 +95,7 @@ setup('provision and authenticate V1-V11 vendor states', async ({ browser }) => 
   const factory = TestDataFactory.fromEnvironment({ namespace });
   const identities = {} as Record<VendorMatrixState, TestIdentity>;
   const states = configuredMatrixStates();
+  let manifestWritten = false;
 
   try {
     for (const state of states) {
@@ -159,8 +163,11 @@ setup('provision and authenticate V1-V11 vendor states', async ({ browser }) => 
     const manifest: VendorStateMatrixManifest = { namespace, identities };
     writeFileSync(matrixManifestPath(namespace), JSON.stringify(manifest, null, 2));
     expect(Object.keys(identities)).toHaveLength(states.length);
+    manifestWritten = true;
   } finally {
-    if (Object.keys(identities).length !== states.length) {
+    // The final identity can exist while its authentication still fails.
+    // Without a published manifest, project teardown cannot discover it.
+    if (!manifestWritten) {
       for (const identity of Object.values(identities)) {
         await factory.teardown(identity);
       }
