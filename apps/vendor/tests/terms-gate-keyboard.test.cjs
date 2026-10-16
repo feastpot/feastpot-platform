@@ -53,7 +53,10 @@ function renderGate(needsAcceptance) {
 test('terms overlay makes the mounted portal inert, hidden and pointer-blocked', () => {
   const tree = renderGate(true);
   const [portal, dialog] = tree.props.children;
-  assert.equal(portal.props.inert, '');
+  const element = { inert: false };
+  portal.ref(element);
+  assert.equal(element.inert, true);
+  assert.doesNotThrow(() => portal.ref(null));
   assert.equal(portal.props['aria-hidden'], true);
   assert.match(portal.props.className, /pointer-events-none/);
   assert.match(portal.props.className, /opacity-0/);

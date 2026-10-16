@@ -174,9 +174,14 @@ export function ReAcceptanceGate({ children }: { children: React.ReactNode }) {
 
     return (
       <>
-        {/* Keep children mounted, but block keyboard focus as well as pointer input.
-            React 18 needs the empty-string form of the native boolean attribute. */}
-        <div {...{ inert: '' }} aria-hidden className="pointer-events-none select-none opacity-0">
+        {/* Use the native DOM property: React 18 does not emit boolean inert props. */}
+        <div
+          ref={(element) => {
+            if (element) element.inert = true;
+          }}
+          aria-hidden
+          className="pointer-events-none select-none opacity-0"
+        >
           {children}
         </div>
 
