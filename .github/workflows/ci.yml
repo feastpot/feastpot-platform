@@ -374,7 +374,7 @@ jobs:
     timeout-minutes: 40
     services:
       redis:
-        image: public.ecr.aws/docker/library/redis:7-alpine
+        image: redis:7-alpine
         ports:
           - 6379:6379
     env:
@@ -564,7 +564,7 @@ jobs:
     timeout-minutes: 10
     services:
       redis:
-        image: public.ecr.aws/docker/library/redis:7-alpine
+        image: redis:7-alpine
         ports:
           - 6379:6379
     env:
@@ -600,7 +600,7 @@ jobs:
     timeout-minutes: 30
     services:
       redis:
-        image: public.ecr.aws/docker/library/redis:7-alpine
+        image: redis:7-alpine
         ports:
           - 6379:6379
         options: >-
@@ -779,7 +779,7 @@ jobs:
     timeout-minutes: 30
     services:
       redis:
-        image: public.ecr.aws/docker/library/redis:7-alpine
+        image: redis:7-alpine
         ports:
           - 6379:6379
     env:
@@ -952,7 +952,7 @@ jobs:
           --health-timeout 5s
           --health-retries 10
       redis:
-        image: public.ecr.aws/docker/library/redis:7-alpine
+        image: redis:7-alpine
         ports:
           - 6379:6379
         options: >-

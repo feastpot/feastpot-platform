@@ -16,7 +16,9 @@ import {
 
 const ERROR_BOUNDARY_COPY =
   /something went wrong|we hit an unexpected error|application error|error digest|internal server error/i;
-const ROUTE_CHECK_CONCURRENCY = 4;
+// The isolated CI API deliberately has a single database connection. Auditing
+// several pages at once queues duplicate SSR reads and can time out safe routes.
+const ROUTE_CHECK_CONCURRENCY = 1;
 
 const STATE_LANDMARKS: Record<
   VendorMatrixState,
