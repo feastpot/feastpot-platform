@@ -85,7 +85,9 @@ async function signIn(page: Page, email: string, password: string): Promise<void
 }
 
 setup('provision and authenticate V1-V11 vendor states', async ({ browser }) => {
-  setup.setTimeout(5 * 60_000);
+  // Eleven real identities each sign in, sign out, and sign in again. Leave
+  // bounded room for the approved database's single-connection CI pool.
+  setup.setTimeout(10 * 60_000);
   const namespace = matrixNamespace();
   const factory = TestDataFactory.fromEnvironment({ namespace });
   const identities = {} as Record<VendorMatrixState, TestIdentity>;

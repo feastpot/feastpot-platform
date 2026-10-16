@@ -52,6 +52,7 @@ test.describe.serial('factory-backed vendor menu contracts', () => {
           allergensFreeFrom: false,
           tags: ['test-fixture'],
           isAvailable: true,
+          moderationStatus: 'approved',
         },
       })
     ).id;

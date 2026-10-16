@@ -371,6 +371,12 @@ jobs:
     name: E2E (vendor authoritative lifecycle)
     needs: [setup, cross-surface-consistency]
     runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      redis:
+        image: public.ecr.aws/docker/library/redis:7-alpine
+        ports:
+          - 6379:6379
     env:
       # Vendor dev server origin consumed by Playwright.
       PLAYWRIGHT_BASE_URL: http://localhost:3002
@@ -382,18 +388,29 @@ jobs:
       # D3 integration credentials. D3 hits the real dev-environment NestJS
       # API to confirm the saved chip set appears in live customer search.
       # The job fails if either is absent and D3 ends up skipped.
-      TEST_API_URL: ${{ secrets.TEST_API_URL }}
+      TEST_API_URL: http://127.0.0.1:3001
       # The vendor browser must call the same isolated API as API-backed E2E
       # assertions. Next.js only exposes this value to client-side code with
       # the NEXT_PUBLIC_ prefix.
-      NEXT_PUBLIC_API_URL: ${{ secrets.TEST_API_URL }}
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:3001
+      API_URL: http://127.0.0.1:3001
       TEST_VENDOR_ID: ${{ secrets.TEST_VENDOR_ID }}
       # Vendor Next.js app runtime vars.
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       # Factory-backed vendor state and authorization projects.
       SUPABASE_DB_URL: ${{ secrets.TEST_SUPABASE_DB_URL }}
+      SUPABASE_DIRECT_URL: ${{ secrets.TEST_SUPABASE_DB_URL }}
+      SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      REDIS_URL: redis://localhost:6379
+      STRIPE_SECRET_KEY_TEST: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
+      SESSION_SECRET: vendor-ci-only-session-secret-not-for-deployment
+      CUSTOMER_E2E_ALLOWED_SUPABASE_REF: ${{ vars.CUSTOMER_E2E_ALLOWED_SUPABASE_REF }}
+      CUSTOMER_E2E_ALLOWED_API_ORIGIN: http://127.0.0.1:3001
+      CUSTOMER_E2E_ISOLATED_ENVIRONMENT: 'true'
+      CUSTOMER_E2E_USE_FACTORY: 'true'
       TEST_FACTORY_PASSWORD: ${{ secrets.TEST_FACTORY_PASSWORD }}
       TEST_FACTORY_NAMESPACE: vendor-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
@@ -404,6 +421,9 @@ jobs:
       - name: Verify vendor Playwright discovery (noninteractive)
         run: npm run test:e2e:discovery --workspace=@feastpot/vendor
 
+      - name: Vendor runtime regression tests
+        run: npm run test --workspace=@feastpot/vendor
+
       - name: Require vendor E2E credentials
         run: |
           required=(
@@ -411,6 +431,7 @@ jobs:
             NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY
             SUPABASE_DB_URL SUPABASE_SERVICE_ROLE_KEY TEST_FACTORY_PASSWORD
             TEST_FACTORY_NAMESPACE
+            STRIPE_SECRET_KEY_TEST CUSTOMER_E2E_ALLOWED_SUPABASE_REF
           )
           missing=()
           for key in "${required[@]}"; do
@@ -424,6 +445,27 @@ jobs:
             echo "::error title=Vendor E2E API mismatch::NEXT_PUBLIC_API_URL must match TEST_API_URL so the browser and API-backed E2E checks use the same environment."
             exit 1
           fi
+          case "$STRIPE_SECRET_KEY_TEST" in
+            sk_test_*) ;;
+            *) echo "::error::Vendor acceptance requires a Stripe test key."; exit 1 ;;
+          esac
+
+      - name: Bound and validate the vendor development database
+        run: node scripts/ci-database.cjs customer
+      - name: Start isolated vendor API from this PR
+        run: NODE_ENV=test RESEND_API_KEY='' TWILIO_ACCOUNT_SID='' TWILIO_AUTH_TOKEN='' npm run dev --workspace=@feastpot/api > /tmp/vendor-e2e-api.log 2>&1 &
+      - name: Verify isolated vendor API health
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 90); do
+            if curl --fail --silent --output /dev/null "${TEST_API_URL%/}/healthz"; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::The PR vendor API did not become healthy."
+          exit 1
 
       # ---- Prisma client ------------------------------------------------------
       # The vendor app's shared packages may reference Prisma types at build

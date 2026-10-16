@@ -264,7 +264,7 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
       const stripe = await request.post(`${API_URL}/v1/test/vendor-lifecycle/account-updated`, {
         headers: {
           ...vendorHeaders,
-          'x-test-factory-namespace': namespace,
+          'x-test-factory-namespace': baseNamespace,
         },
         data: {
           eventId: `evt_tf_${applicationId.replaceAll('-', '')}`,
@@ -328,7 +328,7 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
       const orderResponse = await request.post(`${API_URL}/v1/test/vendor-lifecycle/orders`, {
         headers: {
           Authorization: `Bearer ${customerToken}`,
-          'x-test-factory-namespace': namespace,
+          'x-test-factory-namespace': baseNamespace,
         },
         data: {
           vendorId,
@@ -357,7 +357,7 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
       const batch = await request.post(`${API_URL}/v1/test/vendor-lifecycle/weekly-batch`, {
         headers: {
           ...vendorHeaders,
-          'x-test-factory-namespace': namespace,
+          'x-test-factory-namespace': baseNamespace,
         },
         data: { now: batchNow.toISOString() },
       });
@@ -380,7 +380,7 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
       const repeatBatch = await request.post(`${API_URL}/v1/test/vendor-lifecycle/weekly-batch`, {
         headers: {
           ...vendorHeaders,
-          'x-test-factory-namespace': namespace,
+          'x-test-factory-namespace': baseNamespace,
         },
         data: { now: batchNow.toISOString() },
       });

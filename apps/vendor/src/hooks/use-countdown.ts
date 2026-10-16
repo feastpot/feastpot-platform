@@ -1,34 +1,39 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * Returns the remaining whole seconds until `deadline` (a `Date` or ISO
  * string), updating once per second. Returns `0` when expired. The optional
- * `onExpire` callback fires exactly once when the countdown crosses zero.
+ * `onExpire` fires once per deadline, including deadlines already expired on mount.
  *
  * Implemented with `setInterval` (not rAF) because we only need 1Hz updates
  * - rAF would burn 60× the wakeups for an identical UI.
  */
 export function useCountdown(deadline: Date | string | null, onExpire?: () => void) {
   const [remaining, setRemaining] = useState<number>(() => calcRemaining(deadline));
+  const expiredDeadline = useRef<number | null>(null);
+  const timestamp =
+    deadline instanceof Date ? deadline.getTime() : deadline ? Date.parse(deadline) : null;
 
   useEffect(() => {
-    if (!deadline) {
+    if (timestamp === null || Number.isNaN(timestamp)) {
       setRemaining(0);
       return;
     }
-    setRemaining(calcRemaining(deadline));
-    const id = setInterval(() => {
-      setRemaining((prev) => {
-        const next = calcRemaining(deadline);
-        // Edge-trigger the expire callback exactly once.
-        if (prev > 0 && next === 0 && onExpire) onExpire();
-        return next;
-      });
-    }, 1000);
+    const tick = () => {
+      const next = Math.max(0, Math.floor((timestamp - Date.now()) / 1000));
+      setRemaining(next);
+      // Keep mutations outside React state updaters, which may be replayed.
+      if (next === 0 && onExpire && expiredDeadline.current !== timestamp) {
+        expiredDeadline.current = timestamp;
+        onExpire();
+      }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
     return () => clearInterval(id);
-  }, [deadline, onExpire]);
+  }, [timestamp, onExpire]);
 
   return remaining;
 }
