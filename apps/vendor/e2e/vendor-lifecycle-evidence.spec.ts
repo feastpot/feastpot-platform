@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { TestDataFactory, type TestIdentity } from '../../../scripts/test-factory';
+import { lifecycleSlot, type LifecycleAvailability } from './helpers/lifecycle-slot';
 
 const API_URL = process.env.TEST_API_URL ?? 'http://localhost:3001';
 
@@ -241,6 +242,7 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
       expect(itemResponse.status()).toBe(201);
       const createdItem = (await itemResponse.json()) as {
         id: string;
+        preparationHours: number;
         moderationStatus: 'held' | 'approved' | 'auto_approved';
         submissionVersion: number;
       };
@@ -325,6 +327,11 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
 
       customer = await factory.create('C1');
       const customerToken = await factory.issueAccessToken(customer);
+      const availabilityResponse = await request.get(
+        `${API_URL}/v1/vendors/${vendorId}/availability`,
+      );
+      expect(availabilityResponse.status()).toBe(200);
+      const availability = (await availabilityResponse.json()) as LifecycleAvailability;
       const orderResponse = await request.post(`${API_URL}/v1/test/vendor-lifecycle/orders`, {
         headers: {
           Authorization: `Bearer ${customerToken}`,
@@ -333,11 +340,11 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
         data: {
           vendorId,
           items: [{ menuItemId: itemId, quantity: 1 }],
-          scheduledFor: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+          scheduledFor: lifecycleSlot(availability, createdItem.preparationHours),
           allergenConfirmed: true,
         },
       });
-      expect(orderResponse.status()).toBe(201);
+      expect(orderResponse.status(), await orderResponse.text()).toBe(201);
       orderId = ((await orderResponse.json()) as { orderId: string }).orderId;
 
       for (const status of ['accepted', 'preparing', 'ready', 'delivered']) {
