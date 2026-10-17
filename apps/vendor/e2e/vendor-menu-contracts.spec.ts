@@ -36,8 +36,14 @@ test.describe.serial('factory-backed vendor menu contracts', () => {
     const v5 = manifest().identities.V5;
     if (!v5.vendorId || !v5.menuId) throw new Error('V5 fixture lacks vendor/menu identity.');
     vendorId = v5.vendorId;
-    menuId = v5.menuId;
     factory = TestDataFactory.fromEnvironment({ namespace: `${matrixNamespace()}-menu-contracts` });
+    // Match DishesClient's primary menu, not the manifest's unordered findFirst.
+    const primaryMenu = await factory.prisma.menu.findFirstOrThrow({
+      where: { vendorId, isActive: true },
+      orderBy: { createdAt: 'asc' },
+      select: { id: true },
+    });
+    menuId = primaryMenu.id;
     itemId = (
       await factory.prisma.menuItem.create({
         data: {
@@ -72,7 +78,22 @@ test.describe.serial('factory-backed vendor menu contracts', () => {
   test('a live dish without a photo has the missing-image UI and a >5MB image is rejected', async ({
     page,
   }) => {
-    await page.goto('/menu', { waitUntil: 'domcontentloaded' });
+    test.setTimeout(120_000);
+    // SSR completion precedes browser authentication, menu selection and the
+    // dependent items query. Observe that real query before asserting its UI.
+    const [itemsResponse] = await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === `/v1/vendors/${vendorId}/menus/${menuId}/items` &&
+          response.request().method() === 'GET',
+        { timeout: 60_000 },
+      ),
+      page.goto('/menu', { waitUntil: 'domcontentloaded' }),
+    ]);
+    expect(itemsResponse.status(), await itemsResponse.text()).toBe(200);
+    expect(await itemsResponse.json()).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: itemId })]),
+    );
     const card = page.locator('.group').filter({ hasText: 'Factory menu contract dish' });
     await expect(card).toBeVisible();
     await expect(card.getByRole('img', { name: 'Factory menu contract dish' })).toHaveCount(0);
