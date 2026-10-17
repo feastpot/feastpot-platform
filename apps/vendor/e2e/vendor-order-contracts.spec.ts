@@ -4,6 +4,7 @@ import { expect, test, type Page } from '@playwright/test';
 
 import { TestDataFactory, type TestIdentity } from '../../../scripts/test-factory';
 import { browserAccessToken } from './helpers/browser-access-token';
+import { fixtureOrderNumber } from './helpers/fixture-order-number';
 
 import {
   matrixManifestPath,
@@ -56,7 +57,7 @@ test.describe.serial('factory-backed vendor order contracts', () => {
   async function pendingOrder(label: string, createdAt = new Date()) {
     const order = await factory.prisma.order.create({
       data: {
-        orderNumber: `TF-${label}-${Date.now()}-${orderIds.length}`,
+        orderNumber: fixtureOrderNumber(label),
         customerId: customer.userId,
         vendorId,
         type: 'standard',
