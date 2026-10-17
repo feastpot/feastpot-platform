@@ -84,12 +84,13 @@ for (const route of SHELL_ROUTES) {
   });
 }
 
-test('S2 - /settings/2fa renders the dedicated MFA surface without StaffShell', async ({
+test('S2 - /settings/2fa redirects an already verified AAL2 session to the dashboard', async ({
   page,
 }) => {
   await skipIfUnauthenticated(page, '/settings/2fa');
   await page.waitForLoadState('domcontentloaded');
 
-  await expect(page.getByText('2FA setup required before you continue')).toBeVisible();
-  await expect(page.locator('aside[aria-label="Admin console navigation"]')).toHaveCount(0);
+  await expect(page).toHaveURL(`${BASE}/`);
+  await expect(page.locator('aside[aria-label="Admin console navigation"]')).toBeVisible();
+  await expect(page.getByText('2FA setup required before you continue')).toHaveCount(0);
 });

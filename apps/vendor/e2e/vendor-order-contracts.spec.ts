@@ -3,6 +3,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
 
 import { TestDataFactory, type TestIdentity } from '../../../scripts/test-factory';
+import { browserAccessToken } from './helpers/browser-access-token';
+import { fixtureOrderNumber } from './helpers/fixture-order-number';
 
 import {
   matrixManifestPath,
@@ -18,17 +20,7 @@ function readManifest(): VendorStateMatrixManifest {
 }
 
 async function accessToken(page: Page): Promise<string> {
-  const token = await page.evaluate(() => {
-    for (let index = 0; index < localStorage.length; index += 1) {
-      const key = localStorage.key(index);
-      if (!key?.includes('auth-token')) continue;
-      const session = JSON.parse(localStorage.getItem(key) ?? '{}') as { access_token?: string };
-      if (session.access_token) return session.access_token;
-    }
-    return null;
-  });
-  if (!token) throw new Error('Factory V5 browser session has no access token.');
-  return token;
+  return browserAccessToken(page);
 }
 
 async function updateOrder(
@@ -65,7 +57,7 @@ test.describe.serial('factory-backed vendor order contracts', () => {
   async function pendingOrder(label: string, createdAt = new Date()) {
     const order = await factory.prisma.order.create({
       data: {
-        orderNumber: `TF-${label}-${Date.now()}-${orderIds.length}`,
+        orderNumber: fixtureOrderNumber(label),
         customerId: customer.userId,
         vendorId,
         type: 'standard',
@@ -169,15 +161,43 @@ test.describe.serial('factory-backed vendor order contracts', () => {
   });
 
   test('no response auto-rejects and a dispatch delay persists an ETA', async ({ page }) => {
+    test.setTimeout(120_000);
     const expired = await pendingOrder('TIMEOUT', new Date(Date.now() - 20 * 60 * 1000));
-    await page.goto('/orders', { waitUntil: 'domcontentloaded' });
+    // The countdown runs only after authentication, order queries and card
+    // hydration. Observe its real mutation before checking persistence; DOM
+    // readiness alone does not establish that the expiry action has started.
+    const [automaticRejection] = await Promise.all([
+      page.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname === `/v1/orders/${expired.id}/status` &&
+          response.request().method() === 'PATCH',
+        { timeout: 60_000 },
+      ),
+      page.goto('/orders?type=standard', { waitUntil: 'domcontentloaded' }),
+    ]);
+    expect(automaticRejection.request().postDataJSON()).toMatchObject({
+      status: 'rejected',
+      rejectionReason: 'auto_rejected_timeout',
+    });
+    expect(automaticRejection.status()).toBe(200);
+    expect((await automaticRejection.json()).status).toBe('rejected');
+    await expect(
+      page.getByRole('button', { name: 'Standard orders', exact: true }),
+    ).toHaveAttribute('aria-pressed', 'true');
     await expect
       .poll(
         async () =>
-          (await factory.prisma.order.findUniqueOrThrow({ where: { id: expired.id } })).status,
+          factory.prisma.order.findUniqueOrThrow({
+            where: { id: expired.id },
+            select: { status: true, cancellationReason: true, cancelledBy: true },
+          }),
         { timeout: 10_000 },
       )
-      .toBe('rejected');
+      .toMatchObject({
+        status: 'rejected',
+        cancellationReason: 'auto_rejected_timeout',
+        cancelledBy: 'vendor',
+      });
 
     const delayed = await pendingOrder('DELAY');
     expect(delayed.id).not.toBe(expired.id);

@@ -15,7 +15,7 @@ interface TermsVersion {
   id: string;
   documentType: string;
   version: string;
-  summary: string;
+  changeSummary: string;
   publishedAt: string;
   effectiveAt: string;
   accepted: boolean;
@@ -249,7 +249,7 @@ export function TermsClient({ view, history }: TermsClientProps) {
                         year: 'numeric',
                       })}
                     </p>
-                    <p className="mt-2 text-sm text-dark/80">{entry.summary}</p>
+                    <p className="mt-2 text-sm text-dark/80">{entry.changeSummary}</p>
                   </div>
                   {entry.acceptedAt && (
                     <span className="shrink-0 flex items-center gap-1 rounded-full bg-teal-light px-2.5 py-0.5 text-xs font-medium text-teal-dark">
@@ -311,7 +311,7 @@ function VersionCard({
               year: 'numeric',
             })}
           </p>
-          <p className="mt-3 text-sm text-dark/80">{version.summary}</p>
+          <p className="mt-3 text-sm text-dark/80">{version.changeSummary}</p>
         </div>
 
         <div className="flex shrink-0 flex-col items-start gap-2 sm:items-end">

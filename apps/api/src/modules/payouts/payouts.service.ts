@@ -854,7 +854,7 @@ export class PayoutsService {
    * Idempotent per (vendor, periodEnd): re-running the cron in the same week
    * skips vendors that already have a payout for that period.
    */
-  async runWeeklyBatch(now: Date = new Date()) {
+  async runWeeklyBatch(now: Date = new Date(), onlyVendorId?: string) {
     const { start, end } = lastCompletedWeekUtc(now);
     this.logger.log(
       `Running weekly payout batch for ${start.toISOString()} → ${end.toISOString()}`,
@@ -864,6 +864,7 @@ export class PayoutsService {
     // statement-source shape used for batch creation and every presentation.
     const orders = await this.prisma.order.findMany({
       where: {
+        ...(onlyVendorId ? { vendorId: onlyVendorId } : {}),
         // partially_refunded delivered orders STILL owe the vendor their net
         // remainder: the refund/credit ledger rows aggregated below deduct the
         // clawback, so including them pays gross − clawback. Excluding them
@@ -919,6 +920,7 @@ export class PayoutsService {
     // of payout truth (and no immediate catering transfer is needed).
     const cateringBookings = await this.prisma.cateringBooking.findMany({
       where: {
+        ...(onlyVendorId ? { vendorId: onlyVendorId } : {}),
         status: 'COMPLETED',
         completedAt: { gte: start, lt: end },
       },

@@ -8,6 +8,7 @@ import { Cron } from '@nestjs/schedule';
 import { Prisma, UserRole, UserStatus, VendorStatus } from '@prisma/client';
 
 import { PrismaService } from '../../prisma/prisma.service';
+import { NotificationEvent } from '../notifications/notification-events';
 import { NotificationsService } from '../notifications/notifications.service';
 
 const ACTIVE = ['requested', 'blocked', 'processing'];
@@ -178,7 +179,7 @@ export class AccountDeletionService {
     const html = `<p>Account deletion request ${request.id}.</p><p>Status: ${kind.split(':')[0]}.</p><p>The 14-day grace period ends at ${request.eligibleAt.toISOString()}. Open obligations must be resolved before erasure. Sign in to account settings to review or cancel your request.</p>`;
     return this.notices.createTransactionalOutbox(
       tx,
-      'vendor_application_email_raw',
+      NotificationEvent.vendor_application_email_raw,
       {
         to: email,
         subject,

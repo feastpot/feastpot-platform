@@ -215,6 +215,24 @@ describe('PayoutsService.runWeeklyBatch (refund netting)', () => {
     return { svc, prisma };
   }
 
+  it('scopes lifecycle sources to the authenticated vendor and never pays unrelated records', async () => {
+    const { svc, prisma } = build();
+    const unrelated = { vendorId: 'unrelated-vendor' };
+    prisma.order.findMany.mockImplementation(async ({ where }) =>
+      [unrelated].filter((row) => row.vendorId === where.vendorId),
+    );
+    prisma.cateringBooking.findMany.mockImplementation(async ({ where }) =>
+      [unrelated].filter((row) => row.vendorId === where.vendorId),
+    );
+    await svc.runWeeklyBatch(new Date('2025-11-04T12:00:00Z'), 'fixture-vendor');
+    for (const query of [prisma.order.findMany, prisma.cateringBooking.findMany]) {
+      expect(query).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ vendorId: 'fixture-vendor' }) }),
+      );
+    }
+    expect(prisma.payout.create).not.toHaveBeenCalled();
+  });
+
   it('deducts only the vendor clawback, netting the Feastpot-absorbed credit', async () => {
     const { svc, prisma } = build();
     // One delivered order, fully refunded: customer got £44.49 back; the vendor

@@ -35,12 +35,18 @@ test('V1 - vendors page renders vendor rows on first load (no tab click required
   await page.waitForLoadState('networkidle');
 
   // The table should be visible without any interaction.
-  const table = page.getByRole('table');
+  const table = page
+    .getByRole('table')
+    .filter({ has: page.getByRole('columnheader', { name: 'Supplier', exact: true }) });
   await expect(table).toBeVisible({ timeout: 10_000 });
+  // A loaded total distinguishes the real empty state from an initial loading row.
+  await expect(
+    page.getByRole('tab', { name: /^All/ }).locator('span').filter({ hasText: /^\d+$/ }),
+  ).toBeVisible();
 
   // At least one data row (tr inside tbody) should be present.
   // The seed environment has 20+ vendors visible under the 'all' tab.
-  const rows = page.locator('tbody tr');
+  const rows = table.locator('tbody tr');
   const rowCount = await rows.count();
 
   // We expect seed data; if the DB is empty the test is still valid

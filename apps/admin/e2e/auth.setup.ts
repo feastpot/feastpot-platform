@@ -51,10 +51,12 @@ setup('provision and authenticate every staff role', async ({ browser }) => {
       const emailInput = page.locator('#email');
       const passwordInput = page.locator('#password');
       await emailInput.waitFor({ state: 'visible' });
-      await emailInput.evaluate((element) => element.removeAttribute('readonly'));
+      await emailInput.click();
+      await expect(emailInput).toBeEditable();
       await emailInput.fill(identity.credentials.email);
       await passwordInput.waitFor({ state: 'visible' });
-      await passwordInput.evaluate((element) => element.removeAttribute('readonly'));
+      await passwordInput.click();
+      await expect(passwordInput).toBeEditable();
       await passwordInput.fill(identity.credentials.password!);
       await page.getByRole('button', { name: /sign in/i }).click();
 
@@ -65,6 +67,9 @@ setup('provision and authenticate every staff role', async ({ browser }) => {
         await expect(page).toHaveURL(/\/unauthorized(?:\?|$)/, { timeout: 15_000 });
       } else {
         await expect(page).toHaveURL(/\/settings\/2fa/, { timeout: 30_000 });
+        // Preserve the complementary password-only AAL1 guard assertion.
+        await expect(page.getByText('2FA setup required before you continue')).toBeVisible();
+        await expect(page.locator('aside[aria-label="Admin console navigation"]')).toHaveCount(0);
         await page.getByRole('button', { name: 'Enable 2FA', exact: true }).click();
         const secretElement = page.locator('code').filter({ hasText: /^[A-Z2-7]{16,}$/ });
         await secretElement.waitFor({ state: 'visible', timeout: 30_000 });

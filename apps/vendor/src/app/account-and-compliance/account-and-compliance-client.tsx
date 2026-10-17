@@ -13,7 +13,7 @@ export interface TermsVersion {
   id: string;
   documentType: string;
   version: string;
-  summary: string;
+  changeSummary: string;
   publishedAt: string;
   effectiveAt: string;
   accepted: boolean;

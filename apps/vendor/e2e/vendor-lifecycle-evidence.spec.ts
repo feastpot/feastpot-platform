@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 import { TestDataFactory, type TestIdentity } from '../../../scripts/test-factory';
+import { lifecycleSlot, type LifecycleAvailability } from './helpers/lifecycle-slot';
 
 const API_URL = process.env.TEST_API_URL ?? 'http://localhost:3001';
 
@@ -15,8 +16,12 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
     request,
   }) => {
     test.setTimeout(360_000);
-    const namespace = process.env.TEST_FACTORY_NAMESPACE;
-    if (!namespace) throw new Error('TEST_FACTORY_NAMESPACE is required for lifecycle evidence.');
+    const baseNamespace = process.env.TEST_FACTORY_NAMESPACE;
+    if (!baseNamespace)
+      throw new Error('TEST_FACTORY_NAMESPACE is required for lifecycle evidence.');
+    // Teardown discovers canonical V5 fixtures as well as explicit applicant IDs.
+    // Keep this public lifecycle applicant separate from the matrix's V5 vendor.
+    const namespace = `${baseNamespace}-lifecycle`;
     const factory = TestDataFactory.fromEnvironment({ namespace });
     let admin: TestIdentity | undefined;
     let customer: TestIdentity | undefined;
@@ -179,7 +184,7 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
             file: {
               name: `lifecycle-${type}.pdf`,
               mimeType: 'application/pdf',
-              buffer: Buffer.from(`%PDF-1.4\n% lifecycle ${type} evidence\n`),
+              buffer: Buffer.from(`%PDF-1.4\n% lifecycle ${type} evidence\n%%EOF\n`),
             },
           },
         });
@@ -237,6 +242,7 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
       expect(itemResponse.status()).toBe(201);
       const createdItem = (await itemResponse.json()) as {
         id: string;
+        preparationHours: number;
         moderationStatus: 'held' | 'approved' | 'auto_approved';
         submissionVersion: number;
       };
@@ -260,7 +266,7 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
       const stripe = await request.post(`${API_URL}/v1/test/vendor-lifecycle/account-updated`, {
         headers: {
           ...vendorHeaders,
-          'x-test-factory-namespace': namespace,
+          'x-test-factory-namespace': baseNamespace,
         },
         data: {
           eventId: `evt_tf_${applicationId.replaceAll('-', '')}`,
@@ -321,19 +327,24 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
 
       customer = await factory.create('C1');
       const customerToken = await factory.issueAccessToken(customer);
+      const availabilityResponse = await request.get(
+        `${API_URL}/v1/vendors/${vendorId}/availability`,
+      );
+      expect(availabilityResponse.status()).toBe(200);
+      const availability = (await availabilityResponse.json()) as LifecycleAvailability;
       const orderResponse = await request.post(`${API_URL}/v1/test/vendor-lifecycle/orders`, {
         headers: {
           Authorization: `Bearer ${customerToken}`,
-          'x-test-factory-namespace': namespace,
+          'x-test-factory-namespace': baseNamespace,
         },
         data: {
           vendorId,
           items: [{ menuItemId: itemId, quantity: 1 }],
-          scheduledFor: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+          scheduledFor: lifecycleSlot(availability, createdItem.preparationHours),
           allergenConfirmed: true,
         },
       });
-      expect(orderResponse.status()).toBe(201);
+      expect(orderResponse.status(), await orderResponse.text()).toBe(201);
       orderId = ((await orderResponse.json()) as { orderId: string }).orderId;
 
       for (const status of ['accepted', 'preparing', 'ready', 'delivered']) {
@@ -353,7 +364,7 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
       const batch = await request.post(`${API_URL}/v1/test/vendor-lifecycle/weekly-batch`, {
         headers: {
           ...vendorHeaders,
-          'x-test-factory-namespace': namespace,
+          'x-test-factory-namespace': baseNamespace,
         },
         data: { now: batchNow.toISOString() },
       });
@@ -376,7 +387,7 @@ test.describe.serial('factory vendor lifecycle evidence chain', () => {
       const repeatBatch = await request.post(`${API_URL}/v1/test/vendor-lifecycle/weekly-batch`, {
         headers: {
           ...vendorHeaders,
-          'x-test-factory-namespace': namespace,
+          'x-test-factory-namespace': baseNamespace,
         },
         data: { now: batchNow.toISOString() },
       });

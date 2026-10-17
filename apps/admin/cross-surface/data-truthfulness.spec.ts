@@ -484,9 +484,19 @@ test('D4: test-created records carry an isolated, distinguishable namespace', ()
     match[1].trim(),
   );
   expect(namespaces.length, 'CI has no test-factory namespaces').toBeGreaterThan(0);
+  const isolatedNamespace =
+    /^[a-z][a-z-]*-\$\{\{ github\.run_id \}\}-\$\{\{ github\.run_attempt \}\}(?:-shard-\$\{\{ matrix\.shard \}\})?$/;
+  for (const unsafe of [
+    'admin-${{ github.run_id }}',
+    'admin-${{ github.run_attempt }}',
+    'admin-${{ github.run_id }}-${{ github.run_attempt }}-shard-1',
+    'admin-${{ github.run_id }}-${{ github.run_attempt }}-shard-${{ matrix.other }}',
+  ]) {
+    expect(unsafe).not.toMatch(isolatedNamespace);
+  }
   for (const namespace of namespaces) {
     expect(namespace, `${namespace} is not isolated to a workflow attempt`).toMatch(
-      /^[a-z][a-z-]*-\$\{\{ github\.run_id \}\}-\$\{\{ github\.run_attempt \}\}$/,
+      isolatedNamespace,
     );
   }
   expect(new Set(namespaces).size, 'CI surfaces must not share a factory namespace').toBe(

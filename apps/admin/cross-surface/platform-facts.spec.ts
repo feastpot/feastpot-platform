@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { browserAuthState } from '../../../scripts/browser-auth-state';
 
 import {
   assertPlatformFactsAgree,
@@ -20,7 +21,9 @@ test('A1: all nine facts agree across the four rendered HTTP surfaces', async ({
   const observed = {} as SourceFacts;
 
   for (const [name, baseUrl] of surfaces) {
-    const page = await browser.newPage();
+    const page = await browser.newPage(
+      name === 'admin console' ? { storageState: browserAuthState('admin', 'admin') } : {},
+    );
     await page.goto(`${baseUrl}/platform-facts`);
     const visible = page.getByTestId('platform-facts-visible');
     await expect(visible).toBeVisible();
@@ -107,7 +110,7 @@ test('A2: an intercepted rendered HTTP drift names both disagreeing surfaces', a
   const apiResponse = await request.get(`${apiUrl}/v1/platform-facts`);
   observed.API = await apiResponse.json();
 
-  const adminPage = await browser.newPage();
+  const adminPage = await browser.newPage({ storageState: browserAuthState('admin', 'admin') });
   await adminPage.route('**/platform-facts', async (route) => {
     const original = await route.fetch();
     const originalBody = await original.text();

@@ -97,7 +97,9 @@ test.describe('customer discovery permutations', () => {
     await expect(page.getByRole('button', { name: 'Join the waitlist' })).toBeVisible();
 
     await page.goto('/vendors?postcode=not-a-postcode');
-    await expect(page.getByRole('alert')).toContainText(/doesn.t look like a UK postcode/i);
+    await expect(
+      page.getByRole('alert').filter({ hasText: /doesn.t look like a UK postcode/i }),
+    ).toBeVisible();
     expect(searchedPostcodes).not.toContain('not-a-postcode');
 
     await page.unroute('**/v1/vendors**');

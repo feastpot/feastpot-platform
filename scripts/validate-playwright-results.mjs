@@ -25,19 +25,36 @@ function collectProjectResults(report) {
   return resultsByProject;
 }
 
-export function evaluateExecution(report, expectedProjectCount) {
+export function evaluateExecution(report, expectedProjectCount, selectedProjects) {
   const configuredProjects = (report.config?.projects ?? [])
     .map(({ name }) => name)
     .filter(Boolean);
-  if (configuredProjects.length !== expectedProjectCount) {
+  const requiredProjects = selectedProjects ?? configuredProjects;
+  if (requiredProjects.length !== expectedProjectCount) {
     return {
-      error: `Expected ${expectedProjectCount} configured Playwright projects, found ${configuredProjects.length}.`,
+      error: `Expected ${expectedProjectCount} configured Playwright projects, found ${requiredProjects.length}.`,
       unexecutedProjects: [],
     };
   }
 
   const resultsByProject = collectProjectResults(report);
-  const unexecutedProjects = configuredProjects.filter((project) => {
+  if (selectedProjects) {
+    const missing = selectedProjects.filter((project) => !configuredProjects.includes(project));
+    const unexpected = [...resultsByProject.keys()].filter(
+      (project) => !selectedProjects.includes(project),
+    );
+    if (
+      new Set(selectedProjects).size !== selectedProjects.length ||
+      missing.length ||
+      unexpected.length
+    ) {
+      return {
+        error: `Invalid selected project inventory: duplicates=${new Set(selectedProjects).size !== selectedProjects.length}; missing=${missing.join(',')}; unexpected=${unexpected.join(',')}.`,
+        unexecutedProjects: [],
+      };
+    }
+  }
+  const unexecutedProjects = requiredProjects.filter((project) => {
     const results = resultsByProject.get(project) ?? [];
     return !results.some(({ status }) => status !== 'skipped');
   });
@@ -170,6 +187,10 @@ function main() {
   const resultsPath = argument('--results');
   const jestResultsPath = argument('--jest-results');
   const expectedProjectCount = Number(argument('--expected-project-count'));
+  const selectedProjects = argument('--projects')
+    ?.split(',')
+    .map((name) => name.trim())
+    .filter(Boolean);
   const manifestPath = argument('--manifest');
   const manifestSection = argument('--manifest-section');
   if (
@@ -217,7 +238,7 @@ function main() {
     ? jestResultsPath
       ? evaluateJestInventory(report, manifest.jest ?? manifest)
       : evaluateRequiredInventory(report, manifest)
-    : evaluateExecution(report, expectedProjectCount);
+    : evaluateExecution(report, expectedProjectCount, selectedProjects);
   if (validation.error) throw new Error(validation.error);
   if (manifest) {
     const label = jestResultsPath ? 'Jest' : 'Playwright';

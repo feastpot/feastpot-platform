@@ -301,7 +301,7 @@ test.describe('real Stripe test-mode customer purchase', () => {
       console.info('[customer-smoke] checkout selections completed');
 
       const cardFrame = page.frameLocator(
-        'iframe[name^="__privateStripeFrame"][title$="input frame" i]',
+        'iframe[name^="__privateStripeFrame"][title="Secure card payment input frame" i]',
       );
       const postalInput = cardFrame.locator('input[autocomplete="postal-code"]');
       const expiryInput = cardFrame.locator('input[name="exp-date"]');

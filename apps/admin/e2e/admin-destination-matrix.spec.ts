@@ -9,6 +9,10 @@ import {
 const BASE = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:3003';
 const stateFile = (role: StaffRole) => browserAuthState('admin', role);
 
+// Each case has its own browser context. This enables test-level sharding,
+// while CI retains one worker and a separate factory namespace per shard.
+test.describe.configure({ mode: 'parallel' });
+
 async function authenticatedPage(browser: import('@playwright/test').Browser, role: StaffRole) {
   const context = await browser.newContext({ storageState: stateFile(role) });
   return { context, page: await context.newPage() };
@@ -25,7 +29,7 @@ for (const role of ['customer', 'vendor'] as const) {
       const page = await context.newPage();
       try {
         await page.goto(`${BASE}${destination.pathname}`);
-        await expect(page).toHaveURL(/\/unauthorized(?:\?|$)/);
+        await expect(page).toHaveURL((url) => url.pathname === '/unauthorized');
         await expect(page.locator('aside[aria-label="Admin console navigation"]')).toHaveCount(0);
       } finally {
         await context.close();
@@ -41,7 +45,7 @@ for (const destination of ADMIN_DESTINATION_MATRIX) {
       const { context, page } = await authenticatedPage(browser, role);
       try {
         await page.goto(`${BASE}${destination.pathname}`);
-        await expect(page).toHaveURL(/\/unauthorized(?:\?|$)/);
+        await expect(page).toHaveURL((url) => url.pathname === '/unauthorized');
         await expect(page.locator('aside[aria-label="Admin console navigation"]')).toHaveCount(0);
       } finally {
         await context.close();
@@ -55,6 +59,8 @@ for (const destination of ADMIN_DESTINATION_MATRIX) {
         browser,
       }) => {
         const { context, page } = await authenticatedPage(browser, role);
+        const runtimeErrors: string[] = [];
+        page.on('pageerror', (error) => runtimeErrors.push(error.message));
         try {
           // Authentication/session endpoints are deliberately never routed.
           // Do not add a catch-all /v1 route here: server-rendered pages rely on
@@ -91,10 +97,15 @@ for (const destination of ADMIN_DESTINATION_MATRIX) {
             });
           });
           await page.goto(`${BASE}${destination.pathname}`);
-          await expect(page).not.toHaveURL(/\/(sign-in|unauthorized)(?:\?|$)/);
+          await expect(page).not.toHaveURL((url) =>
+            ['/sign-in', '/unauthorized'].includes(url.pathname),
+          );
           await expect(page.locator('main')).toBeVisible();
           await expect(page.locator('aside[aria-label="Admin console navigation"]')).toBeVisible();
-          await expect(page.locator('nextjs-portal')).toHaveCount(0);
+          // Next's normal development toolbar also mounts nextjs-portal.
+          await expect(
+            page.getByRole('heading', { name: 'Something went wrong', exact: true }),
+          ).toHaveCount(0);
           // Every successful render must retain a semantic main landmark. Error
           // views additionally need a user-actionable alert/status, rather than
           // an error boundary or a blank client crash.
@@ -107,16 +118,19 @@ for (const destination of ADMIN_DESTINATION_MATRIX) {
             ).toBeVisible();
           } else if (renderState === 'empty') {
             await expect(
-              page.getByRole('status', { name: /0 operational work items/i }),
+              page.getByRole('status').filter({ hasText: /0 operational work items/i }),
             ).toBeVisible();
           } else {
             await expect(
-              page.getByRole('status', { name: /1 operational work items/i }),
+              page.getByRole('status').filter({ hasText: /1 operational work items/i }),
             ).toBeVisible();
             await expect(
-              page.getByRole('status', { name: /matrix populated work item/i }),
+              page.getByRole('status').filter({ hasText: /matrix populated work item/i }),
             ).toBeVisible();
           }
+          expect(runtimeErrors, 'The destination must not raise uncaught runtime errors').toEqual(
+            [],
+          );
         } finally {
           await context.close();
         }

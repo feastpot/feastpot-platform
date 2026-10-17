@@ -149,9 +149,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <div className="grid grid-cols-2 gap-4 py-1">
-      <dt className="font-medium">{label}</dt>
-      <dd>{value}</dd>
+    <div className="grid min-w-0 grid-cols-1 gap-1 py-1 sm:grid-cols-2 sm:gap-4">
+      <dt className="min-w-0 break-words font-medium">{label}</dt>
+      <dd className="min-w-0 break-words [overflow-wrap:anywhere]">{value}</dd>
     </div>
   );
 }

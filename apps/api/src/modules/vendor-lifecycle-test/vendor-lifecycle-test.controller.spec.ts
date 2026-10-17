@@ -87,6 +87,23 @@ describe('VendorLifecycleTestController', () => {
     expect(orders.createAndConfirmTestOrder).toHaveBeenCalledWith(customerUser.id, dto);
   });
 
+  it('accepts a separately cleaned lifecycle fixture only with the configured base header', async () => {
+    const lifecycleVendor = {
+      ...vendorUser,
+      email: `tf-${namespace}-lifecycle-applicant@test.feastpot.co.uk`,
+    };
+    prisma.vendor.findUnique.mockResolvedValue({ id: 'vendor-id' });
+    payouts.runWeeklyBatch.mockResolvedValue({ created: [] });
+    prisma.payout.findFirst.mockResolvedValue({ id: 'payout-id' });
+    await expect(
+      controller.weeklyBatch({ user: lifecycleVendor, headers: {} }, namespace, {}),
+    ).resolves.toMatchObject({ id: 'payout-id' });
+    await expect(
+      controller.weeklyBatch({ user: lifecycleVendor, headers: {} }, `${namespace}-lifecycle`, {}),
+    ).rejects.toBeInstanceOf(NotFoundException);
+    expect(payouts.runWeeklyBatch).toHaveBeenCalledTimes(1);
+  });
+
   it('runs the batch synchronously and returns the persisted statement identity', async () => {
     prisma.vendor.findUnique.mockResolvedValue({ id: 'vendor-id' });
     payouts.runWeeklyBatch.mockResolvedValue({ created: [{ payoutId: 'payout-id' }] });
@@ -102,7 +119,10 @@ describe('VendorLifecycleTestController', () => {
         now: '2030-01-15T00:00:00Z',
       }),
     ).resolves.toMatchObject({ id: 'payout-id', vendorId: 'vendor-id' });
-    expect(payouts.runWeeklyBatch).toHaveBeenCalledWith(new Date('2030-01-15T00:00:00Z'));
+    expect(payouts.runWeeklyBatch).toHaveBeenCalledWith(
+      new Date('2030-01-15T00:00:00Z'),
+      'vendor-id',
+    );
   });
 
   it.each([

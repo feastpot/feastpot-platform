@@ -1,6 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs';
 
-import { expect, test, type BrowserContext } from '@playwright/test';
+import { expect, test, type BrowserContext, type Page } from '@playwright/test';
 
 import {
   configuredMatrixStates,
@@ -16,21 +16,20 @@ import {
 
 const ERROR_BOUNDARY_COPY =
   /something went wrong|we hit an unexpected error|application error|error digest|internal server error/i;
-const ROUTE_CHECK_CONCURRENCY = 4;
+// The isolated CI API deliberately has a single database connection. Auditing
+// several pages at once queues duplicate SSR reads and can time out safe routes.
+const ROUTE_CHECK_CONCURRENCY = 1;
+// These messages depend on hydration, role lookup and data queries through
+// the single-connection test API, not just on the initial server-rendered shell.
+const STATE_CONTENT_TIMEOUT = 60_000;
 
 const STATE_LANDMARKS: Record<
   VendorMatrixState,
   ReadonlyArray<{ href: string; text: string | RegExp }>
 > = {
   V1: [{ href: '/onboarding/welcome', text: 'Sign in to your vendor account' }],
-  V2: [
-    { href: '/onboarding', text: 'Set up payouts (Stripe)' },
-    { href: '/onboarding', text: 'Connect with Stripe' },
-  ],
-  V3: [
-    { href: '/onboarding', text: 'Set up payouts (Stripe)' },
-    { href: '/onboarding', text: 'Connect with Stripe' },
-  ],
+  V2: [{ href: '/onboarding', text: 'Set up payouts (Stripe)' }],
+  V3: [{ href: '/onboarding', text: 'Set up payouts (Stripe)' }],
   V4: [
     { href: '/menu', text: 'No dishes yet' },
     { href: '/performance', text: 'No completed orders yet' },
@@ -91,10 +90,7 @@ const STATE_ROUTE_BLOCKS: Partial<
   ],
   V7: [{ href: '/menu', destination: /\/onboarding(?:\?|$)/ }],
   V8: [{ href: '/menu', destination: /\/onboarding(?:\?|$)/ }],
-  V9: [
-    { href: '/menu', destination: /\/onboarding\/terms(?:\?|$)/ },
-    { href: '/payouts', destination: /\/onboarding\/terms(?:\?|$)/ },
-  ],
+  V9: [{ href: '/menu', destination: /\/onboarding\/terms(?:\?|$)/ }],
 };
 
 function readManifest(): VendorStateMatrixManifest {
@@ -175,14 +171,17 @@ async function visitRoute(
 }
 
 async function visitEveryRoute(context: BrowserContext, state: VendorMatrixState, mobile = false) {
-  test.setTimeout(10 * 60_000);
   const concurrency = mobile ? 1 : ROUTE_CHECK_CONCURRENCY;
+  // /not-registered deliberately clears authentication. Its explanation,
+  // sign-out and protected-route redirect are checked in setup before a fresh
+  // session is saved, rather than invalidating this shared context mid-audit.
+  const routes = VENDOR_PORTAL_ROUTES.filter((route) => route.label !== 'not registered');
 
-  for (let index = 0; index < VENDOR_PORTAL_ROUTES.length; index += concurrency) {
+  for (let index = 0; index < routes.length; index += concurrency) {
     await Promise.all(
-      VENDOR_PORTAL_ROUTES.slice(index, index + concurrency).map((route) =>
-        visitRoute(context, state, route, mobile),
-      ),
+      routes
+        .slice(index, index + concurrency)
+        .map((route) => visitRoute(context, state, route, mobile)),
     );
   }
 }
@@ -192,8 +191,50 @@ async function assertStateLandmarks(context: BrowserContext, state: VendorMatrix
   try {
     for (const landmark of STATE_LANDMARKS[state]) {
       await test.step(`${state}: ${landmark.href} shows its expected state`, async () => {
+        const roleReady =
+          state === 'V11'
+            ? page.waitForResponse(
+                (response) => new URL(response.url()).pathname === '/v1/vendor/members/me/role',
+                { timeout: STATE_CONTENT_TIMEOUT },
+              )
+            : null;
         await page.goto(landmark.href, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-        await expect(page.locator('main')).toContainText(landmark.text, { timeout: 10_000 });
+        if (roleReady) {
+          const roleResponse = await roleReady;
+          expect(roleResponse.status()).toBe(200);
+          expect((await roleResponse.json()).role).toBe('owner');
+          const confirmed = page
+            .locator('[aria-label="Status filter"]')
+            .getByRole('button', { name: /^Confirmed(?:\s*\d+)?$/ });
+          await confirmed.click();
+          await expect(confirmed).toHaveAttribute('aria-pressed', 'true');
+        }
+        const landmarkRegion =
+          state === 'V9'
+            ? page.getByRole('dialog', {
+                name: 'Updated Vendor Terms now in effect',
+                exact: true,
+              })
+            : page.locator('main');
+        await expect(landmarkRegion).toContainText(landmark.text, {
+          timeout: STATE_CONTENT_TIMEOUT,
+        });
+        if (state === 'V9') {
+          await assertBlockingTermsDialog(page);
+        } else if (state === 'V2') {
+          for (const name of [/^As yourself/, /^Through a registered company/]) {
+            const entityChoice = page.getByRole('button', { name });
+            await expect(entityChoice).toBeVisible();
+            await expect(entityChoice).toBeEnabled();
+          }
+        } else if (state === 'V3') {
+          const continueSetup = page.getByRole('button', {
+            name: 'Continue Stripe setup',
+            exact: true,
+          });
+          await expect(continueSetup).toBeVisible();
+          await expect(continueSetup).toBeEnabled();
+        }
         const pageText = (await page.locator('body').textContent()) ?? '';
         await assertNoErrorBoundary(pageText, landmark.href);
       });
@@ -201,6 +242,35 @@ async function assertStateLandmarks(context: BrowserContext, state: VendorMatrix
   } finally {
     await page.close();
   }
+}
+
+async function assertBlockingTermsDialog(page: Page) {
+  const dialog = page.getByRole('dialog', {
+    name: 'Updated Vendor Terms now in effect',
+    exact: true,
+  });
+  await expect(dialog).toBeVisible({ timeout: STATE_CONTENT_TIMEOUT });
+  await expect(dialog).toHaveAttribute('aria-modal', 'true');
+  const review = dialog.getByRole('link', { name: 'Review and accept terms', exact: true });
+  await expect(review).toHaveAttribute('href', '/onboarding/terms');
+  await expect(
+    dialog.getByRole('link', { name: 'Close my account instead', exact: true }),
+  ).toHaveAttribute('href', '/settings/close-account');
+  const hiddenContent = page.locator('[aria-hidden="true"]').filter({ has: page.locator('main') });
+  await expect(hiddenContent).toHaveCount(1);
+  await expect(hiddenContent).toHaveCSS('pointer-events', 'none');
+  await expect(hiddenContent).toHaveCSS('opacity', '0');
+  await expect(hiddenContent).toHaveAttribute('inert', '');
+  await review.focus();
+  // Exercise the native keyboard boundary, not just the CSS/accessibility flags.
+  for (let press = 0; press < 4; press++) {
+    await page.keyboard.press('Tab');
+    expect(
+      await hiddenContent.evaluate((element) => element.contains(document.activeElement)),
+      'Tab must not focus controls behind the terms dialog',
+    ).toBe(false);
+  }
+  await expect(dialog).toBeVisible();
 }
 
 async function assertLiveEmptyVendorOrders(context: BrowserContext) {
@@ -215,22 +285,51 @@ async function assertLiveEmptyVendorOrders(context: BrowserContext) {
       { href: '/payouts', text: 'No payouts yet. Your first will land next Monday.' },
       { href: '/performance', text: 'No completed orders yet' },
       { href: '/disputes', text: 'No disputes' },
-      { href: '/share', text: 'No orders yet. Marketplace orders come from Feastpot discovery' },
-      { href: '/tax-information', text: 'No reports yet.' },
+      {
+        href: '/share',
+        text: 'No orders yet. Marketplace orders come from Feastpot discovery; your referral orders come from customers using your personal link.',
+      },
+      {
+        href: '/tax-information',
+        text: 'No reports yet. Your first annual report will appear here after HMRC reporting runs in January.',
+      },
     ] as const;
     for (const empty of emptyStates) {
       await page.goto(empty.href, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-      await expect(page.getByText(empty.text, { exact: true })).toBeVisible({ timeout: 10_000 });
+      await expect(page.getByText(empty.text, { exact: true })).toBeVisible({
+        timeout: STATE_CONTENT_TIMEOUT,
+      });
       await assertNoErrorBoundary((await page.locator('body').textContent()) ?? '', empty.href);
     }
+  } finally {
+    await page.close();
+  }
+  await assertLiveEmptyOrderTabs(context);
+}
 
+async function assertLiveEmptyOrderTabs(context: BrowserContext) {
+  const page = await context.newPage();
+  try {
+    const roleReady = page.waitForResponse(
+      (response) => new URL(response.url()).pathname === '/v1/vendor/members/me/role',
+      { timeout: STATE_CONTENT_TIMEOUT },
+    );
     await page.goto('/orders', { waitUntil: 'domcontentloaded', timeout: 60_000 });
-    await page.getByRole('button', { name: 'Standard orders' }).click();
-    await expect(page.getByText('Nothing needs your attention right now')).toBeVisible({
-      timeout: 10_000,
+    const roleResponse = await roleReady;
+    expect(roleResponse.status()).toBe(200);
+    expect((await roleResponse.json()).role).toBe('owner');
+    const standard = page.getByRole('button', { name: 'Standard orders', exact: true });
+    await standard.click();
+    await expect(standard).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByText('No pending orders', { exact: true })).toBeVisible({
+      timeout: STATE_CONTENT_TIMEOUT,
     });
-    await page.getByRole('button', { name: 'Catering' }).click();
-    await expect(page.getByText('No catering bookings yet')).toBeVisible({ timeout: 10_000 });
+    const catering = page.getByRole('button', { name: 'Catering', exact: true });
+    await catering.click();
+    await expect(catering).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.getByText('No catering bookings yet', { exact: true })).toBeVisible({
+      timeout: STATE_CONTENT_TIMEOUT,
+    });
   } finally {
     await page.close();
   }
@@ -249,6 +348,16 @@ async function assertStateRouteBlocks(context: BrowserContext, state: VendorMatr
         ).toHaveURL(block.destination, { timeout: 10_000 });
       });
     }
+    if (state === 'V9') {
+      await test.step('V9: /payouts is blocked by the global terms dialog', async () => {
+        // Unlike /menu's server redirect, this read-only page uses the root
+        // re-acceptance overlay. The underlying portal must not be operable.
+        await page.goto('/payouts', { waitUntil: 'domcontentloaded', timeout: 60_000 });
+        await assertBlockingTermsDialog(page);
+        await expect(page).toHaveURL(/\/payouts(?:\?|$)/);
+        await assertNoErrorBoundary((await page.locator('body').textContent()) ?? '', '/payouts');
+      });
+    }
   } finally {
     await page.close();
   }
@@ -261,10 +370,11 @@ for (const state of configuredMatrixStates()) {
     test(`${state} routes render their safe state without an error boundary`, async ({
       context,
     }) => {
-      await visitEveryRoute(context, state);
+      test.setTimeout(10 * 60_000);
       await assertStateLandmarks(context, state);
       if (state === 'V4') await assertLiveEmptyVendorOrders(context);
       await assertStateRouteBlocks(context, state);
+      await visitEveryRoute(context, state);
     });
   });
 }
@@ -273,6 +383,7 @@ test.describe('V4 mobile route safety', () => {
   test.use({ storageState: matrixStorageStatePath('V4') });
 
   test('V4 routes do not overflow horizontally at 375px', async ({ context }) => {
+    test.setTimeout(10 * 60_000);
     await visitEveryRoute(context, 'V4', true);
   });
 });

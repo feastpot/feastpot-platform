@@ -113,7 +113,12 @@ export class VendorLifecycleTestController {
       select: { id: true },
     });
     if (!vendor) throw new NotFoundException();
-    const result = await this.payouts.runWeeklyBatch(body.now ? new Date(body.now) : new Date());
+    // The development database is shared. Never batch another vendor's money
+    // just because this authenticated fixture is allowed to exercise its own.
+    const result = await this.payouts.runWeeklyBatch(
+      body.now ? new Date(body.now) : new Date(),
+      vendor.id,
+    );
     const payout = await this.prisma.payout.findFirst({
       where: { vendorId: vendor.id },
       orderBy: [{ periodEnd: 'desc' }, { createdAt: 'desc' }],

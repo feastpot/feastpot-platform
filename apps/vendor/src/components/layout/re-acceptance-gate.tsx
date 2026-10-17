@@ -174,8 +174,14 @@ export function ReAcceptanceGate({ children }: { children: React.ReactNode }) {
 
     return (
       <>
-        {/* Render children behind the overlay so the DOM is not torn down. */}
-        <div aria-hidden className="pointer-events-none select-none opacity-0">
+        {/* Use the native DOM property: React 18 does not emit boolean inert props. */}
+        <div
+          ref={(element) => {
+            if (element) element.inert = true;
+          }}
+          aria-hidden
+          className="pointer-events-none select-none opacity-0"
+        >
           {children}
         </div>
 

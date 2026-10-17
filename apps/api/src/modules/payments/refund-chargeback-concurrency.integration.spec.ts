@@ -73,8 +73,9 @@ d('Concurrent refund + lost-chargeback reconciliation (integration, real DB)', (
       charge: `ch_test_concurrency_${RUN}`,
     })),
   };
-  // Notifications queue mock: enqueue is best-effort in createRefund.
-  const queueMock = { add: jest.fn(async () => undefined) };
+  // Match the actual durable NotificationsService contract. A raw queue mock
+  // throws after a successful refund commit and makes the race test flaky.
+  const notificationsMock = { enqueue: jest.fn(async () => undefined) };
 
   beforeAll(async () => {
     prisma = new PrismaService();
@@ -82,7 +83,7 @@ d('Concurrent refund + lost-chargeback reconciliation (integration, real DB)', (
 
     // Services wired directly against the real DB; Stripe/queue/loyalty mocked.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    payments = new PaymentsService(prisma, stripeMock as any, queueMock as any);
+    payments = new PaymentsService(prisma, stripeMock as any, notificationsMock as any);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     processor = new StripeWebhookProcessor(prisma, {} as any);
     // reconcilePayoutLedger only touches prisma; other AdminService deps unused.
@@ -212,12 +213,13 @@ d('Concurrent refund + lost-chargeback reconciliation (integration, real DB)', (
     if (refundResult.status === 'rejected') {
       // Chargeback won the race: the manual refund must have failed loudly on
       // the in-transaction ceiling re-check, not silently written a row.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const resp = (refundResult.reason as any)?.getResponse?.() ?? refundResult.reason;
+      const reason = refundResult.reason as { getResponse?: () => unknown; message?: string };
+      const resp = reason.getResponse?.() ?? reason.message ?? refundResult.reason;
       expect(JSON.stringify(resp)).toContain('CUMULATIVE_REFUND_EXCEEDS_TOTAL');
     } else {
       // Manual refund won: the chargeback reconciliation must have written
       // nothing (fully_refunded outcome) - verified by the single-row count
+      expect(notificationsMock.enqueue).toHaveBeenCalledTimes(2);
       // above - while still marking the chargeback reconciled below.
       expect(refundResult.value.refund.amountPence).toBe(-TOTAL);
     }
