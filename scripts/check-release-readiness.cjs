@@ -1,6 +1,8 @@
 'use strict';
 
 const REQUIRED_JOBS = [
+  'vendor-preflight',
+  'vendor-preflight-cleanup',
   'setup',
   'typecheck',
   'lint',

@@ -25,6 +25,46 @@ function collectProjectResults(report) {
   return resultsByProject;
 }
 
+function cases(report, selected) {
+  const found = new Map();
+  const visit = (suite, titles = []) => {
+    const path = [...titles, suite.title ?? ''];
+    for (const spec of suite.specs ?? []) {
+      for (const entry of spec.tests ?? []) {
+        if (!selected.includes(entry.projectName)) continue;
+        const key = JSON.stringify([spec.file, ...path, spec.title, entry.projectName]);
+        if (found.has(key)) throw new Error(`Duplicate mandatory test: ${spec.title}`);
+        found.set(key, entry);
+      }
+    }
+    for (const child of suite.suites ?? []) visit(child, path);
+  };
+  visit(report);
+  return found;
+}
+
+/** Strict opt-in: discovered cases must all pass; execution alone is not success. */
+export function evaluatePassedInventory(report, discovery, selected) {
+  if (report.errors?.length) return { error: 'Playwright reported global errors.' };
+  const required = cases(discovery, selected);
+  const actual = cases(report, selected);
+  if (!required.size) return { error: 'Mandatory discovery inventory is empty.' };
+  for (const [key, expected] of required) {
+    const result = actual.get(key);
+    if (!result) return { error: `Missing mandatory case: ${key}` };
+    if (
+      expected.expectedStatus === 'skipped' ||
+      (result.expectedStatus && result.expectedStatus !== 'passed') ||
+      !result.results?.length ||
+      result.results.some(({ status }) => status !== 'passed')
+    ) {
+      return { error: `Mandatory case did not pass every attempt: ${key}` };
+    }
+  }
+  if (actual.size !== required.size) return { error: 'Mandatory case inventory changed.' };
+  return { error: null };
+}
+
 export function evaluateExecution(report, expectedProjectCount, selectedProjects) {
   const configuredProjects = (report.config?.projects ?? [])
     .map(({ name }) => name)
@@ -240,6 +280,15 @@ function main() {
       : evaluateRequiredInventory(report, manifest)
     : evaluateExecution(report, expectedProjectCount, selectedProjects);
   if (validation.error) throw new Error(validation.error);
+  if (process.argv.includes('--strict')) {
+    const discoveryPath = argument('--discovery');
+    if (!discoveryPath) throw new Error('Strict validation requires --discovery.');
+    const discovery = JSON.parse(readFileSync(resolve(discoveryPath), 'utf8'));
+    const selected =
+      selectedProjects ?? report.config.projects.map(({ name }) => name).filter(Boolean);
+    const strict = evaluatePassedInventory(report, discovery, selected);
+    if (strict.error) throw new Error(strict.error);
+  }
   if (manifest) {
     const label = jestResultsPath ? 'Jest' : 'Playwright';
     const failures = [

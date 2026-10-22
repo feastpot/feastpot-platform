@@ -1,0 +1,69 @@
+name: Set up isolated vendor preflight
+description: Guard the development target and start this commit's API and built vendor portal.
+runs:
+  using: composite
+  steps:
+    - name: Require isolated vendor preflight credentials
+      shell: bash
+      run: |
+        set -euo pipefail
+        required=(TEST_API_URL NEXT_PUBLIC_API_URL NEXT_PUBLIC_SUPABASE_URL
+          NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_DB_URL SUPABASE_SERVICE_ROLE_KEY
+          TEST_FACTORY_PASSWORD TEST_FACTORY_NAMESPACE STRIPE_SECRET_KEY_TEST
+          CUSTOMER_E2E_ALLOWED_SUPABASE_REF)
+        for key in "${required[@]}"; do
+          [ -n "${!key:-}" ] || { echo "::error::Vendor preflight requires $key"; exit 1; }
+        done
+        [ "$TEST_FACTORY_NAMESPACE" = "vendor-preflight-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" ] ||
+          { echo "::error::Vendor preflight namespace does not match this run/attempt"; exit 1; }
+        [ "$NEXT_PUBLIC_API_URL" = "$TEST_API_URL" ] && [ "$API_URL" = "$TEST_API_URL" ] ||
+          { echo "::error::Vendor preflight browser/API target mismatch"; exit 1; }
+        case "$STRIPE_SECRET_KEY_TEST" in
+          sk_test_*) ;;
+          *) echo "::error::Vendor preflight requires Stripe test mode"; exit 1 ;;
+        esac
+    - name: Validate and bound the approved development database
+      shell: bash
+      run: node scripts/ci-database.cjs customer
+    - uses: ./.github/actions/setup-browser
+      with:
+        working-directory: apps/vendor
+    - name: Start this commit's isolated API
+      shell: bash
+      run: |
+        umask 077
+        (
+          set +e
+          NODE_ENV=test RESEND_API_KEY='' TWILIO_ACCOUNT_SID='' TWILIO_AUTH_TOKEN='' npm run dev --workspace=@feastpot/api
+          status=$?
+          printf '%s\n' "$status" > /tmp/vendor-e2e-api.exit
+          exit "$status"
+        ) > /tmp/vendor-e2e-api.log 2>&1 &
+        echo "$!" > /tmp/vendor-e2e-api.pid
+    - name: Build and start this commit's vendor portal
+      shell: bash
+      env:
+        NEXT_TELEMETRY_DISABLED: '1'
+      run: |
+        npm run build --workspace=@feastpot/vendor
+        umask 077
+        (
+          set +e
+          npm run start --workspace=@feastpot/vendor
+          status=$?
+          printf '%s\n' "$status" > /tmp/vendor-e2e-web.exit
+          exit "$status"
+        ) > /tmp/vendor-e2e-web.log 2>&1 &
+        echo "$!" > /tmp/vendor-e2e-web.pid
+    - name: Require isolated API and portal readiness
+      shell: bash
+      run: |
+        for attempt in $(seq 1 40); do
+          if curl --max-time 3 -fsS "${TEST_API_URL%/}/healthz" >/dev/null 2>&1 &&
+             curl --max-time 3 -fsS "${PLAYWRIGHT_BASE_URL%/}/sign-in" >/dev/null 2>&1; then
+            exit 0
+          fi
+          sleep 2
+        done
+        echo "::error::Vendor preflight API or portal failed readiness"
+        exit 1
