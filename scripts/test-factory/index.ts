@@ -698,6 +698,32 @@ export class TestDataFactory {
     });
   }
 
+  /** Verify canonical namespace cleanup, including orphaned Auth and stored files. */
+  async assertStateClean(state: FactoryState): Promise<void> {
+    const email = stateEmail(this.namespace, state);
+    const targets = await this.discoverTeardownTargets({
+      state,
+      credentials: { email, password: null, role: 'vendor' },
+      userId: '',
+      relatedUserIds: [],
+      relatedVendorIds: [],
+      storageObjects: [],
+    });
+    const authIds = await this.findAuthUserIds([
+      email,
+      `tf-${safeKey(this.namespace)}-${state.toLowerCase()}-order-vendor@test.feastpot.co.uk`,
+    ]);
+    if (
+      targets.userIds.length ||
+      targets.vendorIds.length ||
+      targets.vendorApplicationIds.length ||
+      targets.storageObjects.length ||
+      authIds.length
+    ) {
+      throw new Error(`TEST_FACTORY_CLEANUP_INCOMPLETE: ${state}`);
+    }
+  }
+
   private async discoverTeardownTargets(identity: TestIdentity): Promise<{
     userIds: string[];
     vendorIds: string[];

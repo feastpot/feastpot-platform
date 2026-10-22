@@ -537,6 +537,16 @@ jobs:
       - name: Clear stale vendor Playwright results
         run: rm -f apps/vendor/e2e-results.json
 
+      - name: Capture authoritative eight-project test inventory
+        working-directory: apps/vendor
+        run: >-
+          npx --no-install playwright test --list --reporter=json
+          --project=vendor-state-matrix-setup --project=vendor-state-matrix
+          --project=vendor-state-matrix-mobile --project=vendor-authorization
+          --project=vendor-order-contracts --project=vendor-menu-contracts
+          --project=vendor-lifecycle-evidence --project=vendor-state-matrix-teardown
+          > vendor-discovery.json
+
       - name: Run authoritative vendor lifecycle projects
         id: playwright-run
         continue-on-error: true
@@ -563,6 +573,7 @@ jobs:
         run: >-
           node scripts/validate-playwright-results.mjs
           --results apps/vendor/e2e-results.json --expected-project-count 8
+          --strict --discovery apps/vendor/vendor-discovery.json
           --projects vendor-state-matrix-setup,vendor-state-matrix,vendor-state-matrix-mobile,vendor-authorization,vendor-order-contracts,vendor-menu-contracts,vendor-lifecycle-evidence,vendor-state-matrix-teardown
 
       # ---- Artefact upload ----------------------------------------------------
@@ -595,6 +606,98 @@ jobs:
   # Admin portal E2E is a separate required check. Missing credentials fail
   # loudly so branch protection can never treat an unexecuted suite as green.
   # --------------------------------------------------------------------------
+  vendor-preflight:
+    name: Vendor fixture and browser preflight
+    needs: [setup]
+    runs-on: ubuntu-latest
+    # A separate always-running cleanup job also handles this job timing out.
+    timeout-minutes: 10
+    services:
+      redis:
+        image: public.ecr.aws/docker/library/redis:7-alpine
+        ports:
+          - 6379:6379
+    env:
+      PLAYWRIGHT_BASE_URL: http://localhost:3002
+      TEST_API_URL: http://127.0.0.1:3001
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:3001
+      API_URL: http://127.0.0.1:3001
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_DB_URL: ${{ secrets.TEST_SUPABASE_DB_URL }}
+      SUPABASE_DIRECT_URL: ${{ secrets.TEST_SUPABASE_DB_URL }}
+      SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TEST_FACTORY_PASSWORD: ${{ secrets.TEST_FACTORY_PASSWORD }}
+      TEST_FACTORY_NAMESPACE: vendor-preflight-${{ github.run_id }}-${{ github.run_attempt }}
+      REDIS_URL: redis://localhost:6379
+      STRIPE_SECRET_KEY_TEST: ${{ secrets.STRIPE_SECRET_KEY_TEST }}
+      SESSION_SECRET: vendor-preflight-ci-only-not-for-deployment
+      CUSTOMER_E2E_ALLOWED_SUPABASE_REF: ${{ vars.CUSTOMER_E2E_ALLOWED_SUPABASE_REF }}
+      CUSTOMER_E2E_ALLOWED_API_ORIGIN: http://127.0.0.1:3001
+      CUSTOMER_E2E_ISOLATED_ENVIRONMENT: 'true'
+      CUSTOMER_E2E_USE_FACTORY: 'true'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-workspace
+      - name: Start isolated preflight services
+        timeout-minutes: 4
+        uses: ./.github/actions/setup-vendor-preflight
+      - name: Discover the bounded preflight inventory
+        working-directory: apps/vendor
+        run: >-
+          npx --no-install playwright test --config=playwright.preflight.config.ts
+          --list --reporter=json > preflight-discovery.json
+      - name: Run early real-session and ownership preflight
+        id: browser
+        timeout-minutes: 5
+        working-directory: apps/vendor
+        run: npx --no-install playwright test --config=playwright.preflight.config.ts
+      - name: Require complete passing preflight execution
+        if: ${{ always() }}
+        run: >-
+          node scripts/validate-playwright-results.mjs
+          --results apps/vendor/preflight-results.json --expected-project-count 1
+          --projects vendor-preflight --strict --discovery apps/vendor/preflight-discovery.json
+      - name: Capture safe preflight service diagnostics
+        if: ${{ failure() }}
+        run: node scripts/vendor-ci-diagnostics.cjs
+      - name: Retain safe preflight evidence
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: vendor-preflight-${{ github.run_id }}
+          path: |
+            apps/vendor/preflight-results.json
+            apps/vendor/preflight-discovery.json
+          retention-days: 7
+
+  vendor-preflight-cleanup:
+    name: Verify vendor preflight cleanup
+    needs: [vendor-preflight]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SUPABASE_DB_URL: ${{ secrets.TEST_SUPABASE_DB_URL }}
+      SUPABASE_DIRECT_URL: ${{ secrets.TEST_SUPABASE_DB_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TEST_FACTORY_NAMESPACE: vendor-preflight-${{ github.run_id }}-${{ github.run_attempt }}
+      CUSTOMER_E2E_ALLOWED_SUPABASE_REF: ${{ vars.CUSTOMER_E2E_ALLOWED_SUPABASE_REF }}
+      CUSTOMER_E2E_ISOLATED_ENVIRONMENT: 'true'
+      TS_NODE_TRANSPILE_ONLY: 'true'
+      TS_NODE_COMPILER_OPTIONS: '{"module":"CommonJS","moduleResolution":"node"}'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup-workspace
+      - name: Require the approved development target before cleanup
+        run: node scripts/ci-database.cjs customer
+      - name: Recover partial preflight fixtures and verify database, Auth and storage absence
+        timeout-minutes: 1
+        run: node -r ts-node/register scripts/vendor-preflight-cleanup.ts
+
   e2e-admin-actions:
     name: Admin authoritative actions
     # Staff acceptance mutates globally current records; preserve its sequence.
@@ -809,7 +912,7 @@ jobs:
   # --------------------------------------------------------------------------
   e2e-customer-shards:
     name: Customer checkout shard ${{ matrix.shard }}/3
-    needs: [setup]
+    needs: [setup, vendor-preflight, vendor-preflight-cleanup]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -1212,6 +1315,8 @@ jobs:
     if: ${{ always() }}
     needs:
       [
+        vendor-preflight,
+        vendor-preflight-cleanup,
         setup,
         typecheck,
         lint,

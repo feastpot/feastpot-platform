@@ -4,8 +4,53 @@ import test from 'node:test';
 import {
   evaluateExecution,
   evaluateJestInventory,
+  evaluatePassedInventory,
   evaluateRequiredInventory,
 } from './validate-playwright-results.mjs';
+
+test('strict vendor inventory requires every discovered case to pass, including within a project', () => {
+  const selected = Array.from({ length: 8 }, (_, i) => `vendor-${i}`);
+  const tests = selected.flatMap((projectName) =>
+    [1, 2].map((id) => ({
+      projectName,
+      expectedStatus: 'passed',
+      results: [{ status: 'passed' }],
+      title: `case-${id}`,
+    })),
+  );
+  const makeReport = () => ({
+    config: { projects: selected.map((name) => ({ name })) },
+    suites: [
+      {
+        title: 'vendor.spec.ts',
+        specs: tests.map((entry, index) => ({
+          file: 'vendor.spec.ts',
+          title: `case-${index}`,
+          tests: [structuredClone(entry)],
+        })),
+      },
+    ],
+  });
+  const discovery = makeReport();
+  assert.equal(evaluatePassedInventory(makeReport(), discovery, selected).error, null);
+  for (const status of ['skipped', 'failed', 'timedOut', 'interrupted']) {
+    const result = makeReport();
+    result.suites[0].specs[0].tests[0].results = [{ status }];
+    assert.match(
+      evaluatePassedInventory(result, discovery, selected).error,
+      /did not pass every attempt/,
+    );
+  }
+  const retried = makeReport();
+  retried.suites[0].specs[0].tests[0].results = [{ status: 'failed' }, { status: 'passed' }];
+  assert.match(evaluatePassedInventory(retried, discovery, selected).error, /every attempt/);
+  const missing = makeReport();
+  missing.suites[0].specs.shift();
+  assert.match(evaluatePassedInventory(missing, discovery, selected).error, /Missing mandatory/);
+  const unrun = makeReport();
+  unrun.suites[0].specs[0].tests[0].results = [];
+  assert.match(evaluatePassedInventory(unrun, discovery, selected).error, /every attempt/);
+});
 
 function report(projects, tests) {
   return {
