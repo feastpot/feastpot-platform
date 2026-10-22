@@ -434,6 +434,8 @@ test.describe('admin compliance controls', () => {
   });
 
   test('catering triage surfaces the most urgent SLA before newer enquiries', async ({ page }) => {
+    const triageNow = Date.parse('2026-10-07T12:00:00Z');
+    await page.clock.setFixedTime(triageNow);
     const enquiry = (id: string, hoursAgo: number) => ({
       id,
       occasionType: 'Wedding',
@@ -444,24 +446,26 @@ test.describe('admin compliance controls', () => {
       contactName: id === 'overdue' ? 'Overdue Event' : 'New Event',
       email: `${id}@example.test`,
       status: 'NEW',
-      createdAt: new Date(now.getTime() - hoursAgo * 3_600_000).toISOString(),
+      createdAt: new Date(triageNow - hoursAgo * 3_600_000).toISOString(),
       booking: null,
     });
     await page.route('**/v1/catering-enquiries**', (route) =>
       route.fulfill({
         contentType: 'application/json',
         body: JSON.stringify({
-          data: [enquiry('overdue', 60), enquiry('new', 12)],
+          data: [enquiry('new', 6), enquiry('overdue', 60)],
           nextCursor: null,
         }),
       }),
     );
     await page.goto(`${BASE}/catering?tab=enquiries`);
     await requireAdminSession(page);
-    await expect(page.locator('[data-testid="sla-pill"][data-tone="red"]').first()).toBeVisible();
-    await expect(
-      page.locator('[data-testid="sla-pill"][data-tone="neutral"]').first(),
-    ).toBeVisible();
+    const rows = page.locator('tbody tr');
+    await expect(rows).toHaveCount(2);
+    await expect(rows.first()).toContainText('Overdue Event');
+    await expect(rows.first().getByTestId('sla-pill')).toHaveAttribute('data-tone', 'red');
+    await expect(rows.nth(1)).toContainText('New Event');
+    await expect(rows.nth(1).getByTestId('sla-pill')).toHaveAttribute('data-tone', 'neutral');
   });
 
   test('stage-two appeal rejects the stage-one reviewer', async ({ page }) => {
