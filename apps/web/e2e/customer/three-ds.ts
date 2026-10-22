@@ -19,11 +19,9 @@ async function authenticationCancel(page: Page): Promise<Locator | undefined> {
   return matches.length === 1 ? matches[0] : undefined;
 }
 
-export async function abandonThreeDs(page: Page): Promise<void> {
-  // Failing the ACS challenge is not abandonment: it can leave Stripe's
-  // authentication modal open. Cancel the SDK-owned authentication instead.
-  // Wait for the ACS to initialise, not merely for the outer loading dialog's
-  // Cancel button. Cancelling before the challenge mounts can strand the SDK.
+export async function waitForThreeDsChallenge(page: Page): Promise<void> {
+  // The SDK's outer loading dialog is not proof that authentication is ready.
+  // Require the real test ACS before completing, abandoning or closing a tab.
   await expect
     .poll(
       async () => {
@@ -43,6 +41,11 @@ export async function abandonThreeDs(page: Page): Promise<void> {
       { timeout: 30_000 },
     )
     .toBe(true);
+}
+
+export async function abandonThreeDs(page: Page): Promise<void> {
+  // Failing the ACS challenge is not abandonment: cancel SDK authentication.
+  await waitForThreeDsChallenge(page);
   await expect
     .poll(async () => !!(await authenticationCancel(page)), { timeout: 30_000 })
     .toBe(true);

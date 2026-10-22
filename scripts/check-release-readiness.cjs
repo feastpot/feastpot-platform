@@ -1,6 +1,7 @@
 'use strict';
 
 const REQUIRED_JOBS = [
+  'api-readiness',
   'setup',
   'typecheck',
   'lint',
