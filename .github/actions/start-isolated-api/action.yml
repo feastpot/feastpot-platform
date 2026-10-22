@@ -1,0 +1,50 @@
+name: Start the isolated acceptance API
+description: Guard the development target and require this commit's complete test API readiness.
+runs:
+  using: composite
+  steps:
+    - name: Validate and bound the approved development database
+      shell: bash
+      run: node scripts/ci-database.cjs customer
+    - name: Create an ephemeral signer for loopback-only CI webhooks
+      shell: bash
+      run: |
+        node -e "
+          if (process.env.TEST_API_URL !== 'http://127.0.0.1:3001' ||
+              process.env.CUSTOMER_E2E_ISOLATED_ENVIRONMENT !== 'true') {
+            throw new Error('ADMIN_CI_LOOPBACK_ISOLATION_REQUIRED');
+          }
+          if (!process.env.STRIPE_SECRET_KEY_TEST?.startsWith('sk_test_')) {
+            throw new Error('CI_STRIPE_TEST_KEY_REQUIRED');
+          }
+          const secret = 'whsec_' + require('node:crypto').randomBytes(32).toString('hex');
+          console.log('::add-mask::' + secret);
+          require('node:fs').appendFileSync(process.env.GITHUB_ENV, 'STRIPE_WEBHOOK_SECRET=' + secret + '\n');
+        "
+    - name: Start this commit's test API
+      shell: bash
+      run: |
+        umask 077
+        setsid bash -c '
+          set +e
+          NODE_ENV=test STRIPE_SECRET_KEY="$STRIPE_SECRET_KEY_TEST" RESEND_API_KEY="" TWILIO_ACCOUNT_SID="" TWILIO_AUTH_TOKEN="" npm run dev --workspace=@feastpot/api
+          status=$?
+          printf "%s\n" "$status" > /tmp/isolated-ci-api.exit
+          exit "$status"
+        ' > /tmp/isolated-ci-api.log 2>&1 &
+        echo "$!" > /tmp/isolated-ci-api.pid
+    - name: Require test-mode database, Redis and complete configuration readiness
+      shell: bash
+      run: |
+        set -euo pipefail
+        for attempt in $(seq 1 45); do
+          if curl --fail-with-body --silent --connect-timeout 2 --max-time 3 \
+               "${TEST_API_URL%/}/v1/healthz" > /tmp/isolated-ci-api-health.json &&
+             node scripts/validate-admin-ci-health.mjs /tmp/isolated-ci-api-health.json; then
+            exit 0
+          fi
+          sleep 2
+        done
+        node scripts/validate-admin-ci-health.mjs /tmp/isolated-ci-api-health.json --diagnose
+        echo "::error::CI_API_NOT_READY: isolated test API failed deep readiness."
+        exit 1

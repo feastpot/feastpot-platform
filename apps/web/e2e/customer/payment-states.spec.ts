@@ -1,7 +1,7 @@
 import type { Page } from '@playwright/test';
 
 import type { CheckoutScenarioFixture, TestDataFactory } from '../../../../scripts/test-factory';
-import { abandonThreeDs } from './three-ds';
+import { abandonThreeDs, waitForThreeDsChallenge } from './three-ds';
 
 import {
   assertCustomerSmokeEnvironment,
@@ -319,14 +319,32 @@ test.describe('customer payment outcomes', () => {
   test('tab closed mid-payment', async ({ page, request, customer }) => {
     await withScenario(request, customer, async ({ fixture, accessToken }) => {
       await openReadyCheckout(page, fixture);
-      await enterCard(page, cards.success);
-      const created = page.waitForResponse(
-        (response) =>
-          response.request().method() === 'POST' && /\/v1\/orders(?:\?|$)/.test(response.url()),
-      );
+      // A successful card can authorise before close; response receipt can
+      // also precede checkout processing the order ID. Close at a real,
+      // unambiguously pre-authorisation boundary instead.
+      await enterCard(page, cards['3DS abandoned']);
       await submit(page);
-      await created;
-      await page.close();
+      await waitForThreeDsChallenge(page);
+      const beforeClose = await inspectFactoryPaymentState(request, accessToken);
+      expectNoOrphans(beforeClose, {
+        orders: 1,
+        orderStatuses: ['pending'],
+        paymentStatuses: ['pending'],
+      });
+      const orderId = beforeClose.orders[0].id;
+      const cancellation = page.context().waitForEvent('request', {
+        predicate: (outgoing) =>
+          outgoing.method() === 'POST' &&
+          new URL(outgoing.url()).pathname === `/v1/orders/${orderId}/cancel`,
+        timeout: 10_000,
+      });
+      const closed = page.waitForEvent('close', { timeout: 10_000 });
+      page.once('dialog', (dialog) =>
+        dialog.type() === 'beforeunload' ? dialog.accept() : dialog.dismiss(),
+      );
+      // Exercise a normal user close, including unload handlers, not a
+      // browser-process kill. The latter depends on server expiry recovery.
+      await Promise.all([cancellation, closed, page.close({ runBeforeUnload: true })]);
       await expect
         .poll(async () => inspectFactoryPaymentState(request, accessToken), { timeout: 30_000 })
         .toMatchObject({

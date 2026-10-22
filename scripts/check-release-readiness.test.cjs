@@ -38,6 +38,15 @@ test('missing mandatory jobs fail closed', () => {
   assert.throws(() => validateRequiredJobs(jobs), /build: missing/);
 });
 
+for (const result of ['failure', 'skipped', 'cancelled', undefined]) {
+  test(`API readiness ${result ?? 'missing'} blocks release`, () => {
+    const jobs = successfulJobs();
+    if (result) jobs['api-readiness'].result = result;
+    else delete jobs['api-readiness'];
+    assert.throws(() => validateRequiredJobs(jobs), /api-readiness/);
+  });
+}
+
 test('a green RLS job with skipped validation steps does not qualify', () => {
   const jobs = successfulJobs();
   jobs['rls-check'].outputs = {};
