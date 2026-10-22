@@ -649,13 +649,15 @@ jobs:
           --health-retries 5
     env:
       PLAYWRIGHT_BASE_URL: http://localhost:3003
-      TEST_API_URL: ${{ secrets.TEST_API_URL }}
-      NEXT_PUBLIC_API_URL: ${{ secrets.TEST_API_URL }}
+      TEST_API_URL: http://127.0.0.1:3001
+      NEXT_PUBLIC_API_URL: http://127.0.0.1:3001
+      API_URL: http://127.0.0.1:3001
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       TEST_ADMIN_EMAIL: ${{ secrets.TEST_ADMIN_EMAIL }}
       TEST_ADMIN_PASSWORD: ${{ secrets.TEST_ADMIN_PASSWORD }}
       SUPABASE_DB_URL: ${{ secrets.TEST_SUPABASE_DB_URL }}
+      SUPABASE_DIRECT_URL: ${{ secrets.TEST_SUPABASE_DB_URL }}
       SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
       SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -668,9 +670,15 @@ jobs:
       ADMIN_REQUIRE_AAL2: 'true'
       NEXT_PUBLIC_ADMIN_REQUIRE_AAL2: 'true'
       ADMIN_E2E_ALLOW_AAL1: 'false'
+      CUSTOMER_E2E_ALLOWED_SUPABASE_REF: ${{ vars.CUSTOMER_E2E_ALLOWED_SUPABASE_REF }}
+      CUSTOMER_E2E_ALLOWED_API_ORIGIN: http://127.0.0.1:3001
+      CUSTOMER_E2E_ISOLATED_ENVIRONMENT: 'true'
+      CUSTOMER_E2E_USE_FACTORY: 'true'
     steps:
       - uses: actions/checkout@v5
       - uses: ./.github/actions/setup-workspace
+      - name: Verify isolated admin CI contract
+        run: node --test scripts/admin-ci-isolation.test.mjs
       - name: Verify admin Playwright discovery (noninteractive)
         run: npm run test:e2e:discovery --workspace=@feastpot/admin
       - name: Require admin E2E credentials
@@ -680,6 +688,7 @@ jobs:
             TEST_ADMIN_EMAIL TEST_ADMIN_PASSWORD
             SUPABASE_DB_URL SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY
             TEST_FACTORY_PASSWORD TEST_FACTORY_NAMESPACE REDIS_URL STRIPE_SECRET_KEY_TEST
+            SUPABASE_DIRECT_URL CUSTOMER_E2E_ALLOWED_SUPABASE_REF
             SESSION_SECRET
           )
           missing=()
@@ -690,19 +699,43 @@ jobs:
             echo "::error title=Admin E2E credentials missing::Required credentials are absent: ${missing[*]}. This check intentionally fails instead of skipping."
             exit 1
           fi
-          if [ "$NEXT_PUBLIC_API_URL" != "$TEST_API_URL" ]; then
+          if [ "$NEXT_PUBLIC_API_URL" != "$TEST_API_URL" ] || [ "$API_URL" != "$TEST_API_URL" ]; then
             echo "::error title=Admin E2E API mismatch::NEXT_PUBLIC_API_URL must match TEST_API_URL so browser checks use the verified API."
             exit 1
           fi
+          case "$STRIPE_SECRET_KEY_TEST" in
+            sk_test_*) ;;
+            *) echo "::error::Admin acceptance requires a Stripe test key."; exit 1 ;;
+          esac
+      - name: Validate and bound the approved admin development database
+        run: node scripts/ci-database.cjs customer
+      - name: Start this commit's isolated admin API
+        shell: bash
+        run: |
+          umask 077
+          (
+            set +e
+            NODE_ENV=test RESEND_API_KEY='' TWILIO_ACCOUNT_SID='' TWILIO_AUTH_TOKEN='' npm run dev --workspace=@feastpot/api
+            status=$?
+            printf '%s\n' "$status" > /tmp/admin-e2e-api.exit
+            exit "$status"
+          ) > /tmp/admin-e2e-api.log 2>&1 &
+          echo "$!" > /tmp/admin-e2e-api.pid
       - name: Verify admin E2E API health
+        timeout-minutes: 3
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --retry 5 --retry-all-errors \
-            --connect-timeout 5 --max-time 15 "${TEST_API_URL%/}/healthz" > /dev/null
-        env:
-          SUPABASE_DB_URL: postgresql://dummy:dummy@localhost:5432/dummy
-          SUPABASE_DIRECT_URL: postgresql://dummy:dummy@localhost:5432/dummy
+          for attempt in $(seq 1 45); do
+            if curl --fail --silent --connect-timeout 2 --max-time 3 \
+                 "${TEST_API_URL%/}/v1/healthz" > /tmp/admin-e2e-api-health.json &&
+               node scripts/validate-admin-ci-health.mjs /tmp/admin-e2e-api-health.json; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::ADMIN_CI_API_NOT_READY: this commit's isolated test API failed database/Redis readiness."
+          exit 1
       - uses: ./.github/actions/setup-browser
         with:
           working-directory: apps/admin
