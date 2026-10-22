@@ -709,6 +709,18 @@ jobs:
           esac
       - name: Validate and bound the approved admin development database
         run: node scripts/ci-database.cjs customer
+      - name: Create an ephemeral signer for loopback-only CI webhooks
+        # This verifier is local to the job, not a real Stripe endpoint secret.
+        run: |
+          node -e "
+            if (process.env.TEST_API_URL !== 'http://127.0.0.1:3001' ||
+                process.env.CUSTOMER_E2E_ISOLATED_ENVIRONMENT !== 'true') {
+              throw new Error('ADMIN_CI_LOOPBACK_ISOLATION_REQUIRED');
+            }
+            const secret = 'whsec_' + require('node:crypto').randomBytes(32).toString('hex');
+            console.log('::add-mask::' + secret);
+            require('node:fs').appendFileSync(process.env.GITHUB_ENV, 'STRIPE_WEBHOOK_SECRET=' + secret + '\n');
+          "
       - name: Start this commit's isolated admin API
         shell: bash
         run: |
@@ -727,13 +739,14 @@ jobs:
         run: |
           set -euo pipefail
           for attempt in $(seq 1 45); do
-            if curl --fail --silent --connect-timeout 2 --max-time 3 \
+            if curl --fail-with-body --silent --connect-timeout 2 --max-time 3 \
                  "${TEST_API_URL%/}/v1/healthz" > /tmp/admin-e2e-api-health.json &&
                node scripts/validate-admin-ci-health.mjs /tmp/admin-e2e-api-health.json; then
               exit 0
             fi
             sleep 2
           done
+          node scripts/validate-admin-ci-health.mjs /tmp/admin-e2e-api-health.json --diagnose
           echo "::error::ADMIN_CI_API_NOT_READY: this commit's isolated test API failed database/Redis readiness."
           exit 1
       - uses: ./.github/actions/setup-browser
